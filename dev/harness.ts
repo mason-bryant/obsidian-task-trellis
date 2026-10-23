@@ -1,3 +1,4 @@
+import { setSubtaskCollapse } from '../src/core/collapse.ts';
 import { previewIcon } from './icons.ts';
 // Runs the real board model and renderer against an in-memory vault, for checking the UI in a browser.
 import { applyEdit, buildBoard, planDrop, taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
@@ -61,7 +62,7 @@ let { config, warnings } = parseBoardConfig('House', {
   'week-horizon': 4,
   'filter-properties': ['context: house'],
 });
-const collapsed: Record<string, boolean> = {};
+let collapsed: Record<string, boolean> = {};
 
 // Stands in for Obsidian's list parsing: a list item's parent is the nearest less-indented item above it.
 function tasks(): BoardTask[] {
@@ -102,6 +103,10 @@ const host: RenderHost = {
   isCollapsed: (rowId) => collapsed[rowId] ?? (rowId === 'later' || rowId.startsWith('more:')),
   onToggleRow: (rowId) => {
     collapsed[rowId] = !host.isCollapsed(rowId);
+    render();
+  },
+  onSetSubtasksCollapsed: (keys, value) => {
+    collapsed = setSubtaskCollapse(collapsed, keys, value);
     render();
   },
   onDrop: (id, target) => {

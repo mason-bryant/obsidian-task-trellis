@@ -493,8 +493,6 @@
 .tt-subtask .tt-card-text { font-weight: 400; }
 .tt-subtask .tt-add-subtask { opacity: .65; }
 .tt-subtask-toggle { gap: 5px; }
-.tt-progress { display: inline-block; width: 32px; height: 4px; background: var(--background-modifier-border); border-radius: 3px; overflow: hidden; }
-.tt-progress-fill { display: block; height: 100%; background: var(--interactive-accent); }
 .tt-board--compact .tt-card { padding: 8px 10px; }
 .tt-board--compact .tt-card-meta { margin-top: 5px; }
 .tt-board--compact .tt-cell { gap: 6px; }
@@ -586,3 +584,36 @@
 .tt-filter-groups .tt-property-rule > .tt-field:nth-child(2) { grid-row: 2; grid-column: 1 / -1; }
 .tt-filter-groups .tt-property-rule > .tt-icon-button { grid-row: 1; grid-column: 2; }
 @container settings (max-width: 650px) { .tt-filter-groups { grid-template-columns: 1fr; gap: 0; } }
+
+/* Subtask visibility is an explicit action, independent of card density. */
+.tt-subtask-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tt-subtask-controls > .tt-card-actions, .tt-subtask-controls > .tt-add-subtask {
+  margin-left: 0;
+  flex-shrink: 0;
+}
+.tt-subtask-controls .tt-subtask-toggle {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  min-height: 32px;
+  max-width: 100%;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  color: var(--text-normal);
+  text-align: left;
+  white-space: normal;
+}
+.tt-subtask-toggle .tt-chevron { flex-shrink: 0; }
+@media (pointer: coarse) {
+  .tt-subtask-controls .tt-subtask-toggle, .tt-subtask-controls .tt-card-icon, .tt-board-tools .tt-toolbar-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+.tt-subtask-controls > .tt-add-subtask { opacity: 1; }

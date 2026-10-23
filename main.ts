@@ -15,6 +15,7 @@ import {
 import { LEGACY_FM, newBoardFrontmatter, type BoardConfig } from './src/core/boardConfig.ts';
 import { draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
+import { setSubtaskCollapse } from './src/core/collapse.ts';
 import { inFolder } from './src/core/filters.ts';
 import { slugify } from './src/core/taskLine.ts';
 import { BoardRegistry } from './src/obsidian/BoardRegistry.ts';
@@ -134,6 +135,12 @@ export default class TaskTrellisPlugin extends Plugin {
       if (id.startsWith('sub:') && !rows[id]) delete rows[id];
     }
     this.settings.collapsed[slug] = rows;
+    await this.saveSettings();
+  }
+
+  /** Persist a board-wide subtask action once, instead of toggling and saving every card. */
+  async setSubtasksCollapsed(slug: string, keys: string[], collapsed: boolean): Promise<void> {
+    this.settings.collapsed[slug] = setSubtaskCollapse(this.settings.collapsed[slug] ?? {}, keys, collapsed);
     await this.saveSettings();
   }
 

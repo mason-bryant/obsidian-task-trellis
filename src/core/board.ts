@@ -187,6 +187,14 @@ export function moreKey(rowId: string): string {
   return `more:${rowId}`;
 }
 
+/** All parent lists on the board, including descendants and cards in collapsed rows. */
+export function subtaskListKeys(model: BoardModel): string[] {
+  const cards = Object.values(model.cells).flatMap((columns) => Object.values(columns).flat());
+  return [...new Set([...cards, ...Object.values(model.subtasks).flat()]
+    .filter((task) => (model.subtasks[task.id]?.length ?? 0) > 0)
+    .map(subtasksKey))];
+}
+
 /** Collapse key for a card's subtask list. By text rather than line, so it survives lines moving. */
 export function subtasksKey(task: BoardTask): string {
   return `sub:${task.path}:${task.text}`;
