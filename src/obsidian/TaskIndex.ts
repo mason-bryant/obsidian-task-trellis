@@ -5,10 +5,18 @@ import { parseTaskLine } from '../core/taskLine.ts';
 
 const NOTIFY_DELAY_MS = 150;
 
+/** One note's tasks, with a key for what boards read from the note, so edits that change none of it are skipped. */
+type FileTasks = { tasks: BoardTask[]; key: string };
+
 /** Every task line in the vault, kept current from metadata cache events. Fires `updated`. */
 export class TaskIndex extends Events {
-  private byFile = new Map<string, BoardTask[]>();
+  private byFile = new Map<string, FileTasks>();
   private notifyTimer: number | null = null;
+  /**
+   * While a rebuild reads the vault: notes that events updated since it began. Their state in the
+   * index is newer than what the rebuild read, so it keeps them.
+   */
+  private rebuilding: { touched: Set<string> } | null = null;
   /** Bumped on every `updated`, so a view can tell whether it is showing the latest tasks. */
   version = 0;
 
@@ -24,11 +32,13 @@ export class TaskIndex extends Events {
     plugin.registerEvent(metadataCache.on('changed', (file, data, cache) => this.updateFile(file, data, cache)));
     plugin.registerEvent(
       metadataCache.on('deleted', (file) => {
+        this.rebuilding?.touched.add(file.path);
         if (this.byFile.delete(file.path)) this.notify();
       }),
     );
     plugin.registerEvent(
       vault.on('rename', (file, oldPath) => {
+        this.rebuilding?.touched.add(oldPath).add(file.path);
         this.byFile.delete(oldPath);
         if (file instanceof TFile) void this.readFile(file).then(() => this.notify());
         else this.notify();
@@ -43,34 +53,54 @@ export class TaskIndex extends Events {
   }
 
   async rebuild(): Promise<void> {
-    const next = new Map<string, BoardTask[]>();
+    const run = { touched: new Set<string>() };
+    this.rebuilding = run;
+    const next = new Map<string, FileTasks>();
     for (const file of this.app.vault.getMarkdownFiles()) {
       if (this.isExcluded(file.path)) continue;
       const cache = this.app.metadataCache.getFileCache(file);
       if (!hasTasks(cache)) continue;
-      next.set(file.path, tasksFromContent(file.path, await this.app.vault.cachedRead(file), cache!));
+      let content: string;
+      try {
+        content = await this.app.vault.cachedRead(file);
+      } catch {
+        continue; // Deleted while the rebuild ran; its delete event updates the index.
+      }
+      next.set(file.path, fileTasks(file.path, content, cache!));
+    }
+    // A rebuild that started later read the vault later; it decides.
+    if (this.rebuilding !== run) return;
+    this.rebuilding = null;
+    for (const path of run.touched) {
+      const current = this.byFile.get(path);
+      if (current) next.set(path, current);
+      else next.delete(path);
     }
     this.byFile = next;
     this.notify();
   }
 
   all(): BoardTask[] {
-    return [...this.byFile.values()].flat();
+    return [...this.byFile.values()].flatMap((f) => f.tasks);
   }
 
   private updateFile(file: TFile, data: string, cache: CachedMetadata): void {
+    this.rebuilding?.touched.add(file.path);
     if (this.isExcluded(file.path) || !hasTasks(cache)) {
       if (this.byFile.delete(file.path)) this.notify();
       return;
     }
-    this.byFile.set(file.path, tasksFromContent(file.path, data, cache));
+    const next = fileTasks(file.path, data, cache);
+    // Typing outside the task lines of a note changes nothing a board shows.
+    if (this.byFile.get(file.path)?.key === next.key) return;
+    this.byFile.set(file.path, next);
     this.notify();
   }
 
   private async readFile(file: TFile): Promise<void> {
     const cache = this.app.metadataCache.getFileCache(file);
     if (file.extension !== 'md' || this.isExcluded(file.path) || !hasTasks(cache)) return;
-    this.byFile.set(file.path, tasksFromContent(file.path, await this.app.vault.cachedRead(file), cache!));
+    this.byFile.set(file.path, fileTasks(file.path, await this.app.vault.cachedRead(file), cache!));
   }
 
   private notify(): void {
@@ -87,10 +117,26 @@ function hasTasks(cache: CachedMetadata | null | undefined): boolean {
   return !!cache?.listItems?.some((li) => li.task !== undefined);
 }
 
+/** The note's tasks, keyed by their lines and nesting and by the note's front matter, which boards filter on. */
+function fileTasks(path: string, content: string, cache: CachedMetadata): FileTasks {
+  const tasks = tasksFromContent(path, content, cache);
+  const key = JSON.stringify([
+    cache.frontmatter ?? null,
+    tasks.map((t) => [t.line, t.raw, t.parentId ?? null, t.twins ?? 0]),
+    // Duplicate task identities depend on the surrounding note, so refresh their snapshot too.
+    tasks.some((t) => t.twins) ? content : null,
+  ]);
+  return { tasks, key };
+}
+
 /** Uses the cache's task positions, so tasks in code blocks are skipped the way Obsidian skips them. */
 function tasksFromContent(path: string, content: string, cache: CachedMetadata): BoardTask[] {
   const lines = content.split(/\r?\n/);
+  const snapshot = lines.join('\n');
   const items = new Map((cache.listItems ?? []).map((li) => [li.position.start.line, li]));
+  // Lines with the same text as a task, which a writer must not mistake for it if the task moves.
+  const copies = new Map<string, number>();
+  for (const l of lines) copies.set(l, (copies.get(l) ?? 0) + 1);
   const tasks: BoardTask[] = [];
   for (const [line, li] of items) {
     if (li.task === undefined) continue;
@@ -98,7 +144,18 @@ function tasksFromContent(path: string, content: string, cache: CachedMetadata):
     if (raw === undefined) continue;
     const parsed = parseTaskLine(raw);
     const parent = parentTaskLine(li, items, lines);
-    if (parsed) tasks.push({ ...parsed, id: taskId(path, line), path, line, raw, ...(parent !== undefined && { parentId: taskId(path, parent) }) });
+    const twins = (copies.get(raw) ?? 1) - 1;
+    if (parsed) {
+      tasks.push({
+        ...parsed,
+        id: taskId(path, line),
+        path,
+        line,
+        raw,
+        ...(parent !== undefined && { parentId: taskId(path, parent) }),
+        ...(twins > 0 && { twins, duplicateSource: snapshot }),
+      });
+    }
   }
   return tasks;
 }

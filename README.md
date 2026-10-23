@@ -45,7 +45,7 @@ Every board gets an **Open board: ‹name›** command, so you can give each boa
 - Each board places a task with one tag, `#tt/<board>/<column>/<n>`, at the end of the line. `<n>` orders cards within a cell. A task can sit in different columns on different boards.
 - Dragging a card to another row sets its due date: Due now → the last day of the window; a week row → the first day of that week (or the day after the window for a partial first week); Later → the first day after the last week row; No due date → removes it.
 - The arrow at a card's bottom right is a shortcut for the most common drag: a Due now card moves to the next row, and a card in any other row moves into Due now. It keeps its column and goes to the end of the cell. Completed cards don't have one.
-- With a No due date column (`undated-column`), undated tasks live in that column instead of a row. Dropping a card there removes its due date; dragging one out gives it the date of the row you drop it in, and its tag keeps the column it had before, which is where its arrow sends it. Completed undated tasks show in Done, in Due now.
+- With a No due date column (`undated-column`), undated tasks live in that column instead of a row. Dropping a card there removes its due date, and its tag keeps the column it had before, which is where its arrow sends it; dragging one out gives it the date of the row you drop it in. Completed undated tasks show in Done, in Due now.
 - Dragging into the Done column completes the task, and dragging out reopens it. Checked tasks always show in Done. A recurring task's next occurrence keeps the column it was in.
 - Clicking a card opens the Tasks plugin's edit modal. Without the Tasks plugin it opens the source line.
 - The note name on a card jumps to the task's line, reusing a tab that already shows the note in any window. Cmd/Ctrl-click opens a new tab.
@@ -71,5 +71,7 @@ npm run harness    # dev/harness.js, then open dev/harness.html over http
 ```
 
 `dev/harness.html` runs the real board model and renderer against an in-memory vault, for checking the UI without Obsidian.
+
+Every pull request runs the full test suite, TypeScript checking, the production build, and the browser harness build in GitHub Actions. The `Tests and build` check is required on `main` before merging, including for administrators, and the branch must be up to date.
 
 To try it in a vault, copy `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/task-trellis/` and enable **Task Trellis** under Community plugins.

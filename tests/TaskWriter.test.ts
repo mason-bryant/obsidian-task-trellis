@@ -60,6 +60,23 @@ describe('TaskWriter.applyEdits', () => {
     expect(notices).toHaveLength(1);
   });
 
+  it('never moves an edit onto another task with the same text', async () => {
+    // Both projects had the same line when it was read, and Project A's has since been edited.
+    const twinned = '# Project A\n- [ ] call the vendor, edited\n# Project B\n- [ ] call the vendor\n';
+    const files: Record<string, string> = { 'a.md': twinned };
+    const a = { ...task('a.md', 1, '- [ ] call the vendor'), twins: 1 };
+    await new TaskWriter(fakeApp(files)).applyEdits([a], new Map([[a.id, { column: 'doing' }]]), 'house');
+    expect(files['a.md']).toBe(twinned);
+
+    // A line that was unique but now appears twice could be either copy.
+    const copied = '# new heading\n- [ ] call the vendor\n- [ ] call the vendor\n';
+    files['a.md'] = copied;
+    const b = task('a.md', 0, '- [ ] call the vendor');
+    await new TaskWriter(fakeApp(files)).applyEdits([b], new Map([[b.id, { column: 'doing' }]]), 'house');
+    expect(files['a.md']).toBe(copied);
+    expect(notices).toHaveLength(2);
+  });
+
   it('completes through Tasks and keeps the next occurrence in its old column', async () => {
     const files = { 'a.md': '- [ ] water 🔁 every week 📅 2026-10-22 #tt/house/doing/100\n- [ ] after\n' };
     const t = task('a.md', 0, '- [ ] water 🔁 every week 📅 2026-10-22 #tt/house/doing/100');
@@ -75,6 +92,27 @@ describe('TaskWriter.applyEdits', () => {
         '- [x] water 🔁 every week 📅 2026-10-22 ✅ 2026-10-21 #tt/house/done/100\n' +
         '- [ ] after\n',
     );
+  });
+
+  it('rejects a duplicate that shifts into the original line number after deletion', async () => {
+    const raw = '- [ ] call the vendor';
+    const before = `# Project A\n${raw}\n# Project B\n${raw}\n`;
+    const after = `# Project B\n${raw}\n`;
+    const files = { 'a.md': after };
+    const a = { ...task('a.md', 1, raw), twins: 1, duplicateSource: before };
+    await new TaskWriter(fakeApp(files)).toggle(a);
+    expect(files['a.md']).toBe(after);
+    expect(notices).toHaveLength(1);
+  });
+
+  it('allows editing duplicate tasks when their note snapshot is unchanged', async () => {
+    const raw = '- [ ] call the vendor';
+    const before = `# Project A\r\n${raw}\r\n# Project B\r\n${raw}\r\n`;
+    const files = { 'a.md': before };
+    const a = { ...task('a.md', 1, raw), twins: 1, duplicateSource: before.replace(/\r\n/g, '\n') };
+    await new TaskWriter(fakeApp(files)).applyEdits([a], new Map([[a.id, { column: 'doing' }]]), 'house');
+    expect(files['a.md']).toBe(before.replace(`# Project A\r\n${raw}`, `# Project A\r\n${raw} #tt/house/doing`));
+    expect(notices).toHaveLength(0);
   });
 
   it('falls back to flipping the checkbox when Tasks leaves the line alone', async () => {

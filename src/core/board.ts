@@ -13,6 +13,10 @@ export type BoardTask = ParsedTask & {
   raw: string;
   /** Id of the nearest task this one is indented under, if any. */
   parentId?: string;
+  /** How many other lines in the note had exactly this text when it was read. */
+  twins?: number;
+  /** Note snapshot for duplicate lines, whose identity cannot be inferred after the note changes. */
+  duplicateSource?: string;
 };
 
 export type BoardModel = {
@@ -184,7 +188,7 @@ export function subtasksKey(task: BoardTask): string {
 /**
  * Edits for dropping `draggedId` at `target`. Changing rows sets the row's drop date; moving
  * into or out of the Done column completes or reopens the task; the sort plan may renumber
- * neighbours in the target cell.
+ * neighbours in the target cell. Done orders by completion date, so a drop there renumbers nothing.
  */
 export function planDrop(model: BoardModel, draggedId: string, target: DropTarget): Map<string, TaskEdit> {
   const { config } = model;
@@ -201,11 +205,16 @@ export function planDrop(model: BoardModel, draggedId: string, target: DropTarge
   const sortOf = (t: BoardTask) => t.placements[config.slug]?.sort;
 
   const edits = new Map<string, TaskEdit>();
-  for (const [task, sort] of planReorder(list, dragged, index, sortOf)) {
-    edits.set(task.id, { column: task === dragged ? target.columnId : columnOf(task, config), sort });
+  // A card in the No due date column keeps its workflow column in its tag: it goes back there once
+  // it has a date, and its arrow sends it there. So does a neighbour that is only renumbered.
+  const draggedColumn = target.columnId === config.undatedColumn ? workflowColumnOf(dragged, config) : target.columnId;
+  if (target.columnId !== config.doneColumn) {
+    for (const [task, sort] of planReorder(list, dragged, index, sortOf)) {
+      edits.set(task.id, { column: task === dragged ? draggedColumn : workflowColumnOf(task, config), sort });
+    }
   }
 
-  const draggedEdit = edits.get(draggedId) ?? { column: target.columnId };
+  const draggedEdit = edits.get(draggedId) ?? { column: draggedColumn };
   // With a No due date column, an undated task gets a date wherever it lands outside that column,
   // except Done in Due now, where completed undated tasks sit.
   const setsDue =

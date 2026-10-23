@@ -46,6 +46,7 @@ export default class TaskTrellisPlugin extends Plugin {
   /** Leaves showing a board note as markdown on purpose, with the path they were switched for. */
   private markdownLeaves = new WeakMap<WorkspaceLeaf, string>();
   private syncTimer: number | null = null;
+  private configTimer: number | null = null;
 
   async onload(): Promise<void> {
     this.settings = normalizeSettings(await this.loadData());
@@ -99,10 +100,14 @@ export default class TaskTrellisPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  /** Boards folder or excluded folders changed. */
+  /** Boards folder or excluded folders changed. Waits for typing in the settings to pause before re-reading the vault. */
   onConfigChanged(): void {
-    void this.index.rebuild();
-    this.queueCommandSync();
+    if (this.configTimer !== null) window.clearTimeout(this.configTimer);
+    this.configTimer = window.setTimeout(() => {
+      this.configTimer = null;
+      void this.index.rebuild();
+      this.queueCommandSync();
+    }, 500);
   }
 
   isExcludedFromIndex(path: string): boolean {

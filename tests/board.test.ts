@@ -288,8 +288,23 @@ describe('planDrop and applyEdit', () => {
     const edit = edits.get('a.md:0')!;
     expect(edit.closed).toBe(true);
     expect(applyEdit(tasks[0]!.raw, edit, 'house', toggle)).toEqual([
-      '- [x] one 📅 2026-10-22 ✅ 2026-10-21 #tt/house/done/100',
+      '- [x] one 📅 2026-10-22 ✅ 2026-10-21 #tt/house/done',
     ]);
+  });
+
+  it('dropping into Done leaves the other completed tasks alone', () => {
+    const m = buildBoard(
+      [
+        task('- [x] paid bill ✅ 2026-10-20', 'finance.md', 3),
+        task('- [x] fixed sink ✅ 2026-10-19', 'house.md', 7),
+        task('- [ ] mow lawn', 'house.md', 9),
+      ],
+      c,
+      TODAY,
+      () => undefined,
+    );
+    const edits = planDrop(m, 'house.md:9', { rowId: 'none', columnId: 'done', index: 2 });
+    expect([...edits]).toEqual([['house.md:9', { column: 'done', closed: true }]]);
   });
 
   it('a recurring task’s next occurrence keeps its old column', () => {
@@ -371,7 +386,7 @@ describe('No due date column', () => {
   });
 
   it('dropping in removes the date; dropping out sets one, except completing in Due now', () => {
-    expect(planDrop(model, 'a.md:1', { rowId: 'none', columnId: 'someday', index: 0 }).get('a.md:1')).toMatchObject({ column: 'someday', due: null });
+    expect(planDrop(model, 'a.md:1', { rowId: 'none', columnId: 'someday', index: 0 }).get('a.md:1')).toMatchObject({ column: 'backlog', due: null });
     expect(planDrop(model, 'a.md:0', { rowId: 'now', columnId: 'doing', index: 0 }).get('a.md:0')).toMatchObject({ column: 'doing', due: '2026-10-28' });
     const completed = planDrop(model, 'a.md:0', { rowId: 'now', columnId: 'done', index: 0 }).get('a.md:0')!;
     expect(completed.closed).toBe(true);
@@ -381,5 +396,32 @@ describe('No due date column', () => {
 
   it('the move button sends an undated card to Due now in its tagged column', () => {
     expect(quickMoveTarget(model, tasks[0]!)).toEqual({ rowId: 'now', columnId: 'doing', index: 0 });
+  });
+
+  it('renumbering the column keeps the columns its cards remember', () => {
+    const m = buildBoard(
+      [
+        task('- [ ] idea #tt/house/doing/100', 'a.md', 0),
+        task('- [ ] other #tt/house/backlog/101', 'a.md', 1),
+        task('- [ ] dated 📅 2026-10-22', 'a.md', 2),
+      ],
+      c,
+      TODAY,
+      () => undefined,
+    );
+    // No gap between 100 and 101, so the cards after the drop are renumbered.
+    const edits = planDrop(m, 'a.md:2', { rowId: 'none', columnId: 'someday', index: 1 });
+    expect(edits.get('a.md:1')).toEqual({ column: 'backlog', sort: 300 });
+    expect(edits.get('a.md:2')).toMatchObject({ column: 'backlog', sort: 200, due: null });
+  });
+
+  it('a card dropped in keeps its column in its tag, and its arrow takes it back there', () => {
+    const doing = task('- [ ] tile the floor 📅 2026-10-22 #tt/house/doing/100', 'b.md', 0);
+    const edit = planDrop(buildBoard([doing], c, TODAY, () => undefined), 'b.md:0', { rowId: 'none', columnId: 'someday', index: 0 }).get('b.md:0')!;
+    expect(edit).toEqual({ column: 'doing', sort: 100, due: null });
+    const moved = task(applyEdit(doing.raw, edit, 'house', (l) => [l])[0]!, 'b.md', 0);
+    const after = buildBoard([moved], c, TODAY, () => undefined);
+    expect(after.cells.none!.someday!.map((t) => t.text)).toEqual(['tile the floor']);
+    expect(quickMoveTarget(after, moved)).toMatchObject({ rowId: 'now', columnId: 'doing' });
   });
 });

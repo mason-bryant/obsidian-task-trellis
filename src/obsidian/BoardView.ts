@@ -201,7 +201,11 @@ export class BoardView extends FileView {
     if (!this.model || !this.board) return;
     const edits = planDrop(this.model, taskId, target);
     if (edits.size === 0) return;
-    const tasks = this.plugin.index.all().filter((t) => edits.has(t.id));
+    // The lines the board shows, so a drop right after another one edits what that one wrote.
+    const tasks = this.plugin.index
+      .all()
+      .filter((t) => edits.has(t.id))
+      .map((t) => this.withPending(t));
     const slug = this.board.config.slug;
     // Show the result right away; the index catches up once the files are written.
     for (const [id, raw] of this.plugin.writer.preview(tasks, edits, slug)) {

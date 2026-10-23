@@ -79,6 +79,15 @@ describe('new task lines', () => {
     expect(buildNewTaskLine('Call 📅 2026-11-05', { due: '2026-10-28' })).toBe('- [ ] Call 📅 2026-11-05');
   });
 
+  it('joins text typed or pasted over several lines into one task line', () => {
+    expect(
+      buildNewTaskLine('Call the roofer\n  about the estimate\r\n', {
+        due: '2026-10-28',
+        placement: { slug: 'house', column: 'doing', sort: 100 },
+      }),
+    ).toBe('- [ ] Call the roofer about the estimate 📅 2026-10-28 #tt/house/doing/100');
+  });
+
   it('leaves out the due date in the No due date row', () => {
     expect(buildNewTaskLine('Call', { due: null, created: '2026-10-22' })).toBe('- [ ] Call ➕ 2026-10-22');
   });
