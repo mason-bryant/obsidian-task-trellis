@@ -9,9 +9,12 @@ export type NewTaskFields = {
   placement?: { slug: string; column: string; sort?: number };
 };
 
-/** `- [ ] text ➕ created 📅 due #tt/<board>/<column>/<n>`, with fields where Tasks reads them. */
+/**
+ * `- [ ] text ➕ created 📅 due #tt/<board>/<column>/<n>`, with fields where Tasks reads them. Text
+ * over several lines (Shift+Enter, or pasted) becomes one line, since a task is one line.
+ */
 export function buildNewTaskLine(text: string, fields: NewTaskFields): string {
-  return finishNewTaskLine(`- [ ] ${text.trim()}`, fields);
+  return finishNewTaskLine(`- [ ] ${text.replace(/\s*[\r\n]+\s*/g, ' ').trim()}`, fields);
 }
 
 /** Fills in what a typed or Tasks-modal line is missing, without overriding what is there. */

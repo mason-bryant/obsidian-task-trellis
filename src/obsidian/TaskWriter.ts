@@ -150,8 +150,8 @@ export class TaskWriter {
 
   /**
    * Replaces each task's line in one atomic write per file, bottom-up so inserted lines don't shift
-   * the rest. A line that no longer matches what was read is looked up nearby; if it's gone it is skipped.
-   * Returns how many tasks were skipped.
+   * the rest. A line that moved is followed when that's unambiguous (see `locate`); otherwise it is
+   * skipped. Returns how many tasks were skipped.
    */
   private async rewrite(path: string, tasks: BoardTask[], linesFor: (task: BoardTask) => string[]): Promise<number> {
     const file = this.app.vault.getAbstractFileByPath(path);
@@ -176,11 +176,17 @@ export class TaskWriter {
   }
 }
 
+/**
+ * The task's line: where it was read, or where it moved to. A line is only followed when its text was
+ * unique in the note when read and still is, since text is all that identifies it; otherwise an edit
+ * meant for a changed task could land on another task that reads the same.
+ */
 function locate(lines: string[], task: BoardTask): number {
+  // A duplicate can shift into the old line number after a deletion. Even an exact-position
+  // match is unsafe once that note changes; wait for the index to provide a fresh snapshot.
+  if (task.twins && task.duplicateSource !== lines.join('\n')) return -1;
   if (lines[task.line] === task.raw) return task.line;
-  let best = -1;
-  lines.forEach((line, i) => {
-    if (line === task.raw && (best < 0 || Math.abs(i - task.line) < Math.abs(best - task.line))) best = i;
-  });
-  return best;
+  if (task.twins) return -1;
+  const at = lines.indexOf(task.raw);
+  return at >= 0 && lines.indexOf(task.raw, at + 1) < 0 ? at : -1;
 }

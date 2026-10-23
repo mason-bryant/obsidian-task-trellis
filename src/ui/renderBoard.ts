@@ -29,15 +29,32 @@ const DRAG_TYPE = 'application/x-task-trellis';
 const STALE_DRAG_MS = 60_000;
 let draggingId: string | null = null;
 let dragStartedAt = 0;
-/** The open "Add task" or "Add subtask" box, kept across redraws so typing isn't lost when the board updates. */
+/**
+ * The open "Add task" or "Add subtask" box, kept across redraws so typing isn't lost when the board
+ * updates. Keys include the board's slug, so a box open on one board doesn't show on another.
+ */
 let composer: { key: string; text: string } | null = null;
+/** During a redraw, whether focus was in the board before it; null between redraws. */
+let redrawHadFocus: boolean | null = null;
 
 export function isDragging(): boolean {
   return draggingId !== null && Date.now() - dragStartedAt < STALE_DRAG_MS;
 }
 
-/** Plain DOM so the harness can run it without Obsidian. */
+/**
+ * Plain DOM so the harness can run it without Obsidian. A redraw gives focus back to an open add
+ * box only if the board had it, so one set off by typing in a note leaves the cursor there.
+ */
 export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
+  redrawHadFocus = root.contains(root.ownerDocument.activeElement);
+  try {
+    drawBoard(root, model, host, notes);
+  } finally {
+    redrawHadFocus = null;
+  }
+}
+
+function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
   const scroll = scroller ? { top: scroller.scrollTop, left: scroller.scrollLeft } : null;
   root.replaceChildren();
@@ -142,7 +159,7 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   for (const task of hidden ? cards.slice(0, limit) : cards) c.append(card(task, model, host));
   if (capped) c.append(moreToggle(hidden, cards.length - limit, () => host.onToggleRow(moreKey(rowId))));
   // Done fills itself by completing tasks, so it gets no add button.
-  if (column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, host));
+  if (column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, host));
   addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
   return c;
 }
@@ -155,9 +172,9 @@ function cardLimit(columnId: string, config: BoardModel['config']): number | nul
 }
 
 /** "+ Add task" at the bottom of a cell, which opens the add box. */
-function addTask(target: { rowId: string; columnId: string }, host: RenderHost): HTMLElement {
+function addTask(target: { rowId: string; columnId: string }, slug: string, host: RenderHost): HTMLElement {
   const wrap = el('div', 'tt-add');
-  const key = `cell:${target.rowId}:${target.columnId}`;
+  const key = `cell:${slug}:${target.rowId}:${target.columnId}`;
 
   const showButton = () => {
     const b = el('button', 'tt-add-button');
@@ -195,6 +212,8 @@ function addBox(
 ): HTMLElement {
   const box = el('div', 'tt-add-box');
   const isOpen = () => composer?.key === key;
+  // Opened by a click, or reopened by a redraw while the board had focus.
+  const takeFocus = redrawHadFocus ?? true;
   const input = el('textarea', 'tt-add-input');
   input.rows = 2;
   input.placeholder = placeholder;
@@ -254,7 +273,7 @@ function addBox(
   box.addEventListener('click', (e) => e.stopPropagation());
   // Right after the redraw that attaches it, before the next keystroke arrives.
   queueMicrotask(() => {
-    if (!box.isConnected) return;
+    if (!box.isConnected || !takeFocus) return;
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   });
@@ -399,21 +418,21 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
 /** The indented list under a task: its subtasks unless collapsed, then the add box when it's open. */
 function subtaskSection(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement | null {
   const subtasks = model.subtasks[task.id] ?? [];
-  const composing = composer?.key === subtaskBoxKey(task);
+  const composing = composer?.key === subtaskBoxKey(task, model.config.slug);
   if (subtasks.length > 0 ? host.isCollapsed(subtasksKey(task)) : !composing) return null;
   const section = el('div', 'tt-subtasks');
   for (const sub of subtasks) section.append(subtaskRow(sub, model, host));
-  if (composing) section.append(subtaskBox(task, section, host));
+  if (composing) section.append(subtaskBox(task, model.config.slug, section, host));
   return section;
 }
 
-function subtaskBoxKey(task: BoardTask): string {
-  return `subtask:${task.id}`;
+function subtaskBoxKey(task: BoardTask, slug: string): string {
+  return `subtask:${slug}:${task.id}`;
 }
 
-function subtaskBox(parent: BoardTask, section: HTMLElement, host: RenderHost): HTMLElement {
+function subtaskBox(parent: BoardTask, slug: string, section: HTMLElement, host: RenderHost): HTMLElement {
   const box = addBox(
-    subtaskBoxKey(parent),
+    subtaskBoxKey(parent, slug),
     'New subtask. Enter to add, ⌘/Ctrl+Enter for details',
     host,
     (text, detailed) => host.onAddSubtask(parent, text, detailed),
@@ -455,7 +474,7 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
   host.icon(b, 'list-plus');
   b.addEventListener('click', (e) => {
     e.stopPropagation();
-    const key = subtaskBoxKey(task);
+    const key = subtaskBoxKey(task, model.config.slug);
     if (composer?.key !== key) composer = { key, text: '' };
     if ((model.subtasks[task.id]?.length ?? 0) > 0 && host.isCollapsed(subtasksKey(task))) {
       // Redraws with the list open, and the box in it.
@@ -469,7 +488,7 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
       return;
     }
     if (!section) section = owner.appendChild(el('div', 'tt-subtasks'));
-    section.append(subtaskBox(task, section, host));
+    section.append(subtaskBox(task, model.config.slug, section, host));
     const card = owner.closest<HTMLElement>('.tt-card');
     if (card) card.draggable = false;
   });
