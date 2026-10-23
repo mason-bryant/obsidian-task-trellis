@@ -4,6 +4,7 @@ import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } fr
 import { propertyValueStrings } from '../core/filters.ts';
 import { renderBoardSettings, type SettingsForm } from '../ui/renderBoardSettings.ts';
 import type TaskTrellisPlugin from '../../main.ts';
+import { noteTags } from './noteTags.ts';
 
 /**
  * Edits a board note’s settings as a form instead of raw front matter.
@@ -64,6 +65,8 @@ export class BoardSettingsModal extends Modal {
     }
 
     const tags = [...new Set(this.plugin.index.all().flatMap((task) => task.tags))].sort();
+    const sourceTags = [...new Set(this.app.vault.getMarkdownFiles().filter((file) => !this.plugin.isExcludedFromIndex(file.path))
+      .flatMap((file) => noteTags(this.app.metadataCache.getFileCache(file))))].sort();
     const folders = [...new Set(this.app.vault.getMarkdownFiles().filter((file) => !this.plugin.isExcludedFromIndex(file.path)).flatMap((file) => {
       const parts = file.path.split('/').slice(0, -1);
       return parts.map((_, i) => parts.slice(0, i + 1).join('/'));
@@ -76,7 +79,7 @@ export class BoardSettingsModal extends Modal {
       icon: (el, name) => setIcon(el, name),
       attachKeySuggest: (input) => suggest(input, () => [...properties.keys()]),
       attachValueSuggest: (input, key) => suggest(input, () => [...(properties.get(key()) ?? [])]),
-      attachTagSuggest: (input) => suggest(input, () => tags),
+      attachTagSuggest: (input) => suggest(input, () => [...new Set([...tags, ...sourceTags])].sort()),
       attachFolderSuggest: (input) => suggest(input, () => folders),
       countTagged: (columnId) => tagged.get(columnId) ?? 0,
       onDiscard: () => this.close(),

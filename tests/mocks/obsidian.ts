@@ -30,3 +30,11 @@ export class TFolder { constructor(public path: string) {} }
 export class Modal {}
 export class Setting {}
 export const normalizePath = (path: string) => path.replace(/\\/g, '/').replace(/\/+/g, '/');
+
+// getAllTags combines already-parsed metadata; Markdown parsing belongs to Obsidian.
+export function getAllTags(cache: { frontmatter?: Record<string, unknown>; tags?: { tag: string }[] }): string[] {
+  const raw = cache.frontmatter?.tags;
+  const frontmatter = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(/[,\s]+/) : [];
+  return [...frontmatter.filter((tag): tag is string => typeof tag === 'string').map((tag) => tag.startsWith('#') ? tag : `#${tag}`),
+    ...(cache.tags ?? []).map((tag) => tag.tag)];
+}

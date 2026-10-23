@@ -87,7 +87,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   root.classList.toggle('tt-board--compact', display.compact);
   const toolbar = el('div', 'tt-board-toolbar');
   const heading = el('div', 'tt-board-heading');
-  heading.append(el('span', 'tt-board-name', config.name), el('span', 'tt-board-total', `${model.total} cards`));
+  heading.append(el('span', 'tt-board-name', config.name), el('span', 'tt-board-total', `${model.total} ${model.total === 1 ? 'card' : 'cards'}`));
   const tools = el('div', 'tt-board-tools');
   const compact = el('button', 'tt-toolbar-button'); compact.type = 'button';
   compact.dataset.boardFocus = 'compact';

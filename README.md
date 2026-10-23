@@ -32,7 +32,7 @@ The settings are stored as these properties:
 | `week-start` | monday | First day of a week row. |
 | `filter-properties` | none | `key: value1, value2` per item. The task's note must match every item. |
 | `exclude-properties` | none | Same rule syntax as `filter-properties`. Any matching item excludes the note's tasks. |
-| `include-tags` / `exclude-tags` | none | Task tags; `house` also matches `#house/kitchen`. |
+| `include-tags` / `exclude-tags` | none | Tags on the task or its page; `house` also matches `#house/kitchen`. Page tags apply to every task in the note. |
 | `include-folders` / `exclude-folders` | none | Folders the task's note must, or must not, be in. |
 | `show-completed-days` | 7 | Completed tasks show for this many days after their done date. 0 hides them. |
 | `new-tasks` | default | Where tasks added on this board go: `default` (the plugin setting), `daily` or `note`. |
@@ -43,15 +43,15 @@ Every board gets an **Open board: ‹name›** command, so you can give each boa
 
 ## Filters
 
-The Filters tab keeps **Must include** and **Must not include** visible together, with Task tags, Note folders and Note properties in the same order. Type a value and press Enter to make a chip, or choose a suggestion. New values are allowed. Remove a chip with its × button; Backspace in an empty entry brings the last chip back for editing. Task tags can also be entered as a comma-separated list. A comma inside a property-value chip stays part of that one value.
+The Filters tab keeps **Must include** and **Must not include** visible together, with Tags, Note folders and Note properties in the same order. Each Tags box combines task and page tags. Type a value and press Enter to make a chip, or choose a suggestion. New values are allowed. Remove a chip with its × button; Backspace in an empty entry brings the last chip back for editing. Tags can also be entered as a comma-separated list. A comma inside a property-value chip stays part of that one value.
 
 - Included tags match **any** listed tag; included folders match **any** listed folder; included property rules must **all** match. All configured inclusion categories must pass. Empty categories add no restriction.
 - **Any exclusion wins**, whether it matches a task tag, source-note folder or property rule. A missing property fails an inclusion rule and passes an exclusion rule.
 - Property **Exists** matches a present key even if its value is null, empty, false or zero. **Matches any value** needs at least one value and compares against any scalar or list value. Keys are case-sensitive; values are case-insensitive. Numbers and booleans compare as strings.
-- Tags come from the task line, not the note's frontmatter. `house` matches `#house` and `#house/kitchen`, but not `#household`. Internal `#tt/…` placement tags are ignored. Folders match the named folder and descendants; properties come from the source note's frontmatter.
+- A task matches the combined tags on its own checkbox line and its page. **Page tags** are the note's `tags` property and inline tags in non-task text; they apply to every task in that note. A tag on another task line does not apply to this task. `house` matches `#house` and `#house/kitchen`, but not `#household`. Internal `#tt/…` placement tags are ignored. Folders match the named folder and descendants; properties come from the source note's frontmatter.
 - The boards folder and globally excluded folders are unavailable to every board. Subtasks displayed inside a visible parent follow that parent without being filtered independently. A subtask shown as a standalone card must pass the filters itself.
 
-For example, this board shows tasks tagged `#work` (including nested work tags) from `Projects/` whose note has `team: product` or `team: design`, and a `status` property. It hides tasks tagged `#blocked`, notes under `Projects/Archive/`, archived notes and notes marked confidential:
+For example, this board shows tasks tagged `#work` on the task or page (including nested work tags) from `Projects/` whose note has `team: product` or `team: design`, and a `status` property. It hides tasks with `#blocked` on the task or page, notes under `Projects/Archive/`, archived notes and notes marked confidential:
 
 ```yaml
 include-tags: [work]

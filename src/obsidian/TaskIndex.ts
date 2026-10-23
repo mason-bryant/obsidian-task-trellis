@@ -2,6 +2,7 @@ import { Events, TFile, type App, type CachedMetadata, type ListItemCache, type 
 import { taskId, type BoardTask } from '../core/board.ts';
 import { indentWidth } from '../core/subtasks.ts';
 import { parseTaskLine } from '../core/taskLine.ts';
+import { noteTags } from './noteTags.ts';
 
 const NOTIFY_DELAY_MS = 150;
 
@@ -91,7 +92,7 @@ export class TaskIndex extends Events {
       return;
     }
     const next = fileTasks(file.path, data, cache);
-    // Typing outside the task lines of a note changes nothing a board shows.
+    // Ordinary prose edits do not change the board; note tags and properties can affect filters.
     if (this.byFile.get(file.path)?.key === next.key) return;
     this.byFile.set(file.path, next);
     this.notify();
@@ -117,11 +118,12 @@ function hasTasks(cache: CachedMetadata | null | undefined): boolean {
   return !!cache?.listItems?.some((li) => li.task !== undefined);
 }
 
-/** The note's tasks, keyed by their lines and nesting and by the note's front matter, which boards filter on. */
+/** The note's tasks, keyed by their content, nesting, properties and tags used by filters. */
 function fileTasks(path: string, content: string, cache: CachedMetadata): FileTasks {
   const tasks = tasksFromContent(path, content, cache);
   const key = JSON.stringify([
     cache.frontmatter ?? null,
+    noteTags(cache),
     tasks.map((t) => [t.line, t.raw, t.parentId ?? null, t.twins ?? 0]),
     // Duplicate task identities depend on the surrounding note, so refresh their snapshot too.
     tasks.some((t) => t.twins) ? content : null,

@@ -6,6 +6,7 @@ import { taskMatchesBoard } from '../core/filters.ts';
 import { appendSort, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, type NewTaskFields } from '../core/newTask.ts';
 import { parseTaskLine } from '../core/taskLine.ts';
 import type TaskTrellisPlugin from '../../main.ts';
+import { noteTags } from './noteTags.ts';
 
 type DailyNotes = { getDailyNote(): Promise<TFile | null> };
 
@@ -100,8 +101,9 @@ export class QuickAdd {
       if (!board) new Notice(`Task Trellis: added to ${file.basename}.`);
       return;
     }
-    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-    if (board && !taskMatchesBoard({ path: file.path, tags: parseTaskLine(line)?.tags ?? [] }, board, fm)) {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const tags = parseTaskLine(line)?.tags ?? [];
+    if (board && !taskMatchesBoard({ path: file.path, tags }, board, cache?.frontmatter, noteTags(cache))) {
       new Notice(`Task Trellis: added to ${file.basename}, but this board's filters hide tasks from that note.`);
     } else if (!board) {
       new Notice(`Task Trellis: added to ${file.basename}.`);
