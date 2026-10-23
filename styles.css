@@ -610,7 +610,10 @@
 }
 .tt-subtask-toggle .tt-chevron { flex-shrink: 0; }
 @media (pointer: coarse) {
-  .tt-subtask-toggle, .tt-board-tools .tt-toolbar-button { min-height: 44px; }
+  .tt-subtask-controls .tt-subtask-toggle, .tt-subtask-controls .tt-card-icon, .tt-board-tools .tt-toolbar-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .tt-subtask-controls > .tt-add-subtask { opacity: 1; }
