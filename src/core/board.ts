@@ -87,6 +87,7 @@ export function buildBoard(
   config: BoardConfig,
   today: ISODate,
   frontmatterOf: (path: string) => Frontmatter,
+  noteTagsOf: (path: string) => string[] = () => [],
 ): BoardModel {
   const rows = computeRows(config, today);
   const cells: BoardModel['cells'] = {};
@@ -97,6 +98,12 @@ export function buildBoard(
   // A task under a parent that is on the board goes with the parent, whatever its own date, column
   // or done date; otherwise it's a card of its own if it passes the board's filters.
   const byId = new Map(tasks.map((t) => [t.id, t]));
+  const noteTags = new Map<string, string[]>();
+  const tagsFor = (path: string) => {
+    if (!config.includeTags.length && !config.excludeTags.length) return [];
+    if (!noteTags.has(path)) noteTags.set(path, noteTagsOf(path));
+    return noteTags.get(path)!;
+  };
   const placement = new Map<string, 'card' | 'subtask' | 'off'>();
   const place = (task: BoardTask): 'card' | 'subtask' | 'off' => {
     const known = placement.get(task.id);
@@ -106,7 +113,7 @@ export function buildBoard(
     const parent = task.parentId === undefined ? undefined : byId.get(task.parentId);
     let result: 'card' | 'subtask' | 'off' = 'off';
     if (parent && place(parent) !== 'off') result = 'subtask';
-    else if (isShown(task, config, today) && taskMatchesBoard(task, config, frontmatterOf(task.path))) result = 'card';
+    else if (isShown(task, config, today) && taskMatchesBoard(task, config, frontmatterOf(task.path), tagsFor(task.path))) result = 'card';
     placement.set(task.id, result);
     return result;
   };

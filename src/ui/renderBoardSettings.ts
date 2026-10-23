@@ -141,7 +141,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     group.append(title, el('p', 'tt-help', excluded ? 'Any matching exclusion keeps a card off the board.' : 'All configured categories must pass. Empty categories add no restriction.'));
     const tagKey = excluded ? 'excludeTags' : 'includeTags';
     const folderKey = excluded ? 'excludeFolders' : 'includeFolders';
-    group.append(field('Task tags', chips(draft[tagKey].split(',').map((v) => v.trim()).filter(Boolean), `${name}: Task tags`, (values) => draft[tagKey] = values.join(', '), host.attachTagSuggest, true), 'Match any tag on the task line, including nested tags. Placement tags are not included.'));
+    group.append(field('Tags', chips(draft[tagKey].split(',').map((v) => v.trim()).filter(Boolean), `${name}: Tags`, (values) => draft[tagKey] = values.join(', '), host.attachTagSuggest, true), 'Page tags (properties and non-task text) apply to all tasks. Task tags apply only to that task. Nested tags count; placement tags are ignored.'));
     group.append(field('Note folders', chips(draft[folderKey].split('\n').filter(Boolean), `${name}: Note folders`, (values) => draft[folderKey] = values.join('\n'), host.attachFolderSuggest), 'Match any source-note folder, including its descendants.'));
     group.append(el('div', 'tt-field-label', 'Note properties'), el('p', 'tt-help', excluded ? 'Any matching property rule excludes the note. A missing property does not match.' : 'Every property rule must match the source note. “Exists” includes empty or null values.'));
     const rules = excluded ? draft.excludedFilters : draft.filters;

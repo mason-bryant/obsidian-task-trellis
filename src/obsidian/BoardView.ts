@@ -6,6 +6,7 @@ import { parseTaskLine } from '../core/taskLine.ts';
 import { isDragging, renderBoard, type RenderHost } from '../ui/renderBoard.ts';
 import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
+import { noteTags } from './noteTags.ts';
 import type { UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 
@@ -123,7 +124,9 @@ export class BoardView extends FileView {
     if (this.textScope) this.removeChild(this.textScope);
     this.textScope = this.addChild(new Component());
     const tasks = this.plugin.index.all().map((t) => this.withPending(t));
-    this.model = buildBoard(tasks, this.board.config, this.today, (path) => this.app.metadataCache.getCache(path)?.frontmatter);
+    this.model = buildBoard(tasks, this.board.config, this.today,
+      (path) => this.app.metadataCache.getCache(path)?.frontmatter,
+      (path) => noteTags(this.app.metadataCache.getCache(path)));
 
     const info: string[] = [];
     if (!this.plugin.writer.tasksApi()) {

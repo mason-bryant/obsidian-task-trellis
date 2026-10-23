@@ -3,6 +3,7 @@ import { previewIcon } from './icons.ts';
 import { applyEdit, buildBoard, planDrop, taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
+import { propertyValueStrings } from '../src/core/filters.ts';
 import { appendSort, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
 import { renderBoardSettings } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
@@ -15,7 +16,7 @@ const d = (n: number) => addDays(today, n);
 
 const files: Record<string, string[]> = {
   'Projects/Kitchen.md': [
-    '# Kitchen',
+    '# Kitchen #renovation',
     `- [ ] Repaint the kitchen ⏫ ➕ ${d(-6)} 📅 ${d(2)} #tt/house/doing/100`,
     `\t- [x] Buy primer ✅ ${d(-1)}`,
     `\t- [ ] Patch the walls 📅 ${d(-1)}`,
@@ -40,9 +41,17 @@ const files: Record<string, string[]> = {
   ],
 };
 const frontmatter: Record<string, Record<string, unknown>> = {
-  'Projects/Kitchen.md': { context: ['house'], status: 'active' },
-  'Daily/Today.md': { context: 'house', status: 'planned' },
+  'Projects/Kitchen.md': { context: ['house'], status: 'active', tags: ['home/kitchen'] },
+  'Daily/Today.md': { context: 'house', status: 'planned', tags: ['daily'] },
 };
+
+// Fixture-only stand-in. The plugin uses Obsidian's getAllTags Markdown-aware cache API.
+function noteTags(path: string): string[] {
+  const prose = (files[path] ?? []).filter((line) => !parseTaskLine(line)).join('\n');
+  const inline = [...prose.matchAll(/(?:^|\s)#([\p{L}\p{N}_/-]+)/gu)].map((match) => match[1]!);
+  return [...new Set([...propertyValueStrings(frontmatter[path]?.tags), ...inline]
+    .map((tag) => tag.replace(/^#/, '').toLowerCase()).filter((tag) => !tag.startsWith('tt/')))];
+}
 
 let { config, warnings } = parseBoardConfig('House', {
   slug: 'house',
@@ -163,7 +172,7 @@ function offerUndo(before: string, label: string): void {
 }
 
 function model() {
-  return buildBoard(tasks(), config, today, (path) => frontmatter[path]);
+  return buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags);
 }
 
 function render(): void {
@@ -236,7 +245,7 @@ function openSettings(): void {
     attachValueSuggest: (input, key) => suggest(input, () => [...new Set(Object.values(frontmatter).flatMap((fm) => {
       const value = fm[key()]; return value == null ? [] : (Array.isArray(value) ? value : [value]).map(String);
     }))]),
-    attachTagSuggest: (input) => suggest(input, () => [...new Set(tasks().flatMap((t) => t.tags))]),
+    attachTagSuggest: (input) => suggest(input, () => [...new Set([...tasks().flatMap((t) => t.tags), ...Object.keys(files).flatMap(noteTags)])].sort()),
     attachFolderSuggest: (input) => suggest(input, () => ['Projects', 'Daily']),
     countTagged: (id) => tasks().filter((t) => t.placements[original.slug]?.column === id).length,
     onDiscard: () => {

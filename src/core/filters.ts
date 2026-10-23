@@ -38,11 +38,13 @@ export function taskMatchesBoard(
   task: { path: string; tags: string[] },
   config: BoardConfig,
   fm: Frontmatter,
+  noteTags: string[] = [],
 ): boolean {
   if (config.includeFolders.length > 0 && !config.includeFolders.some((f) => inFolder(task.path, f))) return false;
   if (config.excludeFolders.some((f) => inFolder(task.path, f))) return false;
-  if (config.includeTags.length > 0 && !config.includeTags.some((t) => hasTag(task.tags, t))) return false;
-  if (config.excludeTags.some((t) => hasTag(task.tags, t))) return false;
+  const tags = [...task.tags, ...noteTags];
+  if (config.includeTags.length > 0 && !config.includeTags.some((t) => hasTag(tags, t))) return false;
+  if (config.excludeTags.some((t) => hasTag(tags, t))) return false;
   return noteMatchesFilters(fm, config.propertyFilters, config.excludedPropertyFilters);
 }
 

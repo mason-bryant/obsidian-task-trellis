@@ -64,6 +64,25 @@ describe('TaskIndex', () => {
     expect(index.all().map((t) => t.twins)).toEqual([undefined, undefined]);
   });
 
+  it('refreshes when inline note tags change, even if all task lines stay the same', () => {
+    const { index, change } = fakeApp();
+    const content = '# Today\n- [ ] call the roofer\n';
+    const settle = (tags: string[]) => {
+      const c = cache();
+      c.tags = tags.map((tag) => ({ tag, position: { start: { line: 0, col: 0, offset: 0 }, end: { line: 0, col: tag.length, offset: tag.length } } }));
+      change(content, c);
+      vi.advanceTimersByTime(200);
+    };
+    settle([]);
+    const initial = index.version;
+    settle(['#work']);
+    expect(index.version).toBe(initial + 1);
+    settle(['#WORK', '#work', '#tt/house/doing']);
+    expect(index.version).toBe(initial + 1);
+    settle([]);
+    expect(index.version).toBe(initial + 2);
+  });
+
   it('keeps an edit that arrives while a rebuild is reading the vault', async () => {
     let finishRead = (_content: string) => undefined as void;
     const { index, change } = fakeApp(() => new Promise((resolve) => (finishRead = resolve)));
