@@ -185,6 +185,11 @@ export class BoardView extends FileView {
         void this.plugin.toggleRow(this.board.config.slug, rowId, this.model.rows.map((r) => r.id));
         this.render();
       },
+      onSetSubtasksCollapsed: (keys, collapsed) => {
+        if (!this.board) return;
+        void this.plugin.setSubtasksCollapsed(this.board.config.slug, keys, collapsed);
+        this.render();
+      },
       onDrop: (taskId, target) => void this.drop(taskId, target),
       onToggle: (task) => void this.plugin.writer.toggle(task, (action) => {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action };

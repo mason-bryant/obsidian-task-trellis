@@ -1,4 +1,4 @@
-import { columnOf, isOverdue, moreKey, quickMoveTarget, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget } from '../core/board.ts';
+import { columnOf, isOverdue, moreKey, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget } from '../core/board.ts';
 import type { BoardColumn } from '../core/boardConfig.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
 
@@ -9,6 +9,8 @@ export type RenderHost = {
   sourceLabel(task: BoardTask): string;
   isCollapsed(rowId: string): boolean;
   onToggleRow(rowId: string): void;
+  /** Sets every supplied subtask list in one persisted update. */
+  onSetSubtasksCollapsed(keys: string[], collapsed: boolean): void;
   onDrop(taskId: string, target: DropTarget): void;
   onToggle(task: BoardTask): void;
   onEdit(task: BoardTask): void;
@@ -26,7 +28,7 @@ export type RenderHost = {
 
 export type RenderNotes = { warnings: string[]; info: string[] };
 
-type DisplayState = { slug: string; compact: boolean; column: string; expanded: Set<string> };
+type DisplayState = { slug: string; compact: boolean; column: string };
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 
 const DRAG_TYPE = 'application/x-task-trellis';
@@ -53,9 +55,12 @@ export function isDragging(): boolean {
 export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
   redrawHadFocus = root.contains(root.ownerDocument.activeElement);
   const focusKey = redrawHadFocus ? (root.ownerDocument.activeElement as HTMLElement)?.dataset.boardFocus : undefined;
+  // An explicitly focused control keeps focus even when a draft input is redrawn.
+  if (focusKey) redrawHadFocus = false;
   try {
     drawBoard(root, model, host, notes);
-    if (focusKey) root.querySelector<HTMLElement>(`[data-board-focus="${focusKey}"]`)?.focus({ preventScroll: true });
+    if (focusKey) [...root.querySelectorAll<HTMLElement>('[data-board-focus]')]
+      .find((el) => el.dataset.boardFocus === focusKey)?.focus({ preventScroll: true });
   } finally {
     redrawHadFocus = null;
   }
@@ -80,7 +85,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const { config } = model;
   let display = displayStates.get(root);
   if (!display || display.slug !== config.slug) {
-    display = { slug: config.slug, compact: false, column: '', expanded: new Set() };
+    display = { slug: config.slug, compact: false, column: '' };
     displayStates.set(root, display);
   }
   if (!model.columns.some((c) => c.id === display.column)) display.column = '';
@@ -93,7 +98,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   compact.dataset.boardFocus = 'compact';
   compact.append(hostIcon(host, 'rows-3'), el('span', '', 'Compact'));
   compact.setAttribute('aria-pressed', String(display.compact));
-  compact.title = 'Compact cards with collapsed subtask summaries';
+  compact.title = 'Use compact card spacing';
   compact.onclick = () => { display!.compact = !display!.compact; renderBoard(root, model, baseHost, notes); };
   const picker = el('select', 'tt-column-picker'); picker.setAttribute('aria-label', 'Visible board column');
   picker.dataset.boardFocus = 'column';
@@ -103,6 +108,17 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   picker.value = display.column;
   picker.onchange = () => { display!.column = picker.value; renderBoard(root, model, baseHost, notes); };
   tools.append(compact, picker);
+  const subtaskKeys = subtaskListKeys(model);
+  if (subtaskKeys.length > 0) {
+    for (const collapsed of [true, false]) {
+      const action = el('button', 'tt-toolbar-button', `${collapsed ? 'Collapse' : 'Expand'} all subtasks`);
+      action.type = 'button';
+      action.dataset.boardFocus = collapsed ? 'collapse-subtasks' : 'expand-subtasks';
+      action.title = 'Applies to all subtask lists on this board, including nested lists and hidden columns.';
+      action.onclick = () => host.onSetSubtasksCollapsed(subtaskKeys, collapsed);
+      tools.append(action);
+    }
+  }
   if (host.onSettings) {
     const settings = el('button', 'tt-toolbar-button'); settings.type = 'button';
     settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = host.onSettings; tools.append(settings);
@@ -119,16 +135,6 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const undo = el('div', 'tt-undo'); undo.setAttribute('role', 'status');
     const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.onclick = host.undo.run;
     undo.append(el('span', '', host.undo.label), action); root.insertBefore(undo, scrollEl);
-  }
-  // Compact mode starts nested lists closed, but users can still expand each summary.
-  const compactExpanded = display.expanded;
-  if (display.compact) {
-    host = { ...baseHost, isCollapsed: (key) => key.startsWith('sub:') ? !compactExpanded.has(key) : baseHost.isCollapsed(key),
-      onToggleRow: (key) => {
-        if (!key.startsWith('sub:')) { baseHost.onToggleRow(key); return; }
-        if (compactExpanded.has(key)) compactExpanded.delete(key); else compactExpanded.add(key);
-        renderBoard(root, model, baseHost, notes);
-      } };
   }
   for (const column of visibleColumns) {
     const count = model.rows.reduce((n, r) => n + (model.cells[r.id]?.[column.id]?.length ?? 0), 0);
@@ -368,7 +374,6 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   const main = taskMain(task, host);
   const meta = el('div', 'tt-card-meta');
   const subtasks = model.subtasks[task.id] ?? [];
-  if (subtasks.length > 0) meta.append(subtaskToggle(task, subtasks, host));
   if (task.closed && task.closedDate) {
     const span = badge(host, task.status === '-' ? 'circle-minus' : 'circle-check', `${task.status === '-' ? 'Cancelled' : 'Completed'} ${relativeDate(task.closedDate, model.today)}`, 'tt-done');
     span.title = `Completed ${task.closedDate}${task.createdDate ? ` · Created ${task.createdDate}` : ''}${task.dueDate ? ` · Due ${task.dueDate}` : ''}`;
@@ -378,7 +383,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (!task.closed) actions.append(addSubtaskButton(task, c, model, host));
   const move = moveButton(task, model, host);
   if (move) actions.append(move);
-  if (actions.childElementCount > 0) meta.append(actions);
+  if (subtasks.length === 0 && actions.childElementCount > 0) meta.append(actions);
   const source = el('a', 'tt-source', host.sourceLabel(task));
   source.href = '#';
   source.title = `Open ${task.path}, line ${task.line + 1}`;
@@ -392,6 +397,11 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   source.prepend(sourceIcon);
   meta.prepend(source);
   c.append(main, meta);
+  if (subtasks.length > 0) {
+    const controls = el('div', 'tt-subtask-controls');
+    controls.append(subtaskToggle(task, subtasks, host), actions);
+    c.append(controls);
+  }
   const section = subtaskSection(task, model, host);
   if (section) c.append(section);
   // Selecting text in an open add box would otherwise drag the card.
@@ -471,12 +481,17 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   if (isOverdue(task, model.today)) row.classList.add('is-overdue');
   const main = taskMain(task, host);
   const subtasks = model.subtasks[task.id] ?? [];
-  if (subtasks.length > 0) main.append(subtaskToggle(task, subtasks, host));
-  if (!task.closed) main.append(addSubtaskButton(task, row, model, host));
+  if (!task.closed && subtasks.length === 0) main.append(addSubtaskButton(task, row, model, host));
   row.append(main);
   const meta = el('div', 'tt-card-meta');
   appendBadges(meta, task, model, host);
   if (meta.childElementCount > 0) row.append(meta);
+  if (subtasks.length > 0) {
+    const controls = el('div', 'tt-subtask-controls');
+    controls.append(subtaskToggle(task, subtasks, host));
+    if (!task.closed) controls.append(addSubtaskButton(task, row, model, host));
+    row.append(controls);
+  }
   const section = subtaskSection(task, model, host);
   if (section) row.append(section);
   row.addEventListener('click', (e) => {
@@ -518,7 +533,7 @@ function subtaskBox(parent: BoardTask, slug: string, section: HTMLElement, host:
   return box;
 }
 
-/** "▾ 1/3": shows or hides a task's subtasks, with how many are done. */
+/** Compact disclosure and completion count beside Add subtask, with an explicit action tooltip. */
 function subtaskToggle(task: BoardTask, subtasks: BoardTask[], host: RenderHost): HTMLElement {
   const key = subtasksKey(task);
   const collapsed = host.isCollapsed(key);
@@ -526,12 +541,12 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], host: RenderHost)
   const b = el('button', `tt-subtask-toggle${collapsed ? ' is-collapsed' : ''}`);
   b.type = 'button';
   b.setAttribute('aria-expanded', String(!collapsed));
-  const label = `${collapsed ? 'Show' : 'Hide'} subtasks (${done} of ${subtasks.length} done)`;
+  const action = `${collapsed ? 'Show' : 'Hide'} subtasks`;
+  const label = `${action} (${done} of ${subtasks.length} done)`;
+  b.dataset.boardFocus = `subtasks-${task.id}`;
   b.setAttribute('aria-label', label);
-  b.title = label;
-  const progress = el('span', 'tt-progress');
-  const fill = el('span', 'tt-progress-fill'); fill.style.width = `${done / subtasks.length * 100}%`; progress.append(fill); progress.setAttribute('aria-hidden', 'true');
-  b.append(chevron(), el('span', '', `${done} of ${subtasks.length}`), progress);
+  b.title = action;
+  b.append(chevron(), el('span', '', `${done}/${subtasks.length}`));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     host.onToggleRow(key);
