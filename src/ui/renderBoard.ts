@@ -1,7 +1,6 @@
 import { columnOf, isOverdue, moreKey, quickMoveTarget, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget } from '../core/board.ts';
 import type { BoardColumn } from '../core/boardConfig.ts';
-import { shortLabel } from '../core/dates.ts';
-import { PRIORITY_EMOJI } from '../core/taskLine.ts';
+import { diffDays, shortLabel } from '../core/dates.ts';
 
 /** What the board needs from its host (the Obsidian view, or the dev harness). */
 export type RenderHost = {
@@ -20,9 +19,15 @@ export type RenderHost = {
   /** Adds a task to a cell; `detailed` opens the full editor first. */
   onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean): void;
   onAddSubtask(parent: BoardTask, text: string, detailed: boolean): void;
+  onSettings?(): void;
+  undo?: { label: string; run(): void };
+  highlightIds?: Set<string>;
 };
 
 export type RenderNotes = { warnings: string[]; info: string[] };
+
+type DisplayState = { slug: string; compact: boolean; column: string; expanded: Set<string> };
+const displayStates = new WeakMap<HTMLElement, DisplayState>();
 
 const DRAG_TYPE = 'application/x-task-trellis';
 // No real drag lasts this long; past it a missed dragend can't keep the board from redrawing.
@@ -47,14 +52,17 @@ export function isDragging(): boolean {
  */
 export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
   redrawHadFocus = root.contains(root.ownerDocument.activeElement);
+  const focusKey = redrawHadFocus ? (root.ownerDocument.activeElement as HTMLElement)?.dataset.boardFocus : undefined;
   try {
     drawBoard(root, model, host, notes);
+    if (focusKey) root.querySelector<HTMLElement>(`[data-board-focus="${focusKey}"]`)?.focus({ preventScroll: true });
   } finally {
     redrawHadFocus = null;
   }
 }
 
 function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
+  const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
   const scroll = scroller ? { top: scroller.scrollTop, left: scroller.scrollLeft } : null;
   root.replaceChildren();
@@ -70,37 +78,91 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   root.append(scrollEl);
 
   const { config } = model;
-  for (const column of model.columns) {
+  let display = displayStates.get(root);
+  if (!display || display.slug !== config.slug) {
+    display = { slug: config.slug, compact: false, column: '', expanded: new Set() };
+    displayStates.set(root, display);
+  }
+  if (!model.columns.some((c) => c.id === display.column)) display.column = '';
+  root.classList.toggle('tt-board--compact', display.compact);
+  const toolbar = el('div', 'tt-board-toolbar');
+  const heading = el('div', 'tt-board-heading');
+  heading.append(el('span', 'tt-board-name', config.name), el('span', 'tt-board-total', `${model.total} cards`));
+  const tools = el('div', 'tt-board-tools');
+  const compact = el('button', 'tt-toolbar-button'); compact.type = 'button';
+  compact.dataset.boardFocus = 'compact';
+  compact.append(hostIcon(host, 'rows-3'), el('span', '', 'Compact'));
+  compact.setAttribute('aria-pressed', String(display.compact));
+  compact.title = 'Compact cards with collapsed subtask summaries';
+  compact.onclick = () => { display!.compact = !display!.compact; renderBoard(root, model, baseHost, notes); };
+  const picker = el('select', 'tt-column-picker'); picker.setAttribute('aria-label', 'Visible board column');
+  picker.dataset.boardFocus = 'column';
+  for (const [id, label] of [['', 'All columns'], ...model.columns.map((c) => [c.id, c.label])]) {
+    const option = el('option', '', label); option.value = id!; picker.append(option);
+  }
+  picker.value = display.column;
+  picker.onchange = () => { display!.column = picker.value; renderBoard(root, model, baseHost, notes); };
+  tools.append(compact, picker);
+  if (host.onSettings) {
+    const settings = el('button', 'tt-toolbar-button'); settings.type = 'button';
+    settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = host.onSettings; tools.append(settings);
+  }
+  toolbar.append(heading, tools); root.insertBefore(toolbar, root.firstChild);
+  const visibleColumns = display.column ? model.columns.filter((c) => c.id === display!.column) : model.columns;
+  grid.style.setProperty('--tt-columns', String(visibleColumns.length));
+  const hint = el('div', 'tt-scroll-hint', 'Scroll sideways to explore columns, or choose one above.');
+  hint.hidden = !!display.column; root.insertBefore(hint, scrollEl);
+  const filters = config.propertyFilters.length + config.excludedPropertyFilters.length +
+    [config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders].filter((list) => list.length).length;
+  if (filters) heading.append(el('span', 'tt-filter-count', `${filters} filter ${filters === 1 ? 'condition' : 'conditions'}`));
+  if (host.undo) {
+    const undo = el('div', 'tt-undo'); undo.setAttribute('role', 'status');
+    const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.onclick = host.undo.run;
+    undo.append(el('span', '', host.undo.label), action); root.insertBefore(undo, scrollEl);
+  }
+  // Compact mode starts nested lists closed, but users can still expand each summary.
+  const compactExpanded = display.expanded;
+  if (display.compact) {
+    host = { ...baseHost, isCollapsed: (key) => key.startsWith('sub:') ? !compactExpanded.has(key) : baseHost.isCollapsed(key),
+      onToggleRow: (key) => {
+        if (!key.startsWith('sub:')) { baseHost.onToggleRow(key); return; }
+        if (compactExpanded.has(key)) compactExpanded.delete(key); else compactExpanded.add(key);
+        renderBoard(root, model, baseHost, notes);
+      } };
+  }
+  for (const column of visibleColumns) {
     const count = model.rows.reduce((n, r) => n + (model.cells[r.id]?.[column.id]?.length ?? 0), 0);
     const header = el('div', 'tt-col-header');
-    header.append(el('span', 'tt-col-title', column.label), el('span', 'tt-count', String(count)));
+    const glyph = column.id === config.doneColumn ? 'circle-check' : column.id === config.undatedColumn ? 'inbox' : 'circle';
+    header.append(hostIcon(host, glyph), el('span', 'tt-col-title', column.label), el('span', 'tt-count', String(count)));
     if (column.id === config.doneColumn) header.classList.add('tt-col-header--done');
     grid.append(header);
   }
 
   // A No due date column is one cell down the whole board, in place of the No due date row; the
   // row bars run across the other columns, in two pieces when it sits in the middle.
-  const undatedAt = model.columns.findIndex((c) => c.id === config.undatedColumn);
-  const rows = undatedAt < 0 ? model.rows : model.rows.filter((r) => r.id !== 'none');
+  const undatedAt = visibleColumns.findIndex((c) => c.id === config.undatedColumn);
+  const rows = !config.undatedColumn ? model.rows : model.rows.filter((r) => r.id !== 'none');
   const barSpans =
     undatedAt < 0
       ? ['1 / -1']
-      : [undatedAt > 0 ? `1 / ${undatedAt + 1}` : '', undatedAt < model.columns.length - 1 ? `${undatedAt + 2} / -1` : ''].filter(Boolean);
+      : [undatedAt > 0 ? `1 / ${undatedAt + 1}` : '', undatedAt < visibleColumns.length - 1 ? `${undatedAt + 2} / -1` : ''].filter(Boolean);
   if (undatedAt >= 0) {
-    const undated = cell('none', model.columns[undatedAt]!, model, host);
+    const undated = cell('none', visibleColumns[undatedAt]!, model, host);
     undated.classList.add('tt-cell--undated');
     undated.style.gridColumn = String(undatedAt + 1);
-    undated.style.gridRow = `2 / span ${rows.reduce((n, r) => n + (host.isCollapsed(r.id) ? 1 : 2), 0)}`;
+    undated.style.gridRow = visibleColumns.length === 1 ? '2' : `2 / span ${rows.reduce((n, r) => n + (host.isCollapsed(r.id) ? 1 : 2), 0)}`;
     grid.append(undated);
   }
 
-  for (const row of rows) {
+  for (const row of visibleColumns.every((c) => c.id === config.undatedColumn) ? [] : rows) {
     const collapsed = host.isCollapsed(row.id);
     const cells = model.cells[row.id] ?? {};
-    const count = Object.values(cells).reduce((n, c) => n + c.length, 0);
+    const count = visibleColumns.reduce((n, c) => n + (cells[c.id]?.length ?? 0), 0);
 
     const bar = el('div', `tt-row-bar${collapsed ? ' is-collapsed' : ''}`);
     bar.dataset.row = row.id;
+    bar.classList.toggle('tt-row-bar--now', row.kind === 'now');
     bar.style.gridColumn = barSpans[0]!;
     const toggle = el('button', 'tt-row-toggle clickable-icon');
     toggle.setAttribute('aria-expanded', String(!collapsed));
@@ -137,7 +199,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     grid.append(...bars);
     if (collapsed) continue;
 
-    for (const column of model.columns) {
+    for (const column of visibleColumns) {
       if (column.id !== config.undatedColumn) grid.append(cell(row.id, column, model, host));
     }
   }
@@ -297,6 +359,9 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   const c = el('div', 'tt-card');
   c.dataset.id = task.id;
   c.draggable = true;
+  c.tabIndex = 0; c.setAttribute('role', 'group'); c.setAttribute('aria-label', task.text);
+  if (host.highlightIds?.has(task.id)) c.classList.add('tt-card--updated');
+  c.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === c) { e.preventDefault(); host.onEdit(task); } });
   if (task.closed) c.classList.add('is-closed');
   if (isOverdue(task, model.today)) c.classList.add('is-overdue');
 
@@ -305,21 +370,17 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   const subtasks = model.subtasks[task.id] ?? [];
   if (subtasks.length > 0) meta.append(subtaskToggle(task, subtasks, host));
   if (task.closed && task.closedDate) {
-    const verb = task.status === '-' ? 'Cancelled' : 'Done';
-    const end = `${task.status === '-' ? '❌' : '✅'} ${shortLabel(task.closedDate)}`;
-    const span = el('span', 'tt-badge tt-done', task.createdDate ? `${shortLabel(task.createdDate)} → ${end}` : end);
-    span.title = task.createdDate
-      ? `Created ${task.createdDate}, ${verb.toLowerCase()} ${task.closedDate}`
-      : `${verb} ${task.closedDate}`;
+    const span = badge(host, task.status === '-' ? 'circle-minus' : 'circle-check', `${task.status === '-' ? 'Cancelled' : 'Completed'} ${relativeDate(task.closedDate, model.today)}`, 'tt-done');
+    span.title = `Completed ${task.closedDate}${task.createdDate ? ` · Created ${task.createdDate}` : ''}${task.dueDate ? ` · Due ${task.dueDate}` : ''}`;
     meta.append(span);
-  }
-  appendBadges(meta, task, model);
+  } else appendBadges(meta, task, model, host);
   const actions = el('span', 'tt-card-actions');
   if (!task.closed) actions.append(addSubtaskButton(task, c, model, host));
   const move = moveButton(task, model, host);
   if (move) actions.append(move);
   if (actions.childElementCount > 0) meta.append(actions);
   const source = el('a', 'tt-source', host.sourceLabel(task));
+  source.href = '#';
   source.title = `Open ${task.path}, line ${task.line + 1}`;
   source.addEventListener('click', (e) => {
     e.preventDefault();
@@ -329,10 +390,8 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   const sourceIcon = el('span', 'tt-source-icon');
   host.icon(sourceIcon, 'file-text');
   source.prepend(sourceIcon);
-  const sourceLine = el('div', 'tt-card-source');
-  sourceLine.append(source);
-  c.append(main, sourceLine);
-  if (meta.childElementCount > 0) c.append(meta);
+  meta.prepend(source);
+  c.append(main, meta);
   const section = subtaskSection(task, model, host);
   if (section) c.append(section);
   // Selecting text in an open add box would otherwise drag the card.
@@ -366,6 +425,7 @@ function taskMain(task: BoardTask, host: RenderHost): HTMLElement {
   const box = el('input', 'task-list-item-checkbox tt-checkbox');
   box.type = 'checkbox';
   box.checked = task.closed;
+  box.setAttribute('aria-label', `${task.closed ? 'Reopen' : 'Complete'} ${task.text}`);
   box.addEventListener('click', (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -377,17 +437,29 @@ function taskMain(task: BoardTask, host: RenderHost): HTMLElement {
   return main;
 }
 
-function appendBadges(meta: HTMLElement, task: BoardTask, model: BoardModel): void {
+function hostIcon(host: RenderHost, name: string): HTMLElement {
+  const node = el('span', 'tt-icon'); node.setAttribute('aria-hidden', 'true'); host.icon(node, name); return node;
+}
+
+function badge(host: RenderHost, glyph: string, text: string, cls: string): HTMLElement {
+  const node = el('span', `tt-badge ${cls}`); node.append(hostIcon(host, glyph), el('span', '', text)); return node;
+}
+
+function relativeDate(date: string, today: string): string {
+  const days = diffDays(date, today);
+  return days === 0 ? 'today' : days === 1 ? 'tomorrow' : days === -1 ? 'yesterday' : shortLabel(date);
+}
+
+function appendBadges(meta: HTMLElement, task: BoardTask, model: BoardModel, host: RenderHost): void {
   if (task.dueDate) {
     const overdue = isOverdue(task, model.today);
-    const due = el('span', `tt-badge tt-due${overdue ? ' is-overdue' : ''}`, `📅 ${shortLabel(task.dueDate)}`);
-    due.title = overdue ? `Overdue: due ${task.dueDate}` : `Due ${task.dueDate}`;
-    meta.append(due);
+    const days = diffDays(model.today, task.dueDate);
+    const due = badge(host, overdue ? 'calendar-clock' : 'calendar-days', overdue ? `${days} ${days === 1 ? 'day' : 'days'} overdue` : relativeDate(task.dueDate, model.today), `tt-due${overdue ? ' is-overdue' : ''}`);
+    due.title = `Due ${task.dueDate}`; meta.append(due);
   }
   if (task.priority) {
-    const p = el('span', `tt-badge tt-priority tt-priority--${task.priority}`, PRIORITY_EMOJI[task.priority]);
-    p.title = `Priority: ${task.priority}`;
-    meta.append(p);
+    const p = badge(host, 'flag', task.priority, `tt-priority tt-priority--${task.priority}`);
+    p.title = `Priority: ${task.priority}`; meta.append(p);
   }
 }
 
@@ -403,7 +475,7 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   if (!task.closed) main.append(addSubtaskButton(task, row, model, host));
   row.append(main);
   const meta = el('div', 'tt-card-meta');
-  appendBadges(meta, task, model);
+  appendBadges(meta, task, model, host);
   if (meta.childElementCount > 0) row.append(meta);
   const section = subtaskSection(task, model, host);
   if (section) row.append(section);
@@ -457,7 +529,9 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], host: RenderHost)
   const label = `${collapsed ? 'Show' : 'Hide'} subtasks (${done} of ${subtasks.length} done)`;
   b.setAttribute('aria-label', label);
   b.title = label;
-  b.append(chevron(), el('span', '', `${done}/${subtasks.length}`));
+  const progress = el('span', 'tt-progress');
+  const fill = el('span', 'tt-progress-fill'); fill.style.width = `${done / subtasks.length * 100}%`; progress.append(fill); progress.setAttribute('aria-hidden', 'true');
+  b.append(chevron(), el('span', '', `${done} of ${subtasks.length}`), progress);
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     host.onToggleRow(key);
@@ -503,7 +577,8 @@ function moveButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   const columnIndex = (id: string | null) => model.columns.findIndex((c) => c.id === id);
   const b = el('button', 'clickable-icon tt-card-icon tt-card-move');
   b.type = 'button';
-  const label = `Move to ${model.rows[rowIndex(target.rowId)]!.label}`;
+  const destination = model.rows[rowIndex(target.rowId)]!;
+  const label = `${destination.kind === 'now' ? 'Move into Due now' : 'Defer'}${destination.dropDate ? ` · due ${shortLabel(destination.dropDate)}` : ''}`;
   b.setAttribute('aria-label', label);
   b.title = label;
   // Out of the No due date column it's a sideways move.
@@ -547,7 +622,7 @@ function addDropZone(zone: HTMLElement, host: RenderHost, target: (taskId: strin
 /** Moves the single drop indicator above the first card whose midpoint is below the pointer. */
 function showIndicator(cell: HTMLElement, clientY: number): void {
   let indicator = cell.querySelector<HTMLElement>('.tt-drop-indicator');
-  if (!indicator) indicator = el('div', 'tt-drop-indicator');
+  if (!indicator) { indicator = el('div', 'tt-drop-indicator'); indicator.setAttribute('aria-hidden', 'true'); }
   const before = siblingsForDrop(cell).find((c) => {
     const r = c.getBoundingClientRect();
     return clientY < r.top + r.height / 2;

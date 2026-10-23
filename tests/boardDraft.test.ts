@@ -29,6 +29,7 @@ describe('board settings draft', () => {
       'week-horizon': 6,
       'week-start': 'monday',
       'filter-properties': ['context: renovation, house'],
+      'exclude-properties': [],
       'include-tags': [],
       'exclude-tags': [],
       'include-folders': [],
@@ -109,22 +110,22 @@ describe('board settings draft', () => {
     draft.columns.push({ label: '!!!' });
     draft.dueNow = 'seven';
     draft.weekHorizon = '-1';
-    draft.filters.push({ key: '', values: 'x' }, { key: 'a:b', values: '' });
+    draft.filters.push({ key: '', condition: 'matches', values: ['x'] }, { key: 'status', condition: 'matches', values: [] });
     expect(draftToFrontmatter(draft, original).errors).toEqual([
       'Two columns are both named "backlog".',
       'Column "!!!" needs a name with letters or numbers.',
-      'A property filter has values but no property name.',
-      'Property name "a:b" can\'t contain a colon.',
+      'Must include, property 2: Enter a property name or remove this rule.',
+      'Must include, property 3: Add at least one value to match.',
       'Due now window must be a whole number from 0 to 365.',
       'Week rows must be a whole number from 0 to 52.',
     ]);
   });
 
-  it('cleans tags and folders, and drops empty filter rows', () => {
+  it('cleans tags and folders, and preserves existence rules', () => {
     const draft = draftFromConfig(original);
     draft.includeTags = '#house, , project/x/';
     draft.includeFolders = '/Projects/\n\nDaily';
-    draft.filters.push({ key: '  ', values: '' }, { key: 'project', values: '' });
+    draft.filters.push({ key: 'project', condition: 'exists', values: [] });
     draft.doneIndex = -1;
     const fm = draftToFrontmatter(draft, original).frontmatter;
     expect(fm).toMatchObject({

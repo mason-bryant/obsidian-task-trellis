@@ -16,14 +16,17 @@ export function propertyValueStrings(raw: unknown): string[] {
     .filter((v) => v !== '');
 }
 
-/** Every filter must pass (AND); within a filter any value matches (OR, case-insensitive). */
-export function noteMatchesFilters(fm: Frontmatter, filters: PropertyFilter[]): boolean {
-  return filters.every((f) => {
-    if (!fm || !(f.key in fm)) return false;
-    if (f.values.length === 0) return true;
-    const wanted = new Set(f.values.map((v) => v.toLowerCase()));
-    return propertyValueStrings(fm[f.key]).some((v) => wanted.has(v.toLowerCase()));
-  });
+/** A present key counts as existing even when its value is null, empty text, or an empty list. */
+export function matchesProperty(fm: Frontmatter, filter: PropertyFilter): boolean {
+  if (!fm || !(filter.key in fm)) return false;
+  if (filter.values.length === 0) return true;
+  const wanted = new Set(filter.values.map((v) => v.toLowerCase()));
+  return propertyValueStrings(fm[filter.key]).some((v) => wanted.has(v.toLowerCase()));
+}
+
+/** Every inclusion must pass; any matching exclusion rejects the note. */
+export function noteMatchesFilters(fm: Frontmatter, filters: PropertyFilter[], excluded: PropertyFilter[] = []): boolean {
+  return filters.every((f) => matchesProperty(fm, f)) && !excluded.some((f) => matchesProperty(fm, f));
 }
 
 /** `house` matches `#house` and nested tags such as `#house/kitchen`. */
@@ -40,5 +43,11 @@ export function taskMatchesBoard(
   if (config.excludeFolders.some((f) => inFolder(task.path, f))) return false;
   if (config.includeTags.length > 0 && !config.includeTags.some((t) => hasTag(task.tags, t))) return false;
   if (config.excludeTags.some((t) => hasTag(task.tags, t))) return false;
-  return noteMatchesFilters(fm, config.propertyFilters);
+  return noteMatchesFilters(fm, config.propertyFilters, config.excludedPropertyFilters);
+}
+
+/** Exclusion-only keys cannot explain an empty board: missing keys never match an exclusion. */
+export function missingRequiredPropertyKeys(config: BoardConfig, notes: Frontmatter[]): string[] {
+  return [...new Set(config.propertyFilters.map((filter) => filter.key))]
+    .filter((key) => !notes.some((fm) => fm && key in fm));
 }

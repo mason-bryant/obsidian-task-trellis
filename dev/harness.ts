@@ -1,3 +1,4 @@
+import { previewIcon } from './icons.ts';
 // Runs the real board model and renderer against an in-memory vault, for checking the UI in a browser.
 import { applyEdit, buildBoard, planDrop, taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
@@ -39,8 +40,8 @@ const files: Record<string, string[]> = {
   ],
 };
 const frontmatter: Record<string, Record<string, unknown>> = {
-  'Projects/Kitchen.md': { context: ['house'] },
-  'Daily/Today.md': { context: 'house' },
+  'Projects/Kitchen.md': { context: ['house'], status: 'active' },
+  'Daily/Today.md': { context: 'house', status: 'planned' },
 };
 
 let { config, warnings } = parseBoardConfig('House', {
@@ -82,18 +83,12 @@ function write(edits: Map<string, TaskEdit>): void {
   for (const [task, edit] of ordered) files[task.path]!.splice(task.line, 1, ...applyEdit(task.raw, edit, config.slug, toggle));
 }
 
-const GLYPHS: Record<string, string> = { plus: '+', 'arrow-up': '↑', 'arrow-down': '↓', x: '×', 'list-plus': '⊕', 'arrow-left': '←', 'arrow-right': '→' };
-
 let highlighted: string | null = null;
 
 const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
-  // Lucide's file-text, which Obsidian's setIcon draws in the plugin.
-  icon: (el, name) =>
-    name !== 'file-text'
-      ? (el.textContent = GLYPHS[name] ?? name)
-      : (el.innerHTML =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>'),
+  icon: previewIcon,
+  onSettings: () => openSettings(),
   sourceLabel: (task) => task.path.split('/').pop()!.replace(/\.md$/, ''),
   isCollapsed: (rowId) => collapsed[rowId] ?? (rowId === 'later' || rowId.startsWith('more:')),
   onToggleRow: (rowId) => {
@@ -101,13 +96,17 @@ const host: RenderHost = {
     render();
   },
   onDrop: (id, target) => {
+    const before = JSON.stringify(files);
     const edits = planDrop(model(), id, target);
     (window as unknown as { lastDrop: unknown }).lastDrop = { id, target, edits: Object.fromEntries(edits) };
     write(edits);
+    offerUndo(before, 'Task moved');
     render();
   },
   onToggle: (task) => {
+    const before = JSON.stringify(files);
     files[task.path]!.splice(task.line, 1, ...toggle(task.raw));
+    offerUndo(before, task.closed ? 'Task reopened' : 'Task completed');
     render();
   },
   onEdit: (task) => {
@@ -152,6 +151,17 @@ const host: RenderHost = {
   },
 };
 
+function offerUndo(before: string, label: string): void {
+  const after = JSON.stringify(files);
+  host.undo = { label, run: () => {
+    if (JSON.stringify(files) === after) {
+      for (const path of Object.keys(files)) delete files[path];
+      Object.assign(files, JSON.parse(before));
+    }
+    host.undo = undefined; render();
+  } };
+}
+
 function model() {
   return buildBoard(tasks(), config, today, (path) => frontmatter[path]);
 }
@@ -185,12 +195,12 @@ function openSettings(): void {
       return o;
     }),
   );
-  // Mirrors BoardSettingsModal: saves on close, stays open while the draft has errors.
+  // Mirrors the native modal: explicit save, with cancel/escape discarding the draft.
   const original = config;
   const draft = draftFromConfig(original);
   let discard = false;
-  const tryClose = () => {
-    if (!discard) {
+  const tryClose = (save = false) => {
+    if (!discard && save) {
       const r = draftToFrontmatter(draft, original);
       if (r.errors.length > 0) {
         form.showErrors(r.errors);
@@ -206,20 +216,35 @@ function openSettings(): void {
         (window as unknown as { lastSave: unknown }).lastSave = r.frontmatter;
       }
     }
-    saves++;
+    if (save) saves++;
+    form.destroy();
     dialog.close();
     render();
   };
+  const suggest = (input: HTMLInputElement, values: () => string[]) => {
+    const list = document.createElement('datalist'); list.id = `suggest-${++suggestId}`;
+    input.setAttribute('list', list.id);
+    const update = () => list.replaceChildren(...values().map((value) => {
+      const option = document.createElement('option'); option.value = value; return option;
+    }));
+    input.onfocus = update; update(); dialog.append(list);
+    return () => list.remove();
+  };
   const form = renderBoardSettings(body, draft, original, {
-    icon: (el, name) => (el.textContent = GLYPHS[name] ?? name),
-    attachKeySuggest: (input) => input.setAttribute('list', 'property-keys'),
-    attachValueSuggest: () => undefined,
+    icon: previewIcon,
+    attachKeySuggest: (input) => suggest(input, () => [...new Set(Object.values(frontmatter).flatMap(Object.keys))]),
+    attachValueSuggest: (input, key) => suggest(input, () => [...new Set(Object.values(frontmatter).flatMap((fm) => {
+      const value = fm[key()]; return value == null ? [] : (Array.isArray(value) ? value : [value]).map(String);
+    }))]),
+    attachTagSuggest: (input) => suggest(input, () => [...new Set(tasks().flatMap((t) => t.tags))]),
+    attachFolderSuggest: (input) => suggest(input, () => ['Projects', 'Daily']),
     countTagged: (id) => tasks().filter((t) => t.placements[original.slug]?.column === id).length,
     onDiscard: () => {
       discard = true;
       tryClose();
     },
-    onOpenNote: () => tryClose(),
+    onSave: () => tryClose(true),
+    onOpenNote: () => tryClose(true),
   });
   dialog.oncancel = (e) => {
     e.preventDefault();
@@ -228,12 +253,19 @@ function openSettings(): void {
   dialog.onclick = (e) => {
     if (e.target === dialog) tryClose();
   };
-  dialog.querySelector<HTMLButtonElement>('.modal-close-button')!.onclick = tryClose;
+  dialog.querySelector<HTMLButtonElement>('.modal-close-button')!.onclick = () => tryClose();
   dialog.showModal();
 }
 
 let saves = 0;
+let suggestId = 0;
 
 document.getElementById('open-settings')!.addEventListener('click', openSettings);
+document.getElementById('theme')!.addEventListener('change', (event) => {
+  document.documentElement.dataset.theme = (event.target as HTMLSelectElement).value;
+});
+document.getElementById('show-source')!.addEventListener('change', (event) => {
+  document.getElementById('source')!.hidden = !(event.target as HTMLInputElement).checked;
+});
 Object.assign(window, { files, render, model, planDrop, today, openSettings, isDragging, closes: () => saves });
 render();

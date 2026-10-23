@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -71,7 +71,7 @@
         font: 14px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       }
       #board {
-        height: 70vh;
+        height: calc(100vh - 48px);
         border-bottom: 1px solid var(--background-modifier-border);
       }
       #source {
@@ -201,7 +201,12 @@
     <link rel="stylesheet" href="../styles.css" />
   </head>
   <body>
-    <div id="toolbar"><button id="open-settings">⚙ Board settings</button></div>
+    <div id="toolbar" style="display:flex;align-items:center;gap:12px;padding:8px 16px;height:32px">
+      <span style="font-size:12px;color:var(--text-muted)">Task Trellis · Preview</span>
+      <button id="open-settings">Board settings</button>
+      <label style="margin-left:auto">Theme <select id="theme" aria-label="Preview theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+      <label><input type="checkbox" id="show-source" /> Source</label>
+    </div>
     <div id="board" class="task-trellis-view"></div>
     <dialog id="settings" class="tt-settings-modal">
       <button class="modal-close-button clickable-icon" aria-label="Close">×</button>
@@ -209,7 +214,7 @@
       <div class="modal-content"></div>
     </dialog>
     <datalist id="property-keys"></datalist>
-    <div id="source"></div>
+    <div id="source" hidden></div>
     <script src="harness.js"></script>
   </body>
 </html>

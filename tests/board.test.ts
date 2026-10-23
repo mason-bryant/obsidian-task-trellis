@@ -126,6 +126,8 @@ describe('computeRows', () => {
   const rows = computeRows(config(), TODAY);
 
   it('lays out none, now, a partial first week, full weeks and later', () => {
+    expect(rows[2]).toMatchObject({ label: 'Oct 29 – Nov 1', detail: 'Partial week' });
+    expect(rows[3]).toMatchObject({ label: 'Week of Nov 2', detail: '' });
     expect(rows.map((r) => [r.id, r.from, r.to, r.dropDate])).toEqual([
       ['none', undefined, undefined, null],
       ['now', undefined, '2026-10-28', '2026-10-28'],

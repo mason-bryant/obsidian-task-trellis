@@ -19,6 +19,9 @@ type PluginHost = {
   };
 };
 
+type FileChange = { file: TFile; before: string; after: string };
+export type UndoAction = { undo(): Promise<boolean> };
+
 /** Writes task lines back to their notes, through the Tasks plugin when it is available. */
 export class TaskWriter {
   constructor(private app: App) {}
@@ -56,25 +59,30 @@ export class TaskWriter {
     return out;
   }
 
-  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string): Promise<void> {
+  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string): Promise<UndoAction | null> {
     const byPath = new Map<string, BoardTask[]>();
     for (const task of tasks) {
       if (!edits.has(task.id)) continue;
       byPath.set(task.path, [...(byPath.get(task.path) ?? []), task]);
     }
     let missed = 0;
+    const changes: FileChange[] = [];
     for (const [path, fileTasks] of byPath) {
       missed += await this.rewrite(path, fileTasks, (task) =>
-        applyEdit(task.raw, edits.get(task.id)!, slug, (l) => this.toggleLine(l, path)),
+        applyEdit(task.raw, edits.get(task.id)!, slug, (l) => this.toggleLine(l, path)), changes,
       );
     }
     if (missed > 0) new Notice(`Task Trellis: ${missed} task(s) changed since the board loaded and were not updated.`);
+    return this.undoFor(changes);
   }
 
   /** Returns the lines written in place of the task, or null if nothing was written. */
-  async toggle(task: BoardTask): Promise<string[] | null> {
+  async toggle(task: BoardTask, onUndo?: (action: UndoAction) => void): Promise<string[] | null> {
     let written: string[] | null = null;
-    const missed = await this.rewrite(task.path, [task], (t) => (written = this.toggleLine(t.raw, t.path)));
+    const changes: FileChange[] = [];
+    const missed = await this.rewrite(task.path, [task], (t) => (written = this.toggleLine(t.raw, t.path)), changes);
+    const undo = this.undoFor(changes);
+    if (undo) onUndo?.(undo);
     if (missed > 0) new Notice('Task Trellis: that task changed since the board loaded. Try again.');
     return missed > 0 ? null : written;
   }
@@ -148,15 +156,36 @@ export class TaskWriter {
     return matches.find((leaf) => leaf.view.containerEl.win === activeWindow) ?? matches[0] ?? null;
   }
 
+  /** Restores only unchanged written files, so Undo never overwrites subsequent editor or sync changes. */
+  private undoFor(changes: FileChange[]): UndoAction | null {
+    if (!changes.length) return null;
+    let used = false;
+    return { undo: async () => {
+      if (used) return false;
+      used = true;
+      let skipped = 0;
+      for (const change of [...changes].reverse()) {
+        if (this.app.vault.getAbstractFileByPath(change.file.path) !== change.file) { skipped++; continue; }
+        await this.app.vault.process(change.file, (current) => {
+          if (current !== change.after) { skipped++; return current; }
+          return change.before;
+        });
+      }
+      if (skipped) new Notice(`Task Trellis: ${skipped} note(s) changed after this action and were not undone.`);
+      return skipped === 0;
+    } };
+  }
+
   /**
    * Replaces each task's line in one atomic write per file, bottom-up so inserted lines don't shift
    * the rest. A line that moved is followed when that's unambiguous (see `locate`); otherwise it is
    * skipped. Returns how many tasks were skipped.
    */
-  private async rewrite(path: string, tasks: BoardTask[], linesFor: (task: BoardTask) => string[]): Promise<number> {
+  private async rewrite(path: string, tasks: BoardTask[], linesFor: (task: BoardTask) => string[], changes?: FileChange[]): Promise<number> {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) return tasks.length;
     let missed = 0;
+    let change: FileChange | undefined;
     await this.app.vault.process(file, (content) => {
       const eol = content.includes('\r\n') ? '\r\n' : '\n';
       const lines = content.split(/\r?\n/);
@@ -170,8 +199,11 @@ export class TaskWriter {
         }
         lines.splice(at, 1, ...linesFor(task));
       }
-      return lines.join(eol);
+      const after = lines.join(eol);
+      if (after !== content) change = { file, before: content, after };
+      return after;
     });
+    if (change) changes?.push(change);
     return missed;
   }
 }

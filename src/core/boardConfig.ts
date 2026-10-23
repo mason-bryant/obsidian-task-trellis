@@ -25,6 +25,7 @@ export type BoardConfig = {
   /** 0 = Sunday, 1 = Monday. */
   weekStart: number;
   propertyFilters: PropertyFilter[];
+  excludedPropertyFilters: PropertyFilter[];
   includeTags: string[];
   excludeTags: string[];
   includeFolders: string[];
@@ -66,6 +67,7 @@ export const FM = {
   weekHorizon: 'week-horizon',
   weekStart: 'week-start',
   filterProperties: 'filter-properties',
+  excludeProperties: 'exclude-properties',
   includeTags: 'include-tags',
   excludeTags: 'exclude-tags',
   includeFolders: 'include-folders',
@@ -99,6 +101,7 @@ export function newBoardFrontmatter(slug: string): Record<string, unknown> {
     [FM.weekHorizon]: 6,
     [FM.weekStart]: 'monday',
     [FM.filterProperties]: [],
+    [FM.excludeProperties]: [],
     [FM.includeTags]: [],
     [FM.excludeTags]: [],
     [FM.includeFolders]: [],
@@ -166,6 +169,7 @@ export function parseBoardConfig(
       weekHorizon: intSetting(f[FM.weekHorizon], 6, 0, 52),
       weekStart: weekStartSetting(f[FM.weekStart], warnings),
       propertyFilters: propertyFilters(f[FM.filterProperties]),
+      excludedPropertyFilters: propertyFilters(f[FM.excludeProperties]),
       includeTags: stringList(f[FM.includeTags]).map(normalizeTag).filter(Boolean),
       excludeTags: stringList(f[FM.excludeTags]).map(normalizeTag).filter(Boolean),
       includeFolders: stringList(f[FM.includeFolders]).map(normalizeFolder).filter(Boolean),
