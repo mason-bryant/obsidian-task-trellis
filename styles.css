@@ -1,0 +1,556 @@
+/* Task Trellis — colours and sizes come from Obsidian theme variables. */
+
+.task-trellis-view {
+  padding: 0 !important;
+}
+
+.tt-board {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.tt-note {
+  margin: var(--size-4-2) var(--size-4-3) 0;
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.tt-note--warning {
+  background: rgba(var(--color-yellow-rgb), 0.15);
+  color: var(--text-normal);
+}
+
+.tt-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tt-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--tt-columns), minmax(240px, 1fr));
+  gap: 0 var(--size-4-2);
+  padding: 0 var(--size-4-3) var(--size-4-6);
+  min-width: min-content;
+}
+
+.tt-col-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-3) var(--size-4-1) var(--size-4-2);
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-medium);
+}
+
+.tt-col-header--done .tt-col-title {
+  color: var(--text-muted);
+}
+
+.tt-count {
+  min-width: 1.5em;
+  padding: 0 var(--size-4-1);
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-normal);
+  text-align: center;
+}
+
+.tt-row-bar {
+  grid-column: 1 / -1;
+  margin-top: var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tt-row-sticky {
+  position: sticky;
+  left: var(--size-4-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tt-row-toggle {
+  display: inline-flex;
+  padding: 2px;
+  color: var(--text-muted);
+  background: none;
+  box-shadow: none;
+}
+
+.tt-chevron {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 120ms ease;
+}
+
+.tt-row-bar.is-collapsed .tt-chevron {
+  transform: rotate(-90deg);
+}
+
+.tt-row-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+}
+
+.tt-row-title {
+  font-weight: var(--font-semibold);
+}
+
+.tt-row-detail {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.tt-row-bar.is-collapsed.is-drop-target {
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-s);
+}
+
+.tt-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  min-height: 48px;
+  padding: var(--size-4-2) var(--size-4-1);
+  border-radius: var(--radius-m);
+  transition: background-color 100ms ease;
+}
+
+.tt-cell.is-drop-target {
+  background: var(--background-secondary);
+}
+
+/* Spans every row; size containment keeps a long list from stretching the rows beside it. */
+.tt-cell--undated {
+  contain: size;
+  margin-top: var(--size-4-3);
+  background: var(--background-secondary);
+}
+
+.tt-cell--undated.is-drop-target {
+  background: var(--background-modifier-hover);
+}
+
+.tt-cell--undated > .tt-add {
+  margin-top: 0;
+}
+
+.tt-card {
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+  cursor: grab;
+}
+
+.tt-card:hover {
+  border-color: var(--background-modifier-border-hover);
+}
+
+.tt-card.is-overdue {
+  border-color: var(--color-red);
+  box-shadow: 0 0 0 1px var(--color-red);
+}
+
+.tt-card.is-dragging {
+  opacity: 0.4;
+}
+
+.tt-card.is-closed > .tt-card-main .tt-card-text,
+.tt-subtask.is-closed > .tt-card-main .tt-card-text {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.tt-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+}
+
+.tt-checkbox {
+  flex: none;
+  margin-top: 3px;
+  cursor: pointer;
+}
+
+.tt-card-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: var(--line-height-tight);
+}
+
+.tt-card-text > p {
+  margin: 0;
+}
+
+.tt-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1) var(--size-4-2);
+  margin-top: var(--size-4-1);
+  padding-left: calc(var(--checkbox-size, 15px) + var(--size-4-2));
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+/* The note the task lives in, on its own line under the text. */
+.tt-card-source {
+  margin-top: var(--size-4-1);
+  padding-left: calc(var(--checkbox-size, 15px) + var(--size-4-2));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-ui-smaller);
+}
+
+.tt-badge {
+  white-space: nowrap;
+}
+
+.tt-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.tt-card-icon {
+  flex: none;
+  padding: 2px;
+  color: var(--text-faint);
+}
+
+.tt-card-icon:hover {
+  color: var(--text-normal);
+}
+
+.tt-card-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tt-subtask-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: auto;
+  padding: 0 2px;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+
+.tt-subtask-toggle:hover {
+  color: var(--text-normal);
+}
+
+.tt-subtask-toggle .tt-chevron {
+  width: 12px;
+  height: 12px;
+}
+
+.tt-subtask-toggle.is-collapsed .tt-chevron {
+  transform: rotate(-90deg);
+}
+
+/* The guide line sits under the parent's checkbox, like Obsidian's own nested lists. */
+.tt-subtasks {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: var(--size-4-1);
+  margin-left: calc(var(--checkbox-size, 15px) / 2);
+  padding-left: calc(var(--checkbox-size, 15px) / 2);
+  border-left: 1px solid var(--indentation-guide-color, var(--background-modifier-border));
+}
+
+.tt-subtask {
+  padding: 2px var(--size-4-1);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+
+.tt-subtask:hover {
+  background: var(--background-modifier-hover);
+}
+
+.tt-subtask > .tt-card-meta {
+  margin-top: 2px;
+}
+
+/* One per row would crowd a long list; it shows on the row being pointed at. */
+.tt-subtask .tt-add-subtask {
+  opacity: 0;
+}
+
+.tt-subtask:hover > .tt-card-main > .tt-add-subtask,
+.tt-subtask .tt-add-subtask:focus-visible {
+  opacity: 1;
+}
+
+.tt-subtasks > .tt-add-box {
+  padding: 2px 0;
+}
+
+.tt-due.is-overdue {
+  color: var(--color-red);
+  font-weight: var(--font-semibold);
+}
+
+.tt-source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  max-width: 100%;
+  color: var(--text-faint);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tt-source-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.tt-source-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tt-source:hover {
+  color: var(--text-accent);
+}
+
+.tt-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  align-self: flex-start;
+  padding: 2px var(--size-4-1);
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+}
+
+.tt-more:hover {
+  color: var(--text-normal);
+}
+
+.tt-more.is-collapsed .tt-chevron {
+  transform: rotate(-90deg);
+}
+
+.tt-add {
+  margin-top: auto;
+}
+
+.tt-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: 2px var(--size-4-1);
+  background: none;
+  box-shadow: none;
+  color: var(--text-faint);
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 100ms ease;
+}
+
+/* Always findable, but faint until the cell is hovered so it doesn't compete with cards. */
+.tt-cell:hover .tt-add-button,
+.tt-add-button:focus-visible {
+  opacity: 1;
+}
+
+.tt-add-button:hover {
+  color: var(--text-normal);
+}
+
+.tt-add-icon {
+  display: inline-flex;
+}
+
+.tt-add-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tt-add-input {
+  width: 100%;
+  resize: vertical;
+  font-size: var(--font-ui-small);
+}
+
+.tt-add-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-1);
+}
+
+.tt-add-cancel {
+  margin-left: auto;
+}
+
+.tt-drop-indicator {
+  height: 3px;
+  margin: -3px 0;
+  border-radius: 2px;
+  background: var(--interactive-accent);
+}
+
+/* Board settings modal */
+
+.tt-settings-modal {
+  width: min(640px, 92vw);
+}
+
+.tt-settings .setting-item-heading {
+  padding-top: var(--size-4-4);
+}
+
+.tt-settings-columns,
+.tt-settings-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) 0;
+}
+
+.tt-settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.tt-settings-row input[type='text'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.tt-settings-filter-key {
+  flex: 0 1 35% !important;
+}
+
+.tt-settings-hint {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+
+.tt-settings-columns > .tt-settings-hint {
+  white-space: normal;
+}
+
+.tt-settings-badge {
+  padding: 0 var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.tt-settings-icon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.tt-settings-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-2);
+}
+
+.tt-settings-add-icon {
+  display: inline-flex;
+}
+
+.tt-settings-add-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tt-settings-number {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.tt-settings-number input {
+  width: 5em;
+}
+
+.tt-settings-unit {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.tt-settings textarea {
+  min-width: 14em;
+}
+
+.tt-settings-errors {
+  margin-top: var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-s);
+  background: rgba(var(--color-red-rgb), 0.12);
+  color: var(--text-error);
+  font-size: var(--font-ui-small);
+}
+
+.tt-settings-footer {
+  margin-top: var(--size-4-4);
+}
+
+.tt-settings-footer {
+  align-items: center;
+}
+
+.tt-settings-autosave {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.tt-settings-errors-title {
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-4-1);
+}
+
+.tt-settings-errors button {
+  margin-top: var(--size-4-2);
+}

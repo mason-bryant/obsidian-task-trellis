@@ -1,0 +1,30 @@
+{
+  "name": "obsidian-task-trellis",
+  "version": "0.1.0",
+  "description": "Obsidian plugin: vault tasks on a kanban board, with workflow columns across and due-date rows down.",
+  "main": "main.js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit && node esbuild.config.mjs production",
+    "harness": "node esbuild.config.mjs harness",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "monkey-around": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.13.1",
+    "tslib": "^2.6.3",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
