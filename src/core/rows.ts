@@ -50,8 +50,8 @@ export function computeRows(config: BoardConfig, today: ISODate): RowDef[] {
     rows.push({
       id: `week-${start}`,
       kind: 'week',
-      label: `Week of ${shortLabel(start)}`,
-      detail: from === start ? '' : `from ${shortLabel(from)}`,
+      label: from === start ? `Week of ${shortLabel(start)}` : `${shortLabel(from)} – ${shortLabel(to)}`,
+      detail: from === start ? '' : 'Partial week',
       from,
       to,
       dropDate: from,

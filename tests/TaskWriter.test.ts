@@ -11,9 +11,10 @@ type TasksApi = {
 };
 
 function fakeApp(files: Record<string, string>, tasksApi?: TasksApi) {
+  const entries = new Map(Object.keys(files).map((path) => [path, new TFile(path)]));
   const app = {
     vault: {
-      getAbstractFileByPath: (path: string) => (path in files ? new TFile(path) : null),
+      getAbstractFileByPath: (path: string) => (path in files ? entries.get(path) ?? null : null),
       process: async (file: TFile, fn: (content: string) => string) => {
         files[file.path] = fn(files[file.path]!);
         return files[file.path];
@@ -207,5 +208,51 @@ describe('TaskWriter.openSource', () => {
     await new TaskWriter(app).openSource(task('b.md', 1, '- [ ] x'));
     await new TaskWriter(app).openSource(task('a.md', 2, '- [ ] x'), true);
     expect(calls).toEqual(['new b.md:1', 'new a.md:2']);
+  });
+});
+
+describe('Undo', () => {
+  it('restores all files involved in a reorder and only runs once', async () => {
+    const files = { 'a.md': '- [ ] one\n', 'b.md': '- [ ] two\n' };
+    const before = { ...files };
+    const a = task('a.md', 0, '- [ ] one'), b = task('b.md', 0, '- [ ] two');
+    const action = await new TaskWriter(fakeApp(files)).applyEdits([a, b], new Map([[a.id, { column: 'doing', sort: 100 }], [b.id, { column: 'doing', sort: 200 }]]), 'house');
+    expect(files).not.toEqual(before);
+    expect(await action!.undo()).toBe(true);
+    expect(files).toEqual(before);
+    expect(await action!.undo()).toBe(false);
+  });
+
+  it('does not overwrite edits made after the action', async () => {
+    const files = { 'a.md': '- [ ] one\n' };
+    const t = task('a.md', 0, '- [ ] one');
+    const action = await new TaskWriter(fakeApp(files)).applyEdits([t], new Map([[t.id, { column: 'doing' }]]), 'house');
+    files['a.md'] += 'A later edit\n';
+    const edited = files['a.md'];
+    expect(await action!.undo()).toBe(false);
+    expect(files['a.md']).toBe(edited);
+    expect(notices.at(-1)).toContain('were not undone');
+  });
+
+  it('does not write through a stale file reference after a note is replaced', async () => {
+    const files = { 'a.md': '- [ ] one\n' };
+    const app = fakeApp(files);
+    const t = task('a.md', 0, '- [ ] one');
+    const action = await new TaskWriter(app).applyEdits([t], new Map([[t.id, { column: 'doing' }]]), 'house');
+    const after = files['a.md'];
+    Object.assign(app.vault, { getAbstractFileByPath: () => new TFile('a.md') });
+    expect(await action!.undo()).toBe(false);
+    expect(files['a.md']).toBe(after);
+  });
+
+  it('undoes completion including the generated recurring occurrence', async () => {
+    const raw = '- [ ] water 🔁 every week 📅 2026-10-23';
+    const files = { 'a.md': raw + '\n' };
+    const api: TasksApi = { editTaskLineModal: async () => '', executeToggleTaskDoneCommand: (line) => [line.replace('2026-10-23', '2026-10-30'), line.replace('[ ]', '[x]')].join('\n') };
+    let undo: import('../src/obsidian/TaskWriter.ts').UndoAction | undefined;
+    await new TaskWriter(fakeApp(files, api)).toggle(task('a.md', 0, raw), (action) => { undo = action; });
+    expect(files['a.md']).toContain('2026-10-30');
+    await undo!.undo();
+    expect(files['a.md']).toBe(raw + '\n');
   });
 });

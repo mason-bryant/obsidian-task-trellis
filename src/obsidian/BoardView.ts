@@ -1,10 +1,12 @@
 import { Component, FileView, MarkdownRenderer, Notice, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, type BoardModel, type BoardTask, type DropTarget } from '../core/board.ts';
+import { missingRequiredPropertyKeys } from '../core/filters.ts';
 import { todayISO } from '../core/dates.ts';
 import { parseTaskLine } from '../core/taskLine.ts';
 import { isDragging, renderBoard, type RenderHost } from '../ui/renderBoard.ts';
 import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
+import type { UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 
 export const VIEW_TYPE_BOARD = 'task-trellis-board';
@@ -24,6 +26,9 @@ export class BoardView extends FileView {
   private renderedVersion = -1;
   /** Owns the markdown rendered into cards; replaced on every redraw. */
   private textScope: Component | null = null;
+  private undoAction: { label: string; action: UndoAction } | null = null;
+  private highlightIds = new Set<string>();
+  private highlightUntil = 0;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -90,6 +95,8 @@ export class BoardView extends FileView {
     this.contentEl.empty();
     this.board = null;
     this.model = null;
+    this.undoAction = null;
+    this.pending.clear();
   }
 
   async onRename(): Promise<void> {
@@ -123,7 +130,7 @@ export class BoardView extends FileView {
       info.push('The Tasks plugin is not enabled: clicking a card opens its source line instead of the Tasks editor.');
     }
     if (this.model.total === 0) {
-      info.push('No tasks match this board yet. Open Board settings (gear icon) to change its filters.');
+      info.push('No tasks match this board yet. Open Settings to change its filters.');
       const missing = this.missingFilterKeys();
       if (missing.length > 0) {
         this.board.warnings.push(`No note has a property named ${missing.map((k) => `"${k}"`).join(', ')}, so filter-properties matches nothing.`);
@@ -134,13 +141,8 @@ export class BoardView extends FileView {
 
   /** Filter keys no note in the vault has; only checked when the board is empty. */
   private missingFilterKeys(): string[] {
-    const keys = new Set(this.board?.config.propertyFilters.map((f) => f.key) ?? []);
-    for (const file of this.app.vault.getMarkdownFiles()) {
-      if (keys.size === 0) break;
-      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      if (fm) for (const key of Object.keys(fm)) keys.delete(key);
-    }
-    return [...keys];
+    return this.board ? missingRequiredPropertyKeys(this.board.config, this.app.vault.getMarkdownFiles()
+      .map((file) => this.app.metadataCache.getFileCache(file)?.frontmatter)) : [];
   }
 
   private withPending(task: BoardTask): BoardTask {
@@ -151,6 +153,9 @@ export class BoardView extends FileView {
 
   private host(): RenderHost {
     return {
+      onSettings: () => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config).open(); },
+      highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
+      undo: this.undoAction ? { label: this.undoAction.label, run: () => void this.undo() } : undefined,
       renderText: (el, task) => {
         void MarkdownRenderer.render(this.app, task.text, el, task.path, this.textScope ?? this).then(() => {
           // A rendered task text is one paragraph; unwrap it so it sits beside the checkbox.
@@ -178,7 +183,10 @@ export class BoardView extends FileView {
         this.render();
       },
       onDrop: (taskId, target) => void this.drop(taskId, target),
-      onToggle: (task) => void this.plugin.writer.toggle(task).then((lines) => this.showWritten(task, lines)),
+      onToggle: (task) => void this.plugin.writer.toggle(task, (action) => {
+        this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action };
+        this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
+      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); new Notice('Task Trellis: could not update the task.'); }),
       onEdit: (task) => void this.plugin.writer.editInModal(task).then((lines) => this.showWritten(task, lines)),
       onOpenSource: (task, newTab) => void this.plugin.writer.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
@@ -194,6 +202,21 @@ export class BoardView extends FileView {
     const raw = lines?.[0];
     if (raw === undefined || raw === task.raw) return;
     this.pending.set(task.id, { raw, from: task.raw });
+    this.render();
+  }
+
+  private async undo(): Promise<void> {
+    const entry = this.undoAction;
+    if (!entry) return;
+    this.undoAction = null;
+    try {
+      await entry.action.undo();
+      this.pending.clear();
+      await this.plugin.index.rebuild();
+    } catch (error) {
+      console.error('[Task Trellis] undo failed', error);
+      new Notice('Task Trellis: could not undo the action.');
+    }
     this.render();
   }
 
@@ -214,7 +237,13 @@ export class BoardView extends FileView {
     }
     this.render();
     try {
-      await this.plugin.writer.applyEdits(tasks, edits, slug);
+      const action = await this.plugin.writer.applyEdits(tasks, edits, slug);
+      if (action) {
+        this.undoAction = { label: 'Task moved', action };
+        this.highlightIds = new Set([taskId]); this.highlightUntil = Date.now() + 1000;
+      }
+      if (!action) for (const id of edits.keys()) this.pending.delete(id);
+      this.render();
     } catch (err) {
       console.error('[Task Trellis] write failed', err);
       new Notice('Task Trellis: could not update the task. See the console for details.');

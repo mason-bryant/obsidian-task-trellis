@@ -1,6 +1,7 @@
 // Just enough of the Obsidian API for the adapter tests.
 export class TFile {
   constructor(public path: string) {}
+  get basename(): string { return this.path.split('/').pop()!.replace(/\.md$/, ''); }
   get extension(): string {
     return this.path.split('.').pop() ?? '';
   }
@@ -24,3 +25,8 @@ export class Events {
     for (const cb of this.handlers.get(name) ?? []) cb(...args);
   }
 }
+
+export class TFolder { constructor(public path: string) {} }
+export class Modal {}
+export class Setting {}
+export const normalizePath = (path: string) => path.replace(/\\/g, '/').replace(/\/+/g, '/');

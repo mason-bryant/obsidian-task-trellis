@@ -3,7 +3,7 @@ import { slugify } from './taskLine.ts';
 
 /** A column being edited; `originalId` ties it to the column it was, so a rename can retag its tasks. */
 export type DraftColumn = { label: string; originalId?: string };
-export type DraftFilter = { key: string; values: string };
+export type DraftFilter = { key: string; condition: 'exists' | 'matches'; values: string[] };
 
 /** The board settings form's state: what the user typed, before validation. */
 export type BoardDraft = {
@@ -22,6 +22,7 @@ export type BoardDraft = {
   weekStart: number;
   showCompletedDays: string;
   filters: DraftFilter[];
+  excludedFilters: DraftFilter[];
   includeTags: string;
   excludeTags: string;
   includeFolders: string;
@@ -56,7 +57,8 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     weekHorizon: String(config.weekHorizon),
     weekStart: config.weekStart,
     showCompletedDays: String(config.showCompletedDays),
-    filters: config.propertyFilters.map((f) => ({ key: f.key, values: f.values.join(', ') })),
+    filters: config.propertyFilters.map(filterDraft),
+    excludedFilters: config.excludedPropertyFilters.map(filterDraft),
     includeTags: config.includeTags.join(', '),
     excludeTags: config.excludeTags.join(', '),
     includeFolders: config.includeFolders.join('\n'),
@@ -85,17 +87,20 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
   const kept = new Set(columns.flatMap((c) => (c.originalId ? [c.originalId] : [])));
   const removed = original.columns.map((c) => c.id).filter((id) => !kept.has(id));
 
-  const filters: string[] = [];
-  for (const f of draft.filters) {
+  const serialize = (rules: DraftFilter[], group: string) => rules.flatMap((f, i) => {
+    const error = filterError(f);
+    if (error) errors.push(`${group}, property ${i + 1}: ${error}`);
     const key = f.key.trim();
-    const values = splitList(f.values, ',');
-    if (!key) {
-      if (values.length > 0) errors.push('A property filter has values but no property name.');
-      continue;
+    if (!key) return [];
+    const values = f.condition === 'exists' ? [] : f.values.map((v) => v.trim()).filter(Boolean);
+    // Mapping entries preserve repeated keys and literal commas/quotes without inventing a new syntax.
+    if (key.includes(':') || /["']/.test(key) || values.some((v) => /[,"']/.test(v))) {
+      return [{ [key]: values }] as Array<string | Record<string, string[]>>;
     }
-    if (key.includes(':')) errors.push(`Property name "${key}" can't contain a colon.`);
-    filters.push(values.length > 0 ? `${key}: ${values.join(', ')}` : key);
-  }
+    return [values.length ? `${key}: ${values.join(', ')}` : key];
+  });
+  const filters = serialize(draft.filters, 'Must include');
+  const excluded = serialize(draft.excludedFilters, 'Must not include');
 
   if (draft.newTasks === 'note' && !draft.newTasksNote.trim()) errors.push('Choose the note new tasks go to.');
 
@@ -119,6 +124,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.weekHorizon]: intField('Week rows', draft.weekHorizon, 0, 52, errors),
     [FM.weekStart]: (WEEKDAY_NAMES[draft.weekStart] ?? 'Monday').toLowerCase(),
     [FM.filterProperties]: filters,
+    [FM.excludeProperties]: excluded,
     [FM.includeTags]: splitList(draft.includeTags, ',').map(cleanTag).filter(Boolean),
     [FM.excludeTags]: splitList(draft.excludeTags, ',').map(cleanTag).filter(Boolean),
     [FM.includeFolders]: splitList(draft.includeFolders, '\n').map(cleanFolder).filter(Boolean),
@@ -166,4 +172,21 @@ function cleanTag(tag: string): string {
 
 function cleanFolder(folder: string): string {
   return folder.replace(/^\/+|\/+$/g, '');
+}
+
+function filterDraft(f: { key: string; values: string[] }): DraftFilter {
+  return { key: f.key, condition: f.values.length ? 'matches' : 'exists', values: [...f.values] };
+}
+
+export function filterError(rule: DraftFilter): string | null {
+  if (!rule.key.trim()) return 'Enter a property name or remove this rule.';
+  if (rule.condition === 'matches' && !rule.values.some((v) => v.trim())) return 'Add at least one value to match.';
+  return null;
+}
+
+/** Conflicts are warnings; repeated and partially overlapping rules remain valid. */
+export function filterWarnings(draft: BoardDraft): string[] {
+  const excludesExistence = new Set(draft.excludedFilters.filter((f) => f.condition === 'exists').map((f) => f.key.trim()));
+  return [...new Set(draft.filters.map((f) => f.key.trim()).filter((key) => key && excludesExistence.has(key)))]
+    .map((key) => `“${key}” is required and its existence is excluded. No note can satisfy both rules.`);
 }
