@@ -1,0 +1,100 @@
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { defaultLabels, type BoardLabel } from '../src/core/labels.ts';
+import { renderLabelPicker, type LabelPickerHost } from '../src/ui/renderLabelPicker.ts';
+
+let root: HTMLElement;
+let host: LabelPickerHost;
+let labels: BoardLabel[];
+const flush = async () => { await new Promise((resolve) => setTimeout(resolve, 0)); };
+const check = (id: string) => root.querySelector<HTMLInputElement>(`[data-label-id="${id}"]`)!;
+const input = (el: HTMLInputElement, value: string) => { el.value = value; el.dispatchEvent(new Event('input')); };
+const edit = () => root.querySelector<HTMLButtonElement>('.tt-label-edit')!.click();
+const submit = () => root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+
+beforeEach(() => {
+  root = document.createElement('div'); document.body.replaceChildren(root);
+  labels = defaultLabels();
+  host = {
+    icon: () => undefined,
+    saveSelection: vi.fn(async () => undefined),
+    saveLabel: vi.fn(async (label) => {
+      labels = labels.some((l) => l.id === label.id) ? labels.map((l) => l.id === label.id ? label : l) : [...labels, label];
+      return labels;
+    }),
+  };
+  renderLabelPicker(root, labels, [], host);
+});
+
+describe('label picker', () => {
+  it('saves multiple checked labels and unchecked labels without closing the picker', async () => {
+    check('red').click(); await flush();
+    check('blue').click(); await flush();
+    check('red').click(); await flush();
+    expect(host.saveSelection).toHaveBeenNthCalledWith(1, ['red']);
+    expect(host.saveSelection).toHaveBeenNthCalledWith(2, ['red', 'blue']);
+    expect(host.saveSelection).toHaveBeenNthCalledWith(3, ['blue']);
+    expect(check('blue').checked).toBe(true);
+  });
+
+  it('searches unnamed colors and names while preserving selections', async () => {
+    labels[0]!.name = 'Financial planning';
+    renderLabelPicker(root, labels, ['red'], host);
+    const search = root.querySelector<HTMLInputElement>('.tt-label-search')!;
+    input(search, 'financial');
+    expect(root.querySelectorAll('.tt-label-row')).toHaveLength(1);
+    check('green').click(); await flush();
+    input(search, 'red'); expect(check('red').checked).toBe(true);
+    input(search, 'missing'); expect(root.textContent).toContain('No matching labels.');
+    expect(host.saveSelection).toHaveBeenCalledWith(['red', 'green']);
+  });
+
+  it('edits a shared definition using its stable id and validates custom colors', async () => {
+    edit();
+    const [name, hex] = [...root.querySelectorAll<HTMLInputElement>('input')];
+    input(name!, 'Financial planning'); input(hex!, 'invalid'); submit(); await flush();
+    expect(host.saveLabel).not.toHaveBeenCalled();
+    input(hex!, '#FC0'); submit(); await flush();
+    expect(host.saveLabel).toHaveBeenCalledWith({ id: 'green', name: 'Financial planning', color: '#ffcc00' });
+    expect(root.querySelector('.tt-label-swatch')!.textContent).toBe('Financial planning');
+    expect(document.activeElement).toBe(check('green'));
+  });
+
+  it('cancels edits without changing definitions and can create an unnamed label', async () => {
+    edit(); input(root.querySelector<HTMLInputElement>('input')!, 'Discard');
+    root.querySelector<HTMLButtonElement>('.tt-label-editor-actions button')!.click();
+    expect(host.saveLabel).not.toHaveBeenCalled();
+    root.querySelector<HTMLButtonElement>('.tt-label-create')!.click();
+    root.querySelector<HTMLButtonElement>('[aria-label="Red"]')!.click(); submit(); await flush();
+    expect(labels).toHaveLength(7);
+    expect(labels[6]).toMatchObject({ name: '', color: '#ae2e24' });
+    expect(labels[6]!.id).toMatch(/^label-/);
+    expect(root.querySelectorAll('.tt-label-row')).toHaveLength(7);
+  });
+
+  it('rolls back a failed checkbox save and allows retry', async () => {
+    vi.mocked(host.saveSelection).mockRejectedValueOnce(new Error('Task changed.'));
+    check('red').click(); await flush();
+    expect(check('red').checked).toBe(false);
+    expect(root.querySelector('[role="alert"]')!.textContent).toBe('Task changed.');
+    check('red').click(); await flush();
+    expect(check('red').checked).toBe(true);
+  });
+
+  it('keeps an unsaved label draft after a failed definition write', async () => {
+    vi.mocked(host.saveLabel).mockRejectedValueOnce(new Error('Save failed.'));
+    edit(); input(root.querySelector<HTMLInputElement>('input')!, 'Urgent'); submit(); await flush();
+    expect(root.querySelector<HTMLInputElement>('input')!.value).toBe('Urgent');
+    expect(root.querySelector('[role="alert"]')!.textContent).toBe('Save failed.');
+    submit(); await flush(); expect(labels[0]!.name).toBe('Urgent');
+  });
+
+  it('disables inputs during a write to prevent overlapping stale selections', async () => {
+    let finish!: () => void;
+    vi.mocked(host.saveSelection).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    check('red').click(); check('blue').click();
+    expect(host.saveSelection).toHaveBeenCalledTimes(1);
+    expect(check('blue').disabled).toBe(true);
+    finish(); await flush(); expect(check('blue').disabled).toBe(false);
+  });
+});

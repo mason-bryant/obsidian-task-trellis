@@ -1,3 +1,4 @@
+import { defaultLabels, parseLabels, type BoardLabel } from './labels.ts';
 import { slugify } from './taskLine.ts';
 
 export type BoardColumn = { id: string; label: string };
@@ -9,6 +10,7 @@ export type BoardConfig = {
   name: string;
   slug: string;
   columns: BoardColumn[];
+  labels: BoardLabel[];
   doneColumn: string | null;
   /** Show at most `doneLimit` cards per Done cell, the rest behind a "more" toggle. */
   limitDone: boolean;
@@ -55,6 +57,7 @@ export type DueNowUnit = 'days' | 'weeks';
 /** Board note front matter keys. */
 export const FM = {
   slug: 'slug',
+  labels: 'labels',
   columns: 'columns',
   doneColumn: 'done-column',
   limitDone: 'limit-done',
@@ -89,6 +92,7 @@ const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 export function newBoardFrontmatter(slug: string): Record<string, unknown> {
   return {
     [FM.slug]: slug,
+    [FM.labels]: defaultLabels(),
     [FM.columns]: [...DEFAULT_COLUMNS],
     [FM.doneColumn]: 'Done',
     [FM.limitDone]: true,
@@ -159,6 +163,7 @@ export function parseBoardConfig(
       name,
       slug,
       columns,
+      labels: parseLabels(f[FM.labels], warnings),
       doneColumn,
       limitDone: boolSetting(f[FM.limitDone], true),
       doneLimit: intSetting(f[FM.doneLimit], 5, 1, 100),

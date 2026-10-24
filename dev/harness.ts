@@ -1,3 +1,5 @@
+import { setTaskLabels, taskLabels } from '../src/core/labels.ts';
+import { renderLabelPicker } from '../src/ui/renderLabelPicker.ts';
 import { setSubtaskCollapse } from '../src/core/collapse.ts';
 import { previewIcon } from './icons.ts';
 // Runs the real board model and renderer against an in-memory vault, for checking the UI in a browser.
@@ -99,6 +101,30 @@ const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
   icon: previewIcon,
   onSettings: () => openSettings(),
+  onLabels: (task) => {
+    const dialog = document.createElement('dialog'); dialog.className = 'tt-label-modal';
+    const title = document.createElement('h2'); title.textContent = 'Labels';
+    const close = document.createElement('button'); close.textContent = 'Close'; close.className = 'tt-label-close';
+    close.onclick = () => dialog.close();
+    const body = document.createElement('div');
+    dialog.append(title, close, body); document.body.append(dialog);
+    dialog.onclose = () => { dialog.remove(); document.querySelector<HTMLButtonElement>(`[data-board-focus="labels:${task.id}"]`)?.focus(); };
+    dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
+    renderLabelPicker(body, config.labels, taskLabels(task.raw, config.slug), {
+      icon: previewIcon,
+      saveSelection: async (ids) => {
+        const before = JSON.stringify(files);
+        files[task.path]![task.line] = setTaskLabels(files[task.path]![task.line]!, config.slug, ids);
+        offerUndo(before, 'Task labels updated'); render();
+      },
+      saveLabel: async (label) => {
+        config.labels = config.labels.some((l) => l.id === label.id)
+          ? config.labels.map((l) => l.id === label.id ? label : l) : [...config.labels, label];
+        render(); return config.labels;
+      },
+    });
+    dialog.showModal();
+  },
   sourceLabel: (task) => task.path.split('/').pop()!.replace(/\.md$/, ''),
   isCollapsed: (rowId) => collapsed[rowId] ?? (rowId === 'later' || rowId.startsWith('more:')),
   onToggleRow: (rowId) => {
@@ -252,7 +278,7 @@ function openSettings(): void {
           const to = p && r.renames.get(p.column);
           if (p && to) files[t.path]![t.line] = setPlacement(t.raw, original.slug, to, p.sort);
         }
-        ({ config, warnings } = parseBoardConfig('House', { slug: original.slug, ...r.frontmatter }));
+        ({ config, warnings } = parseBoardConfig('House', { slug: original.slug, labels: config.labels, ...r.frontmatter }));
         (window as unknown as { lastSave: unknown }).lastSave = r.frontmatter;
       }
     }

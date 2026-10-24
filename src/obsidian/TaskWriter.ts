@@ -1,3 +1,4 @@
+import { setTaskLabels } from '../core/labels.ts';
 import { Notice, TFile, type App, type WorkspaceLeaf } from 'obsidian';
 import { applyEdit, type BoardTask, type TaskEdit } from '../core/board.ts';
 import { todayISO } from '../core/dates.ts';
@@ -85,6 +86,19 @@ export class TaskWriter {
     if (undo) onUndo?.(undo);
     if (missed > 0) new Notice('Task Trellis: that task changed since the board loaded. Try again.');
     return missed > 0 ? null : written;
+  }
+
+  async setLabels(task: BoardTask, slug: string, ids: string[], onUndo: (action: UndoAction) => void): Promise<BoardTask> {
+    const raw = setTaskLabels(task.raw, slug, ids);
+    const changes: FileChange[] = [];
+    let line = task.line;
+    const missed = await this.rewrite(task.path, [task], (_task, at) => { line = at; return [raw]; }, changes);
+    if (missed) throw new Error('This task changed since the picker opened. Close it and try again.');
+    const undo = this.undoFor(changes);
+    if (undo) onUndo(undo);
+    const source = changes[0]?.after.replace(/\r\n/g, '\n');
+    const twins = source !== undefined ? source.split('\n').filter((l) => l === raw).length - 1 : task.twins;
+    return { ...task, ...parseTaskLine(raw)!, raw, line, twins, duplicateSource: source ?? task.duplicateSource };
   }
 
   /**
@@ -181,7 +195,7 @@ export class TaskWriter {
    * the rest. A line that moved is followed when that's unambiguous (see `locate`); otherwise it is
    * skipped. Returns how many tasks were skipped.
    */
-  private async rewrite(path: string, tasks: BoardTask[], linesFor: (task: BoardTask) => string[], changes?: FileChange[]): Promise<number> {
+  private async rewrite(path: string, tasks: BoardTask[], linesFor: (task: BoardTask, at: number) => string[], changes?: FileChange[]): Promise<number> {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) return tasks.length;
     let missed = 0;
@@ -197,7 +211,7 @@ export class TaskWriter {
           missed++;
           continue;
         }
-        lines.splice(at, 1, ...linesFor(task));
+        lines.splice(at, 1, ...linesFor(task, at));
       }
       const after = lines.join(eol);
       if (after !== content) change = { file, before: content, after };

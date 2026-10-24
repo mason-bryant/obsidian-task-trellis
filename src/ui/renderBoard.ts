@@ -1,3 +1,4 @@
+import { labelDescription, taskLabels } from '../core/labels.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
 import type { BoardColumn } from '../core/boardConfig.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
@@ -26,6 +27,7 @@ export type RenderHost = {
   /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
   onSettings?(): void;
+  onLabels?(task: BoardTask): void;
   undo?: { label: string; run(): void };
   highlightIds?: Set<string>;
 };
@@ -423,6 +425,19 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (task.closed) c.classList.add('is-closed');
   if (isOverdue(task, model.today)) c.classList.add('is-overdue');
 
+  const assigned = taskLabels(task.raw, model.config.slug);
+  const labels = task.parentId ? [] : model.config.labels.filter((label) => assigned.includes(label.id));
+  if (labels.length) {
+    const bars = el('div', 'tt-card-labels');
+    for (const label of labels) {
+      const bar = el('span', 'tt-card-label');
+      bar.style.backgroundColor = label.color;
+      bar.title = labelDescription(label); bar.setAttribute('aria-label', bar.title);
+      bar.setAttribute('role', 'img');
+      bars.append(bar);
+    }
+    c.append(bars);
+  }
   const main = taskMain(task, host);
   const handle = el('span', 'tt-card-drag-handle');
   handle.title = 'Drag to move task';
@@ -437,6 +452,14 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     meta.append(span);
   } else appendBadges(meta, task, model, host);
   const actions = el('span', 'tt-card-actions');
+  if (host.onLabels && !task.parentId) {
+    const labelsButton = el('button', 'clickable-icon tt-card-icon tt-card-label-button');
+    labelsButton.type = 'button'; labelsButton.title = 'Labels'; labelsButton.setAttribute('aria-label', 'Labels');
+    labelsButton.dataset.boardFocus = `labels:${task.id}`;
+    host.icon(labelsButton, 'tag');
+    labelsButton.onclick = (event) => { event.stopPropagation(); host.onLabels?.(task); };
+    actions.append(labelsButton);
+  }
   if (!task.closed) actions.append(addSubtaskButton(task, c, model, host));
   const move = moveButton(task, model, host);
   if (move) actions.append(move);

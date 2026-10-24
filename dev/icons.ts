@@ -1,5 +1,7 @@
 /** Small line-icon stand-ins for Obsidian's setIcon, so previews use the same size and stroke. */
 const paths: Record<string, string> = {
+  tag: '<path d="M20 13 13 20a2 2 0 0 1-3 0L2 12V2h10l8 8a2 2 0 0 1 0 3Z"/><circle cx="7" cy="7" r="1"/>',
+  pencil: '<path d="m16 3 5 5L8 21H3v-5ZM14 5l5 5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="m6 6 12 12M6 18 18 6"/>',
   'arrow-up': '<path d="M12 19V5m-6 6 6-6 6 6"/>',
