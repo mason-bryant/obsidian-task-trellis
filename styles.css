@@ -666,3 +666,21 @@
 .tt-add { position: sticky; bottom: 0; z-index: 2; padding: 4px 0 6px; background: var(--background-secondary); }
 /* Fades the cards it floats over; when it isn't floating, this lies over the gap above it. */
 .tt-add::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 10px; background: linear-gradient(to bottom, transparent, var(--background-secondary)); pointer-events: none; }
+
+/* Board navigation in the sidebar. */
+.tt-board-list { padding: 12px; }
+.tt-board-list-title { margin: 0 0 12px; font-size: var(--font-ui-medium); }
+.tt-board-list-create { width: 100%; margin-bottom: 12px; }
+.tt-board-list-items { list-style: none; padding: 0; margin: 0; }
+.tt-board-list-items > li { margin: 2px 0; }
+.tt-board-list button.tt-board-list-item { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: auto; min-height: 36px; padding: 8px; border: 0; box-shadow: none; background: transparent; color: var(--text-normal); text-align: left; white-space: normal; }
+.tt-board-list button.tt-board-list-item:hover { background: var(--background-modifier-hover); }
+.tt-board-list button.tt-board-list-item.is-active { background: var(--nav-item-background-active); color: var(--nav-item-color-active); }
+.tt-board-list-item:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.tt-board-list-icon { display: flex; flex-shrink: 0; color: var(--text-muted); }
+.tt-board-list-icon svg { width: 18px; height: 18px; }
+.tt-board-list-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.tt-board-list-folder, .tt-board-list-empty { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+@media (pointer: coarse) {
+  .tt-board-list button.tt-board-list-item, .tt-board-list-create { min-height: 44px; }
+}

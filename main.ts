@@ -20,6 +20,8 @@ import { inFolder } from './src/core/filters.ts';
 import { slugify } from './src/core/taskLine.ts';
 import { BoardRegistry } from './src/obsidian/BoardRegistry.ts';
 import { BoardView, VIEW_TYPE_BOARD } from './src/obsidian/BoardView.ts';
+import { BoardListView, VIEW_TYPE_BOARD_LIST } from './src/obsidian/BoardListView.ts';
+import { BoardNavigation } from './src/obsidian/BoardNavigation.ts';
 import { TaskIndex } from './src/obsidian/TaskIndex.ts';
 import { TaskWriter } from './src/obsidian/TaskWriter.ts';
 import { QuickAdd } from './src/obsidian/QuickAdd.ts';
@@ -44,6 +46,8 @@ export default class TaskTrellisPlugin extends Plugin {
   writer!: TaskWriter;
   boards!: BoardRegistry;
   quickAdd!: QuickAdd;
+  private boardNavigation!: BoardNavigation;
+  private openingBoardList: Promise<void> | null = null;
   /** Leaves showing a board note as markdown on purpose, with the path they were switched for. */
   private markdownLeaves = new WeakMap<WorkspaceLeaf, string>();
   private syncTimer: number | null = null;
@@ -63,11 +67,13 @@ export default class TaskTrellisPlugin extends Plugin {
     this.writer = new TaskWriter(this.app);
     this.boards = new BoardRegistry(this);
     this.quickAdd = new QuickAdd(this);
+    this.boardNavigation = new BoardNavigation(this.app.workspace, VIEW_TYPE_BOARD);
 
     this.registerBoardView();
     this.patchBoardNoteOpening();
 
-    this.addRibbonIcon('kanban', 'Open Task Trellis board', () => this.pickBoard());
+    this.addRibbonIcon('kanban', 'Show Task Trellis boards', () => void this.showBoardList());
+    this.addCommand({ id: 'show-board-list', name: 'Show boards sidebar', callback: () => void this.showBoardList() });
     this.addCommand({ id: 'open-board', name: 'Open board…', callback: () => this.pickBoard() });
     this.addCommand({ id: 'create-board', name: 'Create board', callback: () => this.promptNewBoard() });
     this.addCommand({ id: 'add-task', name: 'Add task', callback: () => void this.quickAdd.addFromCommand() });
@@ -102,7 +108,10 @@ export default class TaskTrellisPlugin extends Plugin {
       this.index.attach(this);
       this.registerBoardWatchers();
       await this.index.rebuild();
-      if (!this.stopped) this.boards.syncCommands();
+      if (!this.stopped) {
+        this.boards.syncCommands();
+        await this.ensureBoardList();
+      }
     });
   }
 
@@ -155,16 +164,24 @@ export default class TaskTrellisPlugin extends Plugin {
   }
 
   async openBoard(file: TFile): Promise<void> {
-    const { workspace } = this.app;
-    const existing = workspace
-      .getLeavesOfType(VIEW_TYPE_BOARD)
-      .find((leaf) => (leaf.view as BoardView).file?.path === file.path);
-    if (existing) {
-      await workspace.revealLeaf(existing);
-      return;
-    }
-    const leaf = workspace.getLeaf('tab');
-    await leaf.setViewState({ type: VIEW_TYPE_BOARD, state: { file: file.path }, active: true });
+    await this.boardNavigation.open(file.path);
+  }
+
+  private ensureBoardList(): Promise<void> {
+    if (this.openingBoardList) return this.openingBoardList;
+    this.openingBoardList = (async () => {
+      const { workspace } = this.app;
+      if (workspace.getLeavesOfType(VIEW_TYPE_BOARD_LIST).length > 0) return;
+      const leaf = workspace.getLeftLeaf(false);
+      if (leaf) await leaf.setViewState({ type: VIEW_TYPE_BOARD_LIST, active: false });
+    })().finally(() => { this.openingBoardList = null; });
+    return this.openingBoardList;
+  }
+
+  private async showBoardList(): Promise<void> {
+    await this.ensureBoardList();
+    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOARD_LIST)[0];
+    if (leaf) await this.app.workspace.revealLeaf(leaf);
   }
 
   /** Opens the board note itself in a new tab, leaving the board where it is. */
@@ -212,14 +229,18 @@ export default class TaskTrellisPlugin extends Plugin {
    * place when the plugin is enabled again, as it does for any other plugin reload.
    */
   private registerBoardView(): void {
-    const creator: ViewCreator = (leaf) => new BoardView(leaf, this);
+    this.registerPersistentView(VIEW_TYPE_BOARD, (leaf) => new BoardView(leaf, this));
+    this.registerPersistentView(VIEW_TYPE_BOARD_LIST, (leaf) => new BoardListView(leaf, this));
+  }
+
+  private registerPersistentView(type: string, creator: ViewCreator): void {
     const registry = (this.app as unknown as ViewRegistryHost).viewRegistry;
     if (!registry) {
-      this.registerView(VIEW_TYPE_BOARD, creator);
+      this.registerView(type, creator);
       return;
     }
-    registry.registerView(VIEW_TYPE_BOARD, creator);
-    this.register(() => registry.unregisterView(VIEW_TYPE_BOARD));
+    registry.registerView(type, creator);
+    this.register(() => registry.unregisterView(type));
   }
 
   /** Board notes open as boards wherever Obsidian would open them as markdown, unless switched back on purpose. */
@@ -249,7 +270,7 @@ export default class TaskTrellisPlugin extends Plugin {
 
   private registerBoardWatchers(): void {
     const { vault, metadataCache } = this.app;
-    const touchesBoards = (path: string) => this.boards.isBoardPath(path);
+    const touchesBoards = (path: string) => inFolder(path, this.settings.boardsFolder) || inFolder(this.settings.boardsFolder, path);
     this.registerEvent(vault.on('create', (f) => touchesBoards(f.path) && this.queueCommandSync()));
     this.registerEvent(vault.on('delete', (f) => touchesBoards(f.path) && this.queueCommandSync()));
     this.registerEvent(
@@ -264,6 +285,9 @@ export default class TaskTrellisPlugin extends Plugin {
     this.syncTimer = window.setTimeout(() => {
       this.syncTimer = null;
       this.boards.syncCommands();
+      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_BOARD_LIST)) {
+        if (leaf.view instanceof BoardListView) leaf.view.render();
+      }
     }, 300);
   }
 
@@ -276,8 +300,10 @@ export default class TaskTrellisPlugin extends Plugin {
     new BoardPicker(this.app, boards.map((b) => b.file), (file) => void this.openBoard(file)).open();
   }
 
-  private promptNewBoard(): void {
-    new NewBoardModal(this.app, (name) => void this.createBoard(name)).open();
+  promptNewBoard(): void {
+    new NewBoardModal(this.app, (name) => {
+      void this.createBoard(name).catch(() => new Notice('Task Trellis: could not create the board.'));
+    }).open();
   }
 
   private async createBoard(name: string): Promise<void> {
