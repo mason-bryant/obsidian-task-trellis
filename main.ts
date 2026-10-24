@@ -48,9 +48,17 @@ export default class TaskTrellisPlugin extends Plugin {
   private markdownLeaves = new WeakMap<WorkspaceLeaf, string>();
   private syncTimer: number | null = null;
   private configTimer: number | null = null;
+  private stopped = false;
 
   async onload(): Promise<void> {
+    this.stopped = false;
+    this.register(() => {
+      this.stopped = true;
+      if (this.configTimer !== null) window.clearTimeout(this.configTimer);
+      if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
+    });
     this.settings = normalizeSettings(await this.loadData());
+    if (this.stopped) return;
     this.index = new TaskIndex(this.app, (path) => this.isExcludedFromIndex(path));
     this.writer = new TaskWriter(this.app);
     this.boards = new BoardRegistry(this);
@@ -90,10 +98,11 @@ export default class TaskTrellisPlugin extends Plugin {
     this.addSettingTab(new TaskTrellisSettingTab(this.app, this));
 
     this.app.workspace.onLayoutReady(async () => {
+      if (this.stopped) return;
       this.index.attach(this);
       this.registerBoardWatchers();
       await this.index.rebuild();
-      this.boards.syncCommands();
+      if (!this.stopped) this.boards.syncCommands();
     });
   }
 
@@ -103,6 +112,7 @@ export default class TaskTrellisPlugin extends Plugin {
 
   /** Boards folder or excluded folders changed. Waits for typing in the settings to pause before re-reading the vault. */
   onConfigChanged(): void {
+    if (this.stopped) return;
     if (this.configTimer !== null) window.clearTimeout(this.configTimer);
     this.configTimer = window.setTimeout(() => {
       this.configTimer = null;
@@ -214,6 +224,8 @@ export default class TaskTrellisPlugin extends Plugin {
 
   /** Board notes open as boards wherever Obsidian would open them as markdown, unless switched back on purpose. */
   private patchBoardNoteOpening(): void {
+    // The wrapper's `this` is a WorkspaceLeaf; capture the separate plugin instance.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- The wrapper binds this to a leaf, not the plugin.
     const plugin = this;
     this.register(
       around(WorkspaceLeaf.prototype, {
@@ -247,6 +259,7 @@ export default class TaskTrellisPlugin extends Plugin {
   }
 
   private queueCommandSync(): void {
+    if (this.stopped) return;
     if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
     this.syncTimer = window.setTimeout(() => {
       this.syncTimer = null;

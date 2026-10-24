@@ -1,5 +1,5 @@
-import { Component, FileView, MarkdownRenderer, Notice, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
-import { buildBoard, planDrop, type BoardModel, type BoardTask, type DropTarget } from '../core/board.ts';
+import { Component, FileView, MarkdownRenderer, Menu, Notice, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { buildBoard, planDrop, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
 import { todayISO } from '../core/dates.ts';
 import { parseTaskLine } from '../core/taskLine.ts';
@@ -23,6 +23,8 @@ export class BoardView extends FileView {
   /** Lines a drop is writing, keyed by task id, until the index re-reads the line (`from` is the line before). */
   private pending = new Map<string, { raw: string; from: string }>();
   private renderQueued = false;
+  private cancelRender: (() => void) | null = null;
+  private stopped = false;
   /** Index version the board was last drawn from. */
   private renderedVersion = -1;
   /** Owns the markdown rendered into cards; replaced on every redraw. */
@@ -56,6 +58,13 @@ export class BoardView extends FileView {
 
   onload(): void {
     super.onload();
+    this.stopped = false;
+    this.register(() => {
+      this.stopped = true;
+      this.cancelRender?.();
+      this.cancelRender = null;
+      this.renderQueued = false;
+    });
     this.contentEl.addClass('task-trellis-view');
     this.addAction('settings', 'Board settings', () => {
       if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config).open();
@@ -105,19 +114,22 @@ export class BoardView extends FileView {
   }
 
   queueRender(): void {
-    if (this.renderQueued) return;
+    if (this.stopped || this.renderQueued) return;
     this.renderQueued = true;
     // The board's own window: the main window's frames pause while it is hidden, which would
     // stall a board in another window.
-    this.containerEl.win.requestAnimationFrame(() => {
+    const win = this.containerEl.win;
+    const frame = win.requestAnimationFrame(() => {
+      this.cancelRender = null;
       this.renderQueued = false;
       // Redrawing mid-drag would drop the dragged element; onDragEnd catches up.
       if (!isDragging()) this.render();
     });
+    this.cancelRender = () => win.cancelAnimationFrame(frame);
   }
 
   private render(): void {
-    if (!this.file) return;
+    if (this.stopped || !this.file) return;
     this.today = todayISO();
     this.board = this.plugin.boards.entry(this.file);
     this.renderedVersion = this.plugin.index.version;
@@ -202,6 +214,27 @@ export class BoardView extends FileView {
         if (this.model) void this.plugin.quickAdd.addFromBoard(this.model, target, text, detailed);
       },
       onAddSubtask: (parent, text, detailed) => void this.plugin.quickAdd.addSubtask(parent, text, detailed),
+      // A bottom sheet on phones.
+      onMoveMenu: (task, choices, evt) => {
+        const menu = new Menu();
+        const section = (title: string, list: MoveChoice[]) => {
+          menu.addItem((item) => item.setTitle(title).setIsLabel(true));
+          for (const choice of list) {
+            menu.addItem((item) => {
+              item.setTitle(createFragment((f) => {
+                f.appendText(choice.label);
+                if (choice.detail) f.createSpan({ cls: 'tt-menu-detail', text: choice.detail });
+              }));
+              if (choice.current) item.setChecked(true).setDisabled(true);
+              else item.onClick(() => void this.drop(task.id, choice.target));
+            });
+          }
+        };
+        section('Move to column', choices.columns);
+        menu.addSeparator();
+        section('Move to row', choices.rows);
+        menu.showAtMouseEvent(evt);
+      },
     };
   }
 

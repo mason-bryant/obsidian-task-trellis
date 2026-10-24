@@ -21,6 +21,7 @@ const paths: Record<string, string> = {
   'list-filter': '<path d="M4 6h16M7 12h10M10 18h4"/>',
   'sliders-horizontal': '<path d="M3 6h4m4 0h10M3 12h10m4 0h4M3 18h4m4 0h10M7 3v6M17 9v6M7 15v6"/>',
   'trash-2': '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
+  'more-horizontal': '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   inbox: '<path d="m3 14 3-10h12l3 10v6H3Zm0 0h5l2 3h4l2-3h5"/>',
 };
 export function previewIcon(el: HTMLElement, name: string): void {

@@ -13,6 +13,7 @@ type FileTasks = { tasks: BoardTask[]; key: string };
 export class TaskIndex extends Events {
   private byFile = new Map<string, FileTasks>();
   private notifyTimer: number | null = null;
+  private stopped = false;
   /**
    * While a rebuild reads the vault: notes that events updated since it began. Their state in the
    * index is newer than what the rebuild read, so it keeps them.
@@ -29,6 +30,13 @@ export class TaskIndex extends Events {
   }
 
   attach(plugin: Plugin): void {
+    plugin.register(() => {
+      this.stopped = true;
+      this.rebuilding = null;
+      if (this.notifyTimer !== null) window.clearTimeout(this.notifyTimer);
+      this.notifyTimer = null;
+      this.byFile.clear();
+    });
     const { metadataCache, vault } = this.app;
     plugin.registerEvent(metadataCache.on('changed', (file, data, cache) => this.updateFile(file, data, cache)));
     plugin.registerEvent(
@@ -54,10 +62,12 @@ export class TaskIndex extends Events {
   }
 
   async rebuild(): Promise<void> {
+    if (this.stopped) return;
     const run = { touched: new Set<string>() };
     this.rebuilding = run;
     const next = new Map<string, FileTasks>();
     for (const file of this.app.vault.getMarkdownFiles()) {
+      if (this.stopped || this.rebuilding !== run) return;
       if (this.isExcluded(file.path)) continue;
       const cache = this.app.metadataCache.getFileCache(file);
       if (!hasTasks(cache)) continue;
@@ -67,6 +77,7 @@ export class TaskIndex extends Events {
       } catch {
         continue; // Deleted while the rebuild ran; its delete event updates the index.
       }
+      if (this.stopped || this.rebuilding !== run) return;
       next.set(file.path, fileTasks(file.path, content, cache!));
     }
     // A rebuild that started later read the vault later; it decides.
@@ -86,6 +97,7 @@ export class TaskIndex extends Events {
   }
 
   private updateFile(file: TFile, data: string, cache: CachedMetadata): void {
+    if (this.stopped) return;
     this.rebuilding?.touched.add(file.path);
     if (this.isExcluded(file.path) || !hasTasks(cache)) {
       if (this.byFile.delete(file.path)) this.notify();
@@ -101,10 +113,12 @@ export class TaskIndex extends Events {
   private async readFile(file: TFile): Promise<void> {
     const cache = this.app.metadataCache.getFileCache(file);
     if (file.extension !== 'md' || this.isExcluded(file.path) || !hasTasks(cache)) return;
-    this.byFile.set(file.path, fileTasks(file.path, await this.app.vault.cachedRead(file), cache!));
+    const content = await this.app.vault.cachedRead(file);
+    if (!this.stopped) this.byFile.set(file.path, fileTasks(file.path, content, cache!));
   }
 
   private notify(): void {
+    if (this.stopped) return;
     if (this.notifyTimer !== null) window.clearTimeout(this.notifyTimer);
     this.notifyTimer = window.setTimeout(() => {
       this.notifyTimer = null;

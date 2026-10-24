@@ -596,6 +596,8 @@
   margin-left: 0;
   flex-shrink: 0;
 }
+.tt-subtask-controls > .tt-card-actions { flex-grow: 1; }
+.tt-subtask-controls .tt-card-move { margin-left: auto; }
 .tt-subtask-controls .tt-subtask-toggle {
   flex: 0 1 auto;
   min-width: 0;
@@ -617,3 +619,50 @@
 }
 
 .tt-subtask-controls > .tt-add-subtask { opacity: 1; }
+
+/*
+ * Narrow boards, such as on a phone or in a narrow pane: one column fills the board, and a
+ * sideways swipe moves exactly one column. Below 600px the grid can't show two 240px columns
+ * with room for a scrollbar and a cue that more columns follow, so the columns would be cut off
+ * mid-card. Column widths come from .tt-scroll (cqw). Container queries need iOS 16 or later.
+ */
+.tt-scroll { container-type: inline-size; }
+.tt-pager, .tt-row-bar--rest > .tt-row-sticky, .tt-card-icon.tt-card-more { display: none; }
+.tt-pager { align-items: center; justify-content: center; gap: 8px; padding: 0 16px 6px; color: var(--text-muted); font-size: var(--font-ui-smaller); font-variant-numeric: tabular-nums; }
+.tt-pager-dots { display: inline-flex; gap: 5px; }
+.tt-pager-dot { width: 6px; height: 6px; border-radius: 3px; background: var(--background-modifier-border-hover); transition: width 150ms ease, background-color 150ms ease; }
+.tt-pager-dot.is-active { width: 16px; background: var(--interactive-accent); }
+@container trellis (max-width: 600px) {
+  /* cqw counts a vertical scrollbar in (desktop Obsidian's take up room), which would shift each column. */
+  .tt-scroll { scroll-snap-type: x mandatory; scroll-padding-inline: 16px; overscroll-behavior-x: contain; scrollbar-width: none; }
+  /* Columns one board width apart: the grid's 16px side padding on both sides of each. */
+  .tt-grid { grid-template-columns: repeat(var(--tt-columns), calc(100cqw - 32px)); column-gap: 32px; }
+  .tt-col-header { scroll-snap-align: start; scroll-snap-stop: always; }
+  /* Row labels on every column, also right of a No due date column, lined up with the cards. */
+  .tt-row-sticky { left: 16px; }
+  .tt-row-bar--rest > .tt-row-sticky { display: inline-flex; }
+  .tt-pager { display: flex; }
+  .tt-scroll-hint:not([hidden]) { display: none; }
+  .tt-card-icon.tt-card-more { display: inline-flex; }
+}
+
+/* Touch screens: nothing is revealed by hovering, and fingers need 44px targets. */
+@media (hover: none) {
+  .tt-card-icon, .tt-subtask-toggle, .tt-row-toggle, .tt-add-cancel { min-width: 44px; min-height: 44px; }
+  /* The chevron centred in its bigger target, which reaches into the margin to keep it in line with the cards. */
+  .tt-row-toggle { align-items: center; justify-content: center; margin-left: -12px; }
+  .tt-add-button, .tt-more { min-height: 44px; }
+  .tt-cell .tt-add-button { opacity: .85; }
+  .tt-subtask > .tt-card-main > .tt-add-subtask { opacity: .65; }
+  .tt-card-icon.tt-card-more { display: inline-flex; }
+  /* A tap leaves :hover on, which would keep the card lifted. */
+  .tt-card:hover { transform: none; }
+}
+/* Obsidian's mobile app, also with a trackpad: dragging a card isn't dependable there. */
+.is-mobile .tt-card-icon.tt-card-more { display: inline-flex; }
+.tt-menu-detail { margin-left: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+
+/* "+ Add task", and its box once open, stays at the bottom of the board while its cell runs past it, so adding to a long cell needs no scrolling. */
+.tt-add { position: sticky; bottom: 0; z-index: 2; padding: 4px 0 6px; background: var(--background-secondary); }
+/* Fades the cards it floats over; when it isn't floating, this lies over the gap above it. */
+.tt-add::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 10px; background: linear-gradient(to bottom, transparent, var(--background-secondary)); pointer-events: none; }

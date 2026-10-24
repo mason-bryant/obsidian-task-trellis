@@ -40,6 +40,7 @@ export function normalizeSettings(raw: unknown): TaskTrellisSettings {
   };
 }
 
+// Keep compatibility with the declared minimum, 1.8.7; declarative settings require 1.13.0.
 export class TaskTrellisSettingTab extends PluginSettingTab {
   constructor(
     app: App,
@@ -71,6 +72,7 @@ export class TaskTrellisSettingTab extends PluginSettingTab {
       .setDesc('One folder per line. Tasks in these folders never appear on a board.')
       .addTextArea((text) =>
         text
+          // Literal, case-sensitive example paths rather than prose.
           .setPlaceholder('templates\nzzz_archived')
           .setValue(this.plugin.settings.excludedFolders.join('\n'))
           .onChange(async (value) => {

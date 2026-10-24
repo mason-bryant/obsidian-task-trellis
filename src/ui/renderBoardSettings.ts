@@ -141,8 +141,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     group.append(title, el('p', 'tt-help', excluded ? 'Any matching exclusion keeps a card off the board.' : 'All configured categories must pass. Empty categories add no restriction.'));
     const tagKey = excluded ? 'excludeTags' : 'includeTags';
     const folderKey = excluded ? 'excludeFolders' : 'includeFolders';
-    group.append(field('Tags', chips(draft[tagKey].split(',').map((v) => v.trim()).filter(Boolean), `${name}: Tags`, (values) => draft[tagKey] = values.join(', '), host.attachTagSuggest, true), 'Page tags (properties and non-task text) apply to all tasks. Task tags apply only to that task. Nested tags count; placement tags are ignored.'));
-    group.append(field('Note folders', chips(draft[folderKey].split('\n').filter(Boolean), `${name}: Note folders`, (values) => draft[folderKey] = values.join('\n'), host.attachFolderSuggest), 'Match any source-note folder, including its descendants.'));
+    group.append(field('Tags', chips(draft[tagKey].split(',').map((v) => v.trim()).filter(Boolean), `${name}: Tags`, (values) => draft[tagKey] = values.join(', '), (input) => host.attachTagSuggest(input), true), 'Page tags (properties and non-task text) apply to all tasks. Task tags apply only to that task. Nested tags count; placement tags are ignored.'));
+    group.append(field('Note folders', chips(draft[folderKey].split('\n').filter(Boolean), `${name}: Note folders`, (values) => draft[folderKey] = values.join('\n'), (input) => host.attachFolderSuggest(input)), 'Match any source-note folder, including its descendants.'));
     group.append(el('div', 'tt-field-label', 'Note properties'), el('p', 'tt-help', excluded ? 'Any matching property rule excludes the note. A missing property does not match.' : 'Every property rule must match the source note. “Exists” includes empty or null values.'));
     const rules = excluded ? draft.excludedFilters : draft.filters;
     rules.forEach((rule, i) => group.append(propertyRow(rule, i, excluded)));
@@ -239,9 +239,9 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       errors.forEach((error) => box.append(el('div', '', error))); body.append(box);
     }
     const footer = el('div', 'tt-settings-footer');
-    const open = button('Save & open note', 'tt-button tt-button--subtle'); open.onclick = host.onOpenNote;
-    const cancel = button('Cancel', 'tt-button'); cancel.onclick = host.onDiscard;
-    const save = button(saving ? 'Saving…' : 'Save changes', 'tt-button mod-cta'); save.onclick = host.onSave;
+    const open = button('Save & open note', 'tt-button tt-button--subtle'); open.onclick = () => host.onOpenNote();
+    const cancel = button('Cancel', 'tt-button'); cancel.onclick = () => host.onDiscard();
+    const save = button(saving ? 'Saving…' : 'Save changes', 'tt-button mod-cta'); save.onclick = () => host.onSave();
     save.disabled = saving; cancel.disabled = saving; open.disabled = saving;
     footer.append(open, cancel, save); root.append(nav, body, footer);
     if (saving) root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input, select, button').forEach((control) => control.disabled = true);
@@ -249,7 +249,9 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     if (restoreKey) {
       const target = [...root.querySelectorAll<HTMLElement>('[data-focus]')].find((node) => node.dataset.focus === restoreKey);
       target?.focus({ preventScroll: true });
-      if (selection != null && target instanceof HTMLInputElement && target.type === 'text') target.setSelectionRange(selection, selection);
+      if (selection != null && target?.tagName === 'INPUT' && (target as HTMLInputElement).type === 'text') {
+        (target as HTMLInputElement).setSelectionRange(selection, selection);
+      }
       if (focusNext && !focusNext.startsWith('tt-tab-')) target?.scrollIntoView({ block: 'nearest' });
     }
     focusNext = null;
@@ -271,6 +273,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
+  // Shared with the standalone browser harness; nodes are adopted by the destination document.
   const node = document.createElement(tag); node.className = cls; if (text !== undefined) node.textContent = text; return node;
 }
 function button(text: string, cls: string): HTMLButtonElement {
