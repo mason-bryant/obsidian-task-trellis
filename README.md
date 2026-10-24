@@ -82,6 +82,7 @@ Both property lists accept a single string, a list of rules, or a mapping. Use a
 - **Compact** reduces card spacing without changing which subtask lists are expanded. Use the column picker to focus on one workflow column, especially in a narrow pane. These display choices last for the open board view.
 - On a board under 600px wide (a phone, or a narrow pane on desktop), each column fills the board and a sideways swipe moves one column; the dots above the board show which column is in view. Column headers and row labels stay in view on every column.
 - On touch screens and narrow boards, open cards have a ⋯ button. **Move to…** lists the board's columns (in the card's row) and rows (in its column), with what the move also does, such as the due date it sets. The card goes to the end of the chosen cell, as if dragged there. On touch screens the card buttons are 44px tap targets, and the add buttons show without hovering.
+- On touch screens, drag the six-dot handle at the top right of a card to reorder it or move it into another date row. Hold near the top or bottom of the list to scroll while dragging. Swipe elsewhere on a card to scroll the list; in the narrow view, a deliberate sideways swipe moves between columns. **Add task** appears above each mobile task list.
 - After moving or completing a task, **Undo** restores the latest change, including a recurring task's generated occurrence. To protect subsequent edits, Undo skips any note whose content has changed since that action.
 
 ## Adding tasks

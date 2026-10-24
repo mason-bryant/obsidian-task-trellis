@@ -2,6 +2,7 @@
 
 .task-trellis-view {
   padding: 0 !important;
+  overflow: hidden;
 }
 
 .tt-board {
@@ -9,6 +10,8 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .tt-note {
@@ -612,6 +615,8 @@
 }
 .tt-subtask-toggle .tt-chevron { flex-shrink: 0; }
 @media (pointer: coarse) {
+  /* iOS zooms the viewport when focusing smaller text fields. */
+  .tt-add-input { font-size: max(16px, var(--font-ui-small)); }
   .tt-subtask-controls .tt-subtask-toggle, .tt-subtask-controls .tt-card-icon, .tt-board-tools .tt-toolbar-button {
     min-height: 44px;
     min-width: 44px;
@@ -634,7 +639,9 @@
 .tt-pager-dot.is-active { width: 16px; background: var(--interactive-accent); }
 @container trellis (max-width: 600px) {
   /* cqw counts a vertical scrollbar in (desktop Obsidian's take up room), which would shift each column. */
-  .tt-scroll { scroll-snap-type: x mandatory; scroll-padding-inline: 16px; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .tt-scroll { overflow-x: hidden; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; overscroll-behavior-x: none; scrollbar-width: none; touch-action: pan-y pinch-zoom; }
+  /* A deliberate horizontal drag follows the finger freely until release. */
+  .tt-scroll.tt-scroll--swiping { scroll-snap-type: none; user-select: none; }
   /* Columns one board width apart: the grid's 16px side padding on both sides of each. */
   .tt-grid { grid-template-columns: repeat(var(--tt-columns), calc(100cqw - 32px)); column-gap: 32px; }
   .tt-col-header { scroll-snap-align: start; scroll-snap-stop: always; }
@@ -666,6 +673,24 @@
 .tt-add { position: sticky; bottom: 0; z-index: 2; padding: 4px 0 6px; background: var(--background-secondary); }
 /* Fades the cards it floats over; when it isn't floating, this lies over the gap above it. */
 .tt-add::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 10px; background: linear-gradient(to bottom, transparent, var(--background-secondary)); pointer-events: none; }
+
+/* Put capture above each list on phones, clear of Obsidian's bottom ribbon.
+ * Keep the composer in the same location after the button is tapped. */
+@container trellis (max-width: 600px) {
+  .tt-cell > .tt-add { order: -1; position: static; bottom: auto; margin-top: 0; }
+  .tt-cell > .tt-add::before { display: none; }
+}
+.is-mobile .tt-cell > .tt-add { order: -1; position: static; bottom: auto; margin-top: 0; }
+.is-mobile .tt-cell > .tt-add::before { display: none; }
+.is-mobile .tt-add-input { font-size: max(16px, var(--font-ui-small)); }
+
+/* A dedicated grab area distinguishes moving a card from scrolling its list. */
+.tt-card-drag-handle { display: none; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -8px -8px 0; color: var(--text-faint); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+.tt-card-drag-handle svg { width: 18px; height: 18px; }
+@media (pointer: coarse) { .tt-card-drag-handle { display: inline-flex; } }
+.is-mobile .tt-card-drag-handle { display: inline-flex; }
+.tt-touch-dragging { user-select: none; -webkit-user-select: none; }
+.tt-touch-drag-ghost { position: fixed; pointer-events: none; z-index: 10000; opacity: .8; margin: 0; box-sizing: border-box; transition: none; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
 
 /* Board navigation in the sidebar. */
 .tt-board-list { padding: 12px; }

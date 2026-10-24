@@ -1,6 +1,8 @@
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
 import type { BoardColumn } from '../core/boardConfig.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
+import { installColumnSwipe } from './columnSwipe.ts';
+import { installTouchCardDrag } from './touchCardDrag.ts';
 
 /** What the board needs from its host (the Obsidian view, or the dev harness). */
 export type RenderHost = {
@@ -34,6 +36,7 @@ type DisplayState = { slug: string; compact: boolean; column: string };
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 
 const DRAG_TYPE = 'application/x-task-trellis';
+const dropTargets = new WeakMap<HTMLElement, (id: string) => DropTarget>();
 // No real drag lasts this long; past it a missed dragend can't keep the board from redrawing.
 const STALE_DRAG_MS = 60_000;
 let draggingId: string | null = null;
@@ -229,6 +232,31 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     if (header && swipesColumns(scrollEl)) scrollEl.scrollLeft += offsetFromMiddle(scrollEl, header);
   }
   pages?.update();
+  installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), () =>
+    [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].map((header) =>
+      scrollEl.scrollLeft + offsetFromMiddle(scrollEl, header)));
+  let touchTarget: DropTarget | null = null;
+  installTouchCardDrag(scrollEl, {
+    start: (id) => { draggingId = id; dragStartedAt = Date.now(); },
+    move: (x, y) => {
+      clearIndicators(root.ownerDocument);
+      touchTarget = null;
+      const zone = root.ownerDocument.elementFromPoint(x, y)?.closest<HTMLElement>('.tt-cell, .tt-row-bar');
+      if (!zone || !scrollEl.contains(zone) || !draggingId) return;
+      const target = dropTargets.get(zone);
+      if (!target) return;
+      zone.classList.add('is-drop-target');
+      if (zone.classList.contains('tt-cell')) showIndicator(zone, y);
+      touchTarget = target(draggingId);
+    },
+    end: (commit) => {
+      const id = draggingId;
+      draggingId = null;
+      clearIndicators(root.ownerDocument);
+      try { if (commit && id && touchTarget) host.onDrop(id, touchTarget); }
+      finally { touchTarget = null; host.onDragEnd(); }
+    },
+  });
 }
 
 function cell(rowId: string, column: BoardColumn, model: BoardModel, host: RenderHost): HTMLElement {
@@ -254,7 +282,7 @@ function cardLimit(columnId: string, config: BoardModel['config']): number | nul
   return null;
 }
 
-/** "+ Add task" at the bottom of a cell, which opens the add box. */
+/** Opens a cell's add box; on mobile CSS places it above the task list. */
 function addTask(target: { rowId: string; columnId: string }, slug: string, host: RenderHost): HTMLElement {
   const wrap = el('div', 'tt-add');
   const key = `cell:${slug}:${target.rowId}:${target.columnId}`;
@@ -387,6 +415,11 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (isOverdue(task, model.today)) c.classList.add('is-overdue');
 
   const main = taskMain(task, host);
+  const handle = el('span', 'tt-card-drag-handle');
+  handle.title = 'Drag to move task';
+  handle.setAttribute('aria-hidden', 'true');
+  host.icon(handle, 'grip-vertical');
+  main.append(handle);
   const meta = el('div', 'tt-card-meta');
   const subtasks = model.subtasks[task.id] ?? [];
   if (task.closed && task.closedDate) {
@@ -429,6 +462,10 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     host.onEdit(task);
   });
   c.addEventListener('dragstart', (e) => {
+    if ((e.target as Element).closest('.tt-card-drag-handle') || c.closest('.tt-touch-dragging')) {
+      e.preventDefault();
+      return;
+    }
     draggingId = task.id;
     dragStartedAt = Date.now();
     e.dataTransfer?.setData(DRAG_TYPE, task.id);
@@ -692,6 +729,7 @@ function offsetFromMiddle(scroller: HTMLElement, target: HTMLElement): number {
 }
 
 function addDropZone(zone: HTMLElement, host: RenderHost, target: (taskId: string) => DropTarget): void {
+  dropTargets.set(zone, target);
   zone.addEventListener('dragover', (e) => {
     if (!draggingId) return;
     e.preventDefault();
