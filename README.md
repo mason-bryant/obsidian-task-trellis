@@ -94,59 +94,24 @@ Both property lists accept a single string, a list of rules, or a mapping. Use a
 
 ## iOS Shortcuts: create a task
 
-Requires Task Trellis **0.1.3 or later**. Enable Task Trellis in the target vault on your iPhone. No additional URI plugin is required.
+Use the ready-made shortcut to add a task to a board from your iPhone. Requires **Task Trellis 0.1.3 or later**, enabled in the destination vault.
 
-The `task-trellis-create` action opens Obsidian, waits for its workspace to load, and adds one open task without displaying the task editor. It uses the board's **New tasks** destination and heading, falling back to the plugin defaults. Tasks are stored in source notes, not in the board's settings note. If you use today's daily note, enable Obsidian's **Daily notes** core plugin.
+### Set up once
 
-### Set up a shortcut
+1. [Download Create Task Trellis Task](https://github.com/mason-bryant/obsidian-task-trellis/releases/download/0.1.3/Create-Task-Trellis-Task-v5.shortcut) on your iPhone, open the downloaded file, and tap **Add Shortcut**.
+2. In Shortcuts, tap **…** on the new shortcut to open its editor.
+3. Fill in the two **Text** boxes at the top, beneath the **VAULT** and **BOARD** labels. Enter the exact vault name on your iPhone and the board's name or unique slug.
+4. Rename the shortcut for its destination, such as **Add personal task**, then tap **Done**.
 
-1. In Obsidian, open the board's **Settings → New tasks** and confirm where new tasks should be saved. Save any changes.
-2. In that same tab, tap **Copy shortcut URL**. The link includes your vault and board and placeholder task text. Keep the `vault` and `board` values from that link.
-3. In Apple's **Shortcuts**, create a shortcut named, for example, **Add personal task**. Add **Ask for Input**, with Text as the input type and “What needs doing?” as the prompt. You can use **Dictate Text** or text received from the Share Sheet instead.
-4. Add **URL Encode** for that text. In a **URL** action, paste the copied link and replace `Your%20task%20text` with the encoded-text variable. Encode each parameter value once; do not encode the whole URL.
-5. Optionally append `&column=backlog`. Use another column's ID or URL-encoded label to choose it. If omitted, the action uses the board's Backlog column, or its first ordinary workflow column if it has no Backlog.
-6. For a due date, add another **Ask for Input** with Date as the input type, followed by **Format Date**, using the custom format `yyyy-MM-dd`. Append `&due=` followed by that formatted-date variable to the URL. For an undated task, omit the entire `&due=...` part. A **Choose from Menu** action can offer “No due date” and “Choose date” branches.
-7. Add **Open URLs** using the assembled URL as input. Run the shortcut and check the local-save notice in Obsidian. Add `&open-board=true` if you want it to display the board afterward.
+Each shortcut saves **one vault and one board**. To add tasks somewhere else, duplicate the shortcut, change those two fields, and give the copy a different name. Each copy keeps its own destination.
 
-Apple documents [opening another app's URL scheme](https://support.apple.com/guide/shortcuts/apd68802640c/ios) and [Ask for Input](https://support.apple.com/guide/shortcuts/apd68b5c9161/ios). Use **Open URLs**, not **Get Contents of URL** or an HTTP request. This action does not implement x-callback-url, return structured results to Shortcuts, or automatically switch back to another app.
+### Add a task
 
-### Examples and inputs
+Run the shortcut for the board you want, enter the task text, then choose **No due date** or **Choose date**. Obsidian opens, creates the task, and displays the board. The confirmation **Task saved on this device** means the task was saved locally. Leave Obsidian open until its sync indicator shows **Synced** before closing it.
 
-These examples assume the vault is named `My Vault` and the board's slug is `personal-projects`. Replace these with the values from **Copy shortcut URL**.
+Tasks go to the note and heading configured under the board's **Settings → New tasks**, or the plugin's default destination. If that destination is today's daily note, enable Obsidian's **Daily notes** core plugin. The shortcut uses the board's default workflow column; undated tasks appear in its **No due date** column when one is configured.
 
-```text
-obsidian://task-trellis-create?vault=My%20Vault&board=personal-projects&text=Call%20the%20electrician&due=2026-10-30&column=in-progress&open-board=true
-```
-
-An undated task in Backlog:
-
-```text
-obsidian://task-trellis-create?vault=My%20Vault&board=personal-projects&text=Buy%20lightbulbs
-```
-
-| Parameter | Meaning |
-| --- | --- |
-| `vault` | Vault name or ID, handled by Obsidian. Include it to avoid using the wrong vault. |
-| `board` | Required. Unique board slug, exact board name, or full vault-relative board path including `.md`. Copied links prefer a unique slug so renaming the board note does not break them. Ambiguous identifiers are rejected. |
-| `text` | Required, nonempty task content. Newlines become spaces so the request creates exactly one task. Normal Markdown and task tags are supported. |
-| `due` | Optional valid calendar date, `YYYY-MM-DD`. Empty or omitted means no due date. This input overrides any `📅` date embedded in `text`, including removing it when `due` is omitted. |
-| `column` | Optional column ID or label. Defaults to Backlog, then the first ordinary workflow column. Unknown columns and Done are rejected. |
-| `open-board` | Optional `true` or `false`; defaults to `false`. If true, reveals the board, reusing its existing tab when possible. Either way, Obsidian stays open. |
-| `request-id` | Optional retry identifier, 1–128 letters, digits, hyphens or underscores. A UUID works. Use the same ID for retries of one capture, and a new ID for each new task. |
-
-URL-encode spaces, `&`, `#`, `+`, percent signs and other special characters in each value. For example, `Buy milk #home` becomes `Buy%20milk%20%23home`. The copied link already encodes its values.
-
-If the board has a dedicated **No due date** column, undated tasks appear there while retaining their requested workflow column. Selecting that special column with a due date is rejected. A task's date determines its date row; it is not rounded to the end of a week.
-
-Retry protection stores a small HTML comment on the task line. Reusing the ID in the **same destination note** does not add another task, including after restarting the plugin. It is not vault-wide deduplication: changing the destination, crossing to a different daily note, or deleting the marked task removes that protection. Without `request-id`, every invocation creates a task, even if the text is identical.
-
-### Saving, visibility, and sync
-
-The success message says **Task saved on this device**. It confirms a local write, not an upload or delivery to another device. Leave Obsidian in the foreground until your sync indicator shows **Synced**; the action does not wait for or verify sync. It also does not wait for incoming remote changes before creating the task. See [Obsidian Sync's background limitations](https://obsidian.md/help/sync/faq) and [sync status indicators](https://obsidian.md/help/sync/messages).
-
-Invalid inputs are rejected before task creation. For existing destination notes, requests that would be hidden by the board's filters are rejected with an explanation; put required tags in `text`, or choose a destination that meets the board's folder/property rules. Tasks cannot be saved to destinations excluded from indexing. A newly created note may still be receiving template properties, so the action saves the task and warns if it cannot establish filter visibility. It does not alter board filters or source-note properties to force a match. Template recovery is awaited before normal success feedback for newly created notes.
-
-If there is no success notice, check Obsidian's error message and the destination note before retrying. A successful **Open URLs** step alone does not prove the task was saved. Native iOS execution must be tested on your device; automated tests cover URL input validation, task writing, board placement, and retries.
+If a task is not created, read the message shown in Obsidian. Check that the saved vault and board names are correct and that the task's tags and destination note meet the board's filters. Check the destination note before running the shortcut again, since each successful run creates a new task.
 
 ## Development
 
