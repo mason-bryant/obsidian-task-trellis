@@ -1,3 +1,6 @@
+import { FM } from '../core/boardConfig.ts';
+import { parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
+import { LabelPickerModal } from './LabelPickerModal.ts';
 import { Component, FileView, MarkdownRenderer, Menu, Notice, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
@@ -168,6 +171,7 @@ export class BoardView extends FileView {
 
   private host(): RenderHost {
     return {
+      onLabels: (task) => this.openLabels(task),
       onSettings: () => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
       undo: this.undoAction ? { label: this.undoAction.label, run: () => void this.undo() } : undefined,
@@ -236,6 +240,34 @@ export class BoardView extends FileView {
         menu.showAtMouseEvent(evt);
       },
     };
+  }
+
+  private openLabels(task: BoardTask): void {
+    if (!this.file || !this.board) return;
+    const file = this.file;
+    const { slug, labels } = this.board.config;
+    let current = task;
+    new LabelPickerModal(this.app, labels, taskLabels(task.raw, slug), {
+      icon: (el, name) => setIcon(el, name),
+      saveSelection: async (ids) => {
+        const written = await this.plugin.writer.setLabels(current, slug, ids, (action) => {
+          this.undoAction = { label: 'Task labels updated', action };
+        });
+        this.showWritten(current, [written.raw]);
+        current = written;
+      },
+      saveLabel: async (label) => {
+        let updated: BoardLabel[] = [];
+        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+          const palette = parseLabels(fm[FM.labels], []);
+          updated = palette.some((l) => l.id === label.id)
+            ? palette.map((l) => l.id === label.id ? label : l) : [...palette, label];
+          fm[FM.labels] = updated;
+        });
+        this.queueRender();
+        return updated;
+      },
+    }).open();
   }
 
   /** Redraws with lines just written, before the index re-reads the note. Ids are line positions, so the first line keeps the task's id. */

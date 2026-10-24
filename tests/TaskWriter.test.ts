@@ -1,3 +1,5 @@
+import { taskLabels } from '../src/core/labels.ts';
+import type { UndoAction } from '../src/obsidian/TaskWriter.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
 import { notices, TFile } from './mocks/obsidian.ts';
@@ -255,4 +257,44 @@ describe('Undo', () => {
     await undo!.undo();
     expect(files['a.md']).toBe(raw + '\n');
   });
+});
+
+
+describe('TaskWriter labels', () => {
+  it('saves consecutive selections, keeps line endings, and undoes the latest change', async () => {
+    const raw = '- [ ] Paint 📅 2026-10-25 #tt/home/doing/10 ^id';
+    const files = { 'a.md': `# A\r\n${raw}\r\n` };
+    const writer = new TaskWriter(fakeApp(files));
+    const actions: UndoAction[] = [];
+    const first = await writer.setLabels(task('a.md', 1, raw), 'home', ['red'], (action) => actions.push(action));
+    const second = await writer.setLabels(first, 'home', ['red', 'blue'], (action) => actions.push(action));
+    expect(taskLabels(second.raw, 'home')).toEqual(['red', 'blue']);
+    expect(files['a.md']).toBe(`# A\r\n${second.raw}\r\n`);
+    await actions[1]!.undo();
+    expect(files['a.md']).toBe(`# A\r\n${first.raw}\r\n`);
+  });
+
+  it('rejects stale assignments without overwriting a changed task', async () => {
+    const files = { 'a.md': '- [ ] Edited elsewhere\n' };
+    const writer = new TaskWriter(fakeApp(files));
+    await expect(writer.setLabels(task('a.md', 0, '- [ ] Original'), 'home', ['red'], () => undefined)).rejects.toThrow('changed');
+    expect(files['a.md']).toBe('- [ ] Edited elsewhere\n');
+  });
+});
+
+
+it('can assign multiple labels to one of two identical tasks without editing its twin', async () => {
+  const raw = '- [ ] Call vendor';
+  const source = `# A\n${raw}\n# B\n${raw}\n`;
+  const files = { 'a.md': source };
+  const writer = new TaskWriter(fakeApp(files));
+  const original = { ...task('a.md', 1, raw), twins: 1, duplicateSource: source };
+  const first = await writer.setLabels(original, 'home', ['red'], () => undefined);
+  const second = await writer.setLabels(first, 'home', ['red', 'green'], () => undefined);
+  expect(files['a.md']).toBe(`# A\n${second.raw}\n# B\n${raw}\n`);
+  // If another task already has the same assignment, refresh the duplicate snapshot as well.
+  const other = await writer.setLabels(task('a.md', 3, raw), 'home', ['red', 'green'], () => undefined);
+  expect(other.twins).toBe(1);
+  const edited = await writer.setLabels(other, 'home', ['blue'], () => undefined);
+  expect(files['a.md']).toBe(`# A\n${second.raw}\n# B\n${edited.raw}\n`);
 });

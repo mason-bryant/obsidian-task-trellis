@@ -1,3 +1,4 @@
+import { setTaskLabels } from '../src/core/labels.ts';
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildBoard, taskId, type BoardTask } from '../src/core/board.ts';
@@ -157,5 +158,32 @@ describe('touch card placement', () => {
     expect(over.defaultPrevented).toBe(true);
     destination.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
     expect(host.onDrop).toHaveBeenCalledWith(open.id, { rowId: 'none', columnId: 'backlog', index: 0 });
+  });
+});
+
+
+describe('card labels', () => {
+  it('renders board-specific bars and opens the picker without editing the card', () => {
+    const raw = setTaskLabels(setTaskLabels(open.raw, 'house', ['red']), 'work', ['blue']);
+    const labeled = task(raw, 0);
+    host.onLabels = vi.fn();
+    renderBoard(root, buildBoard([labeled], parseBoardConfig('House', { slug: 'house' }).config, today, () => undefined), host, { warnings: [], info: [] });
+    expect(root.querySelectorAll('.tt-card-label')).toHaveLength(1);
+    expect(root.querySelector('.tt-card-label')!.getAttribute('title')).toBe('Red');
+    root.querySelector<HTMLButtonElement>('.tt-card-label-button')!.click();
+    expect(host.onLabels).toHaveBeenCalledWith(labeled);
+    expect(host.onEdit).not.toHaveBeenCalled();
+  });
+
+  it('never adds label controls or bars to subtasks, including standalone subtasks', () => {
+    host.onLabels = vi.fn();
+    const child = { ...task(setTaskLabels('- [ ] Subtask', 'house', ['red']), 2), parentId: open.id };
+    const config = parseBoardConfig('House', { slug: 'house' }).config;
+    const drawTasks = (tasks: BoardTask[]) => renderBoard(root, buildBoard(tasks, config, today, () => undefined), host, { warnings: [], info: [] });
+    drawTasks([open, child]);
+    expect(root.querySelectorAll('.tt-card-label-button')).toHaveLength(1);
+    expect(root.querySelectorAll('.tt-subtask .tt-card-label-button')).toHaveLength(0);
+    drawTasks([child]);
+    expect(root.querySelectorAll('.tt-card-label-button, .tt-card-label')).toHaveLength(0);
   });
 });

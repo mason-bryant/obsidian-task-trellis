@@ -723,3 +723,31 @@
 @media (pointer: coarse) {
   .tt-board-list button.tt-board-list-item, .tt-board-list-create { min-height: 44px; }
 }
+
+/* Board-specific labels: short bars remain visible in both card densities. */
+.tt-card-labels { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.tt-card-label { display: block; width: 40px; height: 8px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%); }
+.tt-label-modal { box-sizing: border-box; background: var(--background-primary); color: var(--text-normal); border: 1px solid var(--background-modifier-border); border-radius: 12px; width: min(440px, calc(100vw - 32px)); max-height: 85dvh; overflow-y: auto; }
+.tt-label-picker, .tt-label-picker * { box-sizing: border-box; }
+.tt-label-picker { display: flex; flex-direction: column; gap: 16px; }
+.tt-label-picker input[type='text'], .tt-label-picker input[type='search'] { width: 100%; min-height: 40px; font-size: 16px; }
+.tt-label-list { display: flex; flex-direction: column; gap: 8px; }
+.tt-label-row { display: flex; gap: 8px; align-items: center; }
+.tt-label-choice { display: flex; flex: 1; min-width: 0; align-items: center; gap: 12px; cursor: pointer; }
+.tt-label-choice input { flex: none; margin: 0; }
+.tt-label-swatch { display: flex; align-items: center; flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border-radius: 6px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.4; }
+.tt-label-edit { width: 40px; min-height: 44px; flex: none; }
+.tt-label-edit svg { width: 20px; height: 20px; }
+.tt-label-picker .tt-label-create { width: 100%; min-height: 44px; }
+.tt-label-editor { display: flex; flex-direction: column; gap: 16px; }
+.tt-label-field { display: flex; flex-direction: column; gap: 6px; }
+.tt-label-colors { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.tt-label-picker .tt-label-color { height: 44px; padding: 0; box-shadow: none; border: 2px solid transparent; }
+.tt-label-color[aria-pressed='true'] { outline: 2px solid var(--text-normal); outline-offset: 2px; }
+.tt-label-preview { flex: none; min-height: 52px; }
+.tt-label-help { color: var(--text-muted); font-size: .9em; margin: 0; }
+.tt-label-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.tt-label-editor-actions button { min-height: 40px; }
+.tt-label-error { color: var(--text-error); margin: 0; }
+.tt-label-error[hidden] { display: none; }
+.tt-label-close { position: absolute; top: 12px; right: 16px; }

@@ -9,8 +9,8 @@ export default [
       'obsidianmd/ui/sentence-case': ['error', {
         brands: ['Task Trellis', 'Daily notes'],
         ignoreWords: ['Enter', 'Tasks'],
-        // This placeholder contains literal case-sensitive paths, not prose.
-        ignoreRegex: ['^templates\\nzzz_archived$'],
+        // Literal paths and hexadecimal color samples are not prose.
+        ignoreRegex: ['^templates\\nzzz_archived$', '^#[A-Fa-f0-9]{6}$'],
       }],
     },
   },
@@ -20,7 +20,7 @@ export default [
     rules: { 'obsidianmd/settings-tab/prefer-setting-definitions': 'off' },
   },
   {
-    files: ['src/ui/renderBoard.ts', 'src/ui/renderBoardSettings.ts'],
+    files: ['src/ui/renderBoard.ts', 'src/ui/renderBoardSettings.ts', 'src/ui/renderLabelPicker.ts'],
     // These renderers also run in the standalone browser harness without Obsidian helpers.
     rules: { 'obsidianmd/prefer-create-el': 'off' },
   },

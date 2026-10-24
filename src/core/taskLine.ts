@@ -1,3 +1,4 @@
+import { stripTaskLabels } from './labels.ts';
 import type { ISODate } from './dates.ts';
 
 /** Every Task Trellis tag starts with `#tt/`. */
@@ -111,7 +112,7 @@ export function parseTaskLine(line: string): ParsedTask | null {
   const m = TASK_LINE_RE.exec(line);
   if (!m) return null;
   const status = m[2] ?? ' ';
-  const body = m[4] ?? '';
+  const body = stripTaskLabels(m[4] ?? '');
 
   const placements: Record<string, Placement> = {};
   for (const p of body.matchAll(placementRe())) {
