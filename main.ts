@@ -25,6 +25,7 @@ import { BoardNavigation } from './src/obsidian/BoardNavigation.ts';
 import { TaskIndex } from './src/obsidian/TaskIndex.ts';
 import { TaskWriter } from './src/obsidian/TaskWriter.ts';
 import { QuickAdd } from './src/obsidian/QuickAdd.ts';
+import { ShortcutActions } from './src/obsidian/ShortcutActions.ts';
 import { DEFAULT_SETTINGS, normalizeSettings, TaskTrellisSettingTab, type TaskTrellisSettings } from './src/settings.ts';
 
 type ViewRegistryHost = {
@@ -67,6 +68,10 @@ export default class TaskTrellisPlugin extends Plugin {
     this.writer = new TaskWriter(this.app);
     this.boards = new BoardRegistry(this);
     this.quickAdd = new QuickAdd(this);
+    const shortcuts = new ShortcutActions(this);
+    this.registerObsidianProtocolHandler('task-trellis-create', (params) => {
+      this.app.workspace.onLayoutReady(() => { void shortcuts.handle(params); });
+    });
     this.boardNavigation = new BoardNavigation(this.app.workspace, VIEW_TYPE_BOARD);
 
     this.registerBoardView();

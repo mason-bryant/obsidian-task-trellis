@@ -5,6 +5,7 @@ import { propertyValueStrings } from '../core/filters.ts';
 import { renderBoardSettings, type SettingsForm } from '../ui/renderBoardSettings.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
+import { shortcutURL } from '../core/shortcut.ts';
 
 /**
  * Edits a board note’s settings as a form instead of raw front matter.
@@ -85,6 +86,13 @@ export class BoardSettingsModal extends Modal {
       onDiscard: () => this.close(),
       onSave: () => void this.save(),
       onOpenNote: () => void this.save(true),
+      onCopyShortcut: () => {
+        const matches = this.plugin.boards.boards().filter((b) => b.config.slug === this.config.slug);
+        const board = matches.length === 1 ? this.config.slug : this.file.path;
+        void navigator.clipboard.writeText(shortcutURL(this.app.vault.getName(), board))
+          .then(() => { new Notice('Task Trellis: shortcut URL copied. Replace the example text before using it.'); })
+          .catch(() => { new Notice('Task Trellis: could not copy the shortcut URL. See the setup instructions in the readme.'); });
+      },
     });
   }
 
