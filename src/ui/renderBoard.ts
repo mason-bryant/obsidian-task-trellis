@@ -74,7 +74,7 @@ export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHo
 function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
   const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
-  const scroll = scroller ? { top: scroller.scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
+  const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
   root.replaceChildren();
   root.classList.add('tt-board');
 
@@ -85,9 +85,11 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   // Obsidian checks this ancestor flag before starting its mobile swipe gestures.
   // Keep column swipes and card drags from also opening a workspace sidebar.
   scrollEl.dataset.ignoreSwipe = 'true';
+  const verticalEl = el('div', 'tt-vertical-scroll');
   const grid = el('div', 'tt-grid');
   grid.style.setProperty('--tt-columns', String(model.columns.length));
-  scrollEl.append(grid);
+  verticalEl.append(grid);
+  scrollEl.append(verticalEl);
   root.append(scrollEl);
 
   const { config } = model;
@@ -133,6 +135,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   }
   toolbar.append(heading, tools); root.insertBefore(toolbar, root.firstChild);
   const visibleColumns = display.column ? model.columns.filter((c) => c.id === display.column) : model.columns;
+  scrollEl.style.setProperty('--tt-columns', String(visibleColumns.length));
   grid.style.setProperty('--tt-columns', String(visibleColumns.length));
   const hint = el('div', 'tt-scroll-hint', 'Scroll sideways to explore columns, or choose one above.');
   hint.hidden = !!display.column; root.insertBefore(hint, scrollEl);
@@ -228,13 +231,16 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length) : null;
   if (pages) root.insertBefore(pages.bar, scrollEl);
   if (scroll) {
-    scrollEl.scrollTop = scroll.top;
+    verticalScroller(scrollEl).scrollTop = scroll.top;
     scrollEl.scrollLeft = scroll.left;
     // One column at a time, come back to the same column even when the columns beside it changed.
     const header = [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].find((h) => h.dataset.column === scroll.column);
     if (header && swipesColumns(scrollEl)) scrollEl.scrollLeft += offsetFromMiddle(scrollEl, header);
   }
   pages?.update();
+  const alignRowLabels = () => scrollEl.style.setProperty('--tt-page-left', `${scrollEl.scrollLeft}px`);
+  scrollEl.addEventListener('scroll', alignRowLabels, { passive: true });
+  alignRowLabels();
   installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), () =>
     [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].map((header) =>
       scrollEl.scrollLeft + offsetFromMiddle(scrollEl, header)));
@@ -259,7 +265,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       try { if (commit && id && touchTarget) host.onDrop(id, touchTarget); }
       finally { touchTarget = null; host.onDragEnd(); }
     },
-  });
+  }, () => verticalScroller(scrollEl));
 }
 
 function cell(rowId: string, column: BoardColumn, model: BoardModel, host: RenderHost): HTMLElement {
@@ -709,9 +715,14 @@ function pager(scroller: HTMLElement, count: number): { bar: HTMLElement; update
   return { bar, update };
 }
 
-/** Whether the board is narrow enough that styles.css snaps its columns, one per swipe. */
+/** Whether the narrow layout enables column paging, independent of native CSS snapping. */
 function swipesColumns(scroller: HTMLElement): boolean {
-  return (getComputedStyle(scroller).scrollSnapType ?? '').startsWith('x');
+  return getComputedStyle(scroller).getPropertyValue('--tt-column-paging').trim() === '1';
+}
+
+/** Separate native vertical scrolling from horizontal paging on narrow boards. */
+function verticalScroller(scroller: HTMLElement): HTMLElement {
+  return swipesColumns(scroller) ? scroller.querySelector<HTMLElement>('.tt-vertical-scroll')! : scroller;
 }
 
 /** The column header nearest the middle of the board: the column in view when they're shown one at a time. */

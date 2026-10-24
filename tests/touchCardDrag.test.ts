@@ -6,6 +6,7 @@ let scroller: HTMLElement, card: HTMLElement, handle: HTMLElement;
 let host: Parameters<typeof installTouchCardDrag>[1];
 let capture: number | null;
 let tick: FrameRequestCallback;
+let vertical: HTMLElement;
 function pointer(type: string, x: number, y: number, target = handle, id = 1) {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperties(event, Object.fromEntries(Object.entries({
@@ -16,6 +17,7 @@ function pointer(type: string, x: number, y: number, target = handle, id = 1) {
 }
 beforeEach(() => {
   scroller = document.createElement('div');
+  vertical = scroller;
   card = document.createElement('div'); card.className = 'tt-card'; card.dataset.id = 'House.md:0';
   handle = document.createElement('span'); handle.className = 'tt-card-drag-handle';
   card.append(handle); scroller.append(card); document.body.replaceChildren(scroller);
@@ -28,10 +30,24 @@ beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { tick = callback; return 1; });
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
   host = { start: vi.fn(), move: vi.fn(), end: vi.fn() };
-  installTouchCardDrag(scroller, host);
+  installTouchCardDrag(scroller, host, () => vertical);
 });
 
 describe('touch card handle', () => {
+  it('edge-scrolls the separate vertical list without changing the horizontal page', () => {
+    vertical = document.createElement('div');
+    vertical.getBoundingClientRect = scroller.getBoundingClientRect;
+    scroller.append(vertical);
+    scroller.scrollLeft = 400;
+    pointer('pointerdown', 350, 230);
+    pointer('pointermove', 350, 690);
+    tick(16);
+    expect(vertical.scrollTop).toBeGreaterThan(0);
+    expect(scroller.scrollTop).toBe(0);
+    expect(scroller.scrollLeft).toBe(400);
+    pointer('pointerup', 350, 300);
+  });
+
   it('moves a grabbed card, updates its drop point, commits and cleans up', () => {
     expect(pointer('pointerdown', 350, 230).defaultPrevented).toBe(true);
     pointer('pointermove', 340, 400);
