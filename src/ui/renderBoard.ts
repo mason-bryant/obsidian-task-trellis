@@ -82,6 +82,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   for (const text of notes.info) root.append(el('div', 'tt-note', text));
 
   const scrollEl = el('div', 'tt-scroll');
+  // Obsidian checks this ancestor flag before starting its mobile swipe gestures.
+  // Keep column swipes and card drags from also opening a workspace sidebar.
+  scrollEl.dataset.ignoreSwipe = 'true';
   const grid = el('div', 'tt-grid');
   grid.style.setProperty('--tt-columns', String(model.columns.length));
   scrollEl.append(grid);
