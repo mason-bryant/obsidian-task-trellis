@@ -3,3 +3,4 @@ main.js
 dev/harness.js
 .DS_Store
 dist/
+__pycache__/
