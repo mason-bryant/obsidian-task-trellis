@@ -69,3 +69,61 @@ describe('one column at a time', () => {
     expect(host.onToggleRow).toHaveBeenCalledWith('now');
   });
 });
+
+describe('touch card placement', () => {
+  function pointer(target: HTMLElement, type: string, y: number) {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, Object.fromEntries(Object.entries({
+      pointerId: 1, isPrimary: true, pointerType: 'touch', button: 0, clientX: 250, clientY: y,
+    }).map(([key, value]) => [key, { value }])));
+    target.dispatchEvent(event);
+  }
+  it('uses the normal drop target to move a task into another row and column', () => {
+    draw();
+    const scroller = root.querySelector<HTMLElement>('.tt-scroll')!;
+    scroller.setPointerCapture = vi.fn(); scroller.hasPointerCapture = () => false;
+    const destination = root.querySelector<HTMLElement>('.tt-cell[data-row="none"][data-column="backlog"]')!;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => destination });
+    const handle = card(open).querySelector<HTMLElement>('.tt-card-drag-handle')!;
+    pointer(handle, 'pointerdown', 200);
+    pointer(scroller, 'pointermove', 300);
+    expect(destination.querySelector('.tt-drop-indicator')).not.toBeNull();
+    pointer(scroller, 'pointerup', 300);
+    expect(host.onDrop).toHaveBeenCalledWith(open.id, { rowId: 'none', columnId: 'backlog', index: 0 });
+    expect(host.onDragEnd).toHaveBeenCalledTimes(1);
+    expect(root.querySelector('.tt-drop-indicator')).toBeNull();
+  });
+  it('does not write a move when released outside any drop zone', () => {
+    draw();
+    const scroller = root.querySelector<HTMLElement>('.tt-scroll')!;
+    scroller.setPointerCapture = vi.fn(); scroller.hasPointerCapture = () => false;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => document.body });
+    const handle = card(open).querySelector<HTMLElement>('.tt-card-drag-handle')!;
+    pointer(handle, 'pointerdown', 200); pointer(scroller, 'pointermove', 300); pointer(scroller, 'pointerup', 300);
+    expect(host.onDrop).not.toHaveBeenCalled();
+    expect(host.onDragEnd).toHaveBeenCalledTimes(1);
+  });
+  it('reorders within a cell with the dragged card excluded from the insertion index', () => {
+    const second = task('- [ ] Second task 📅 2026-10-24 #tt/house/doing', 2);
+    renderBoard(root, buildBoard([open, second], parseBoardConfig('House', { slug: 'house' }).config,
+      today, () => undefined), host, { warnings: [], info: [] });
+    const scroller = root.querySelector<HTMLElement>('.tt-scroll')!;
+    scroller.setPointerCapture = vi.fn(); scroller.hasPointerCapture = () => false;
+    const destination = card(open).parentElement!;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => destination });
+    vi.spyOn(card(open), 'getBoundingClientRect').mockReturnValue({ top: 200, height: 100 } as DOMRect);
+    const handle = card(second).querySelector<HTMLElement>('.tt-card-drag-handle')!;
+    pointer(handle, 'pointerdown', 400); pointer(scroller, 'pointermove', 100); pointer(scroller, 'pointerup', 100);
+    expect(host.onDrop).toHaveBeenCalledWith(second.id, { rowId: 'now', columnId: 'doing', index: 0 });
+  });
+  it('retains native card drag/drop for desktop', () => {
+    draw();
+    const destination = root.querySelector<HTMLElement>('.tt-cell[data-row="none"][data-column="backlog"]')!;
+    card(open).dispatchEvent(new Event('dragstart', { bubbles: true }));
+    const over = new MouseEvent('dragover', { bubbles: true, cancelable: true, clientY: 100 });
+    destination.dispatchEvent(over);
+    expect(over.defaultPrevented).toBe(true);
+    destination.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    expect(host.onDrop).toHaveBeenCalledWith(open.id, { rowId: 'none', columnId: 'backlog', index: 0 });
+  });
+});

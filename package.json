@@ -1,6 +1,6 @@
 {
   "name": "obsidian-task-trellis",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Obsidian plugin: vault tasks on a kanban board, with workflow columns across and due-date rows down.",
   "main": "main.js",
   "private": true,
