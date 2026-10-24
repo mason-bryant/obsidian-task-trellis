@@ -68,7 +68,7 @@ describe('label picker', () => {
     root.querySelector<HTMLButtonElement>('[aria-label="Red"]')!.click(); submit(); await flush();
     expect(labels).toHaveLength(7);
     expect(labels[6]).toMatchObject({ name: '', color: '#ae2e24' });
-    expect(labels[6]!.id).toMatch(/^label-/);
+    expect(labels[6]!.id).toMatch(/^l[a-f0-9]{6}$/);
     expect(root.querySelectorAll('.tt-label-row')).toHaveLength(7);
   });
 

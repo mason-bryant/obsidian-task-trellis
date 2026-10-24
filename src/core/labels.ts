@@ -54,16 +54,32 @@ export function labelTextColor(color: string): string {
   return luminance > 0.179 ? '#000000' : '#ffffff';
 }
 
-// Hidden Markdown comments, not Obsidian tags: label changes cannot change board filter matches.
-const LABEL_RE = /<!-- tt-labels:([\p{L}\p{N}_-]+):([a-z0-9_,-]+) -->/gu;
+
+// Compatibility reads only. New assignments are always ordinary Obsidian tags.
+const LEGACY_RE = /<!-- tt-labels:([\p{L}\p{N}_-]+):([a-z0-9_,-]+) -->/gu;
+const LABEL_TAG_RE = /(^|\s)#tt\/([\p{L}\p{N}_-]+)\/label\/([a-z0-9_-]+)(?=[^\p{L}\p{N}_/-]|$)/giu;
 
 export function taskLabels(line: string, slug: string): string[] {
-  return [...new Set([...line.matchAll(LABEL_RE)]
-    .filter((m) => m[1] === slug).flatMap((m) => m[2]!.split(',').filter(Boolean)))];
+  const wanted = slug.toLowerCase();
+  const tags = [...line.matchAll(LABEL_TAG_RE)].filter((m) => m[2]!.toLowerCase() === wanted)
+    .map((m) => m[3]!.toLowerCase());
+  return [...new Set([...tags, ...[...line.matchAll(LEGACY_RE)]
+    .filter((m) => m[1]!.toLowerCase() === wanted).flatMap((m) => m[2]!.split(',').filter(Boolean))])];
 }
 
+export function stripLegacyTaskLabels(line: string): string { return line.replace(LEGACY_RE, ''); }
+
+/** Labels use colored bars on cards, but remain real tags for search and filtering. */
 export function stripTaskLabels(line: string): string {
-  return line.replace(LABEL_RE, '');
+  return stripLegacyTaskLabels(line).replace(LABEL_TAG_RE, '$1');
+}
+
+/** A short, permanent id, unique within its board; names and colors can change freely. */
+export function newLabelId(labels: BoardLabel[]): string {
+  let id: string;
+  do { id = `l${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`; }
+  while (labels.some((label) => label.id === id));
+  return id;
 }
 
 /** Only replaces this board's labels; other boards, fields, placement tags and block ids survive. */
@@ -71,12 +87,15 @@ export function setTaskLabels(line: string, slug: string, ids: string[]): string
   if (!/^[\p{L}\p{N}_-]+$/u.test(slug) || ids.some((id) => !/^[a-z0-9_-]+$/.test(id))) {
     throw new Error('Invalid board or label id.');
   }
-  const clean = line.replace(/ ?<!-- tt-labels:([\p{L}\p{N}_-]+):([a-z0-9_,-]+) -->/gu,
-    (match, board: string) => board === slug ? '' : match);
+  if (!/^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[[^\]]\]\s+)/.test(line)) throw new Error('Not a task line.');
+  const wanted = slug.toLowerCase();
+  let clean = line.replace(/<!-- tt-labels:([\p{L}\p{N}_-]+):([a-z0-9_,-]+) --> ?/gu,
+    (match, board: string) => board.toLowerCase() === wanted ? '' : match);
+  clean = clean.replace(LABEL_TAG_RE, (match, _lead: string, board: string) => board.toLowerCase() === wanted ? '' : match);
   if (!ids.length) return clean;
-  const marker = `<!-- tt-labels:${slug}:${[...new Set(ids)].join(',')} -->`;
-  // Keep task metadata at the end, where the Tasks plugin expects it.
-  const start = /^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[[^\]]\]\s+)/.exec(clean);
-  if (!start) throw new Error('Not a task line.');
-  return clean.slice(0, start[0].length) + marker + ' ' + clean.slice(start[0].length);
+  const tags = [...new Set(ids)].map((id) => `#tt/${wanted}/label/${id}`).join(' ');
+  // Keep labels after Tasks fields and before placement tags and block ids.
+  const tail = /(?:\s+(?:#tt\/[\p{L}\p{N}_/-]+|\^[A-Za-z0-9-]+))+\s*$/u.exec(clean);
+  const at = tail?.index ?? clean.trimEnd().length;
+  return `${clean.slice(0, at)} ${tags}${clean.slice(at)}`;
 }
