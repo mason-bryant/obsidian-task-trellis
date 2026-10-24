@@ -132,7 +132,7 @@ export function parseTaskLine(line: string): ParsedTask | null {
     if (tag && !/^\d+$/.test(tag)) tags.push(tag);
   }
 
-  let text = withoutPlacements;
+  let text = withoutPlacements.replace(/<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->/g, '');
   for (const re of FIELD_RES) text = text.replace(re, ' ');
   text = text.replace(/\s+/g, ' ').trim();
 

@@ -11,6 +11,7 @@ export type SettingsFormHost = {
   onDiscard(): void;
   onSave(): void;
   onOpenNote(): void;
+  onCopyShortcut?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
 type Section = 'columns' | 'dates' | 'filters' | 'destination';
@@ -233,6 +234,11 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));
       if (draft.newTasks === 'note') body.append(field('Note path', input(draft.newTasksNote, 'Note path', (v) => draft.newTasksNote = v), 'The note is created if it does not exist.'));
       if (draft.newTasks !== 'default') body.append(field('Under heading', input(draft.newTasksHeading, 'Under heading', (v) => draft.newTasksHeading = v), 'Leave empty to append to the note. Missing headings are created.'));
+      if (host.onCopyShortcut) {
+        const copy = button('Copy shortcut URL', 'tt-button');
+        copy.onclick = () => host.onCopyShortcut?.();
+        body.append(field('iOS Shortcuts', copy, 'Copy an example link for this board. Replace the example text in Shortcuts. Save destination changes before running it.'));
+      }
     }
     if (errors.length) {
       const box = el('div', 'tt-settings-errors'); box.setAttribute('role', 'alert');
