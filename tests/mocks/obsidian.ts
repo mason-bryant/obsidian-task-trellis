@@ -24,6 +24,9 @@ export class Events {
   trigger(name: string, ...args: unknown[]) {
     for (const cb of this.handlers.get(name) ?? []) cb(...args);
   }
+  offref(ref: { name: string; cb: (...args: unknown[]) => void }) {
+    this.handlers.set(ref.name, (this.handlers.get(ref.name) ?? []).filter((cb) => cb !== ref.cb));
+  }
 }
 
 export class TFolder { constructor(public path: string) {} }

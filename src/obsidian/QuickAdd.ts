@@ -20,7 +20,15 @@ const TEMPLATER_WAIT_MS = 3000;
 
 /** Adds new tasks to today's daily note, or a configured note, under a heading. */
 export class QuickAdd {
-  constructor(private plugin: TaskTrellisPlugin) {}
+  private stopped = false;
+  private pending = new Set<() => void>();
+
+  constructor(private plugin: TaskTrellisPlugin) {
+    plugin.register(() => {
+      this.stopped = true;
+      for (const finish of this.pending) finish();
+    });
+  }
 
   private get app(): App {
     return this.plugin.app;
@@ -66,7 +74,7 @@ export class QuickAdd {
   async addSubtask(parent: BoardTask, text: string, detailed: boolean): Promise<void> {
     const fields: NewTaskFields = { created: await this.createdDate() };
     const line = detailed ? await this.compose(text, fields) : text.trim() ? buildNewTaskLine(text, fields) : null;
-    if (line) await this.plugin.writer.insertSubtask(parent, line);
+    if (line && !this.stopped) await this.plugin.writer.insertSubtask(parent, line);
   }
 
   /** From the command palette: no board, so the task shows in each matching board's first column. */
@@ -92,12 +100,16 @@ export class QuickAdd {
   }
 
   private async add(line: string, dest: NewTaskDestination, board: BoardConfig | null): Promise<void> {
+    if (this.stopped) return;
     const target = await this.resolve(dest);
-    if (!target) return;
+    if (!target || this.stopped) return;
     const { file, created } = target;
     await this.app.vault.process(file, (content) => insertUnderHeading(content, dest.heading, [line]));
     if (created) {
-      void this.keepThroughTemplater(file, dest.heading, line);
+      void this.keepThroughTemplater(file, dest.heading, line).catch((error: unknown) => {
+        console.error('Task Trellis: could not preserve the new task after template processing.', error);
+        new Notice('Task Trellis: template processing may have replaced the new task. Check the destination note.');
+      });
       if (!board) new Notice(`Task Trellis: added to ${file.basename}.`);
       return;
     }
@@ -149,7 +161,7 @@ export class QuickAdd {
    * before that, so it normally survives; if the rewrite dropped it, add it again.
    */
   private async keepThroughTemplater(file: TFile, heading: string, line: string): Promise<void> {
-    if (!(this.app as unknown as AppInternals).plugins?.enabledPlugins?.has(TEMPLATER_ID)) return;
+    if (this.stopped || !(this.app as unknown as AppInternals).plugins?.enabledPlugins?.has(TEMPLATER_ID)) return;
     const workspace = this.app.workspace as unknown as Events;
     await new Promise<void>((resolve) => {
       let timer = 0;
@@ -159,13 +171,18 @@ export class QuickAdd {
       const finish = () => {
         workspace.offref(ref);
         window.clearTimeout(timer);
+        this.pending.delete(finish);
         resolve();
       };
+      this.pending.add(finish);
       timer = window.setTimeout(finish, TEMPLATER_WAIT_MS);
     });
+    if (this.stopped) return;
     const content = await this.app.vault.read(file);
-    if (!content.split(/\r?\n/).includes(line)) {
-      await this.app.vault.process(file, (c) => insertUnderHeading(c, heading, [line]));
+    if (!this.stopped && !content.split(/\r?\n/).includes(line)) {
+      await this.app.vault.process(file, (c) =>
+        this.stopped || c.split(/\r?\n/).includes(line) ? c : insertUnderHeading(c, heading, [line]),
+      );
     }
   }
 

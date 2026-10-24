@@ -1,4 +1,4 @@
-import { diffDays, type ISODate } from './dates.ts';
+import { diffDays, shortLabel, type ISODate } from './dates.ts';
 import type { BoardColumn, BoardConfig } from './boardConfig.ts';
 import { taskMatchesBoard, type Frontmatter } from './filters.ts';
 import { computeRows, rowForDue, type RowDef } from './rows.ts';
@@ -259,6 +259,53 @@ export function quickMoveTarget(model: BoardModel, task: BoardTask): DropTarget 
   // Its tagged column, so a card leaving the No due date column goes back to where it was.
   const columnId = workflowColumnOf(task, model.config);
   return { rowId: to.id, columnId, index: model.cells[to.id]?.[columnId]?.length ?? 0 };
+}
+
+/** A destination in a card's "Move to…" list: a drop at the end of a cell. */
+export type MoveChoice = {
+  label: string;
+  /** What the move does besides moving, such as "due Oct 28"; empty when nothing else changes. */
+  detail: string;
+  target: DropTarget;
+  /** The cell the card is in. */
+  current: boolean;
+};
+
+export type MoveChoices = { columns: MoveChoice[]; rows: MoveChoice[] };
+
+/**
+ * "Move to…" for an open card, where it can't be dragged: every column (in the card's row) and
+ * every row (in its column), each as a drop at the end of that cell. A No due date column takes
+ * the place of the No due date row, so it's listed with the columns (rowId 'none') and that row
+ * isn't; a card leaving it goes to Due now in the chosen column, or its tagged column for a row.
+ */
+export function moveChoices(model: BoardModel, task: BoardTask): MoveChoices | null {
+  const rowId = model.rowOf[task.id];
+  if (rowId === undefined || task.closed) return null;
+  const { config } = model;
+  const columnId = columnOf(task, config);
+  const undated = columnId === config.undatedColumn;
+  const nowId = model.rows.find((r) => r.kind === 'now')!.id;
+  const choice = (label: string, toRow: string, toColumn: string): MoveChoice => {
+    const target = { rowId: toRow, columnId: toColumn, index: model.cells[toRow]?.[toColumn]?.length ?? 0 };
+    const current = toRow === rowId && toColumn === columnId;
+    return { label, detail: current ? '' : moveEffect(planDrop(model, task.id, target).get(task.id)), target, current };
+  };
+  return {
+    columns: model.columns.map((c) =>
+      choice(c.label, c.id === config.undatedColumn ? 'none' : undated ? nowId : rowId, c.id)),
+    rows: model.rows
+      .filter((r) => !(config.undatedColumn && r.id === 'none'))
+      .map((r) => choice(r.label, r.id, undated ? workflowColumnOf(task, config) : columnId)),
+  };
+}
+
+function moveEffect(edit: TaskEdit | undefined): string {
+  const effects: string[] = [];
+  if (edit?.closed) effects.push('completes it');
+  if (edit?.due === null) effects.push('removes the due date');
+  else if (edit?.due) effects.push(`due ${shortLabel(edit.due)}`);
+  return effects.join(', ');
 }
 
 /**

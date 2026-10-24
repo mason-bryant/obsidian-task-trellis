@@ -1,4 +1,4 @@
-import { columnOf, isOverdue, moreKey, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget } from '../core/board.ts';
+import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
 import type { BoardColumn } from '../core/boardConfig.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
 
@@ -21,6 +21,8 @@ export type RenderHost = {
   /** Adds a task to a cell; `detailed` opens the full editor first. */
   onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean): void;
   onAddSubtask(parent: BoardTask, text: string, detailed: boolean): void;
+  /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
+  onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
   onSettings?(): void;
   undo?: { label: string; run(): void };
   highlightIds?: Set<string>;
@@ -69,7 +71,7 @@ export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHo
 function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
   const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
-  const scroll = scroller ? { top: scroller.scrollTop, left: scroller.scrollLeft } : null;
+  const scroll = scroller ? { top: scroller.scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
   root.replaceChildren();
   root.classList.add('tt-board');
 
@@ -99,14 +101,14 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   compact.append(hostIcon(host, 'rows-3'), el('span', '', 'Compact'));
   compact.setAttribute('aria-pressed', String(display.compact));
   compact.title = 'Use compact card spacing';
-  compact.onclick = () => { display!.compact = !display!.compact; renderBoard(root, model, baseHost, notes); };
+  compact.onclick = () => { display.compact = !display.compact; renderBoard(root, model, baseHost, notes); };
   const picker = el('select', 'tt-column-picker'); picker.setAttribute('aria-label', 'Visible board column');
   picker.dataset.boardFocus = 'column';
   for (const [id, label] of [['', 'All columns'], ...model.columns.map((c) => [c.id, c.label])]) {
     const option = el('option', '', label); option.value = id!; picker.append(option);
   }
   picker.value = display.column;
-  picker.onchange = () => { display!.column = picker.value; renderBoard(root, model, baseHost, notes); };
+  picker.onchange = () => { display.column = picker.value; renderBoard(root, model, baseHost, notes); };
   tools.append(compact, picker);
   const subtaskKeys = subtaskListKeys(model);
   if (subtaskKeys.length > 0) {
@@ -121,10 +123,10 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   }
   if (host.onSettings) {
     const settings = el('button', 'tt-toolbar-button'); settings.type = 'button';
-    settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = host.onSettings; tools.append(settings);
+    settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = () => host.onSettings?.(); tools.append(settings);
   }
   toolbar.append(heading, tools); root.insertBefore(toolbar, root.firstChild);
-  const visibleColumns = display.column ? model.columns.filter((c) => c.id === display!.column) : model.columns;
+  const visibleColumns = display.column ? model.columns.filter((c) => c.id === display.column) : model.columns;
   grid.style.setProperty('--tt-columns', String(visibleColumns.length));
   const hint = el('div', 'tt-scroll-hint', 'Scroll sideways to explore columns, or choose one above.');
   hint.hidden = !!display.column; root.insertBefore(hint, scrollEl);
@@ -133,12 +135,13 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   if (filters) heading.append(el('span', 'tt-filter-count', `${filters} filter ${filters === 1 ? 'condition' : 'conditions'}`));
   if (host.undo) {
     const undo = el('div', 'tt-undo'); undo.setAttribute('role', 'status');
-    const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.onclick = host.undo.run;
+    const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.onclick = () => host.undo?.run();
     undo.append(el('span', '', host.undo.label), action); root.insertBefore(undo, scrollEl);
   }
   for (const column of visibleColumns) {
     const count = model.rows.reduce((n, r) => n + (model.cells[r.id]?.[column.id]?.length ?? 0), 0);
     const header = el('div', 'tt-col-header');
+    header.dataset.column = column.id;
     const glyph = column.id === config.doneColumn ? 'circle-check' : column.id === config.undatedColumn ? 'inbox' : 'circle';
     header.append(hostIcon(host, glyph), el('span', 'tt-col-title', column.label), el('span', 'tt-count', String(count)));
     if (column.id === config.doneColumn) header.classList.add('tt-col-header--done');
@@ -188,6 +191,12 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     if (barSpans[1]) {
       const rest = el('div', `tt-row-bar tt-row-bar--rest${collapsed ? ' is-collapsed' : ''}`);
       rest.style.gridColumn = barSpans[1];
+      // Its own label, shown when a column right of the No due date column is the only one in view.
+      rest.classList.toggle('tt-row-bar--now', row.kind === 'now');
+      rest.append(sticky.cloneNode(true));
+      rest.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.tt-row-sticky')) host.onToggleRow(row.id);
+      });
       bars.push(rest);
     }
     // A collapsed row still takes drops: the card keeps its column and goes to the end.
@@ -210,10 +219,16 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     }
   }
 
+  const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length) : null;
+  if (pages) root.insertBefore(pages.bar, scrollEl);
   if (scroll) {
     scrollEl.scrollTop = scroll.top;
     scrollEl.scrollLeft = scroll.left;
+    // One column at a time, come back to the same column even when the columns beside it changed.
+    const header = [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].find((h) => h.dataset.column === scroll.column);
+    if (header && swipesColumns(scrollEl)) scrollEl.scrollLeft += offsetFromMiddle(scrollEl, header);
   }
+  pages?.update();
 }
 
 function cell(rowId: string, column: BoardColumn, model: BoardModel, host: RenderHost): HTMLElement {
@@ -383,6 +398,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (!task.closed) actions.append(addSubtaskButton(task, c, model, host));
   const move = moveButton(task, model, host);
   if (move) actions.append(move);
+  if (host.onMoveMenu && !task.closed) actions.append(moveMenuButton(task, model, host));
   if (subtasks.length === 0 && actions.childElementCount > 0) meta.append(actions);
   const source = el('a', 'tt-source', host.sourceLabel(task));
   source.href = '#';
@@ -418,7 +434,9 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     e.dataTransfer?.setData(DRAG_TYPE, task.id);
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
     // Let the browser capture the drag image before dimming the card.
-    requestAnimationFrame(() => c.classList.add('is-dragging'));
+    c.ownerDocument.defaultView?.requestAnimationFrame(() => {
+      if (c.isConnected && draggingId === task.id) c.classList.add('is-dragging');
+    });
   });
   c.addEventListener('dragend', () => {
     draggingId = null;
@@ -609,6 +627,70 @@ function moveButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   return b;
 }
 
+/** ⋯ opens "Move to…", for screens where a card can't be dragged; styles.css shows it on touch screens and narrow boards. */
+function moveMenuButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
+  const b = el('button', 'clickable-icon tt-card-icon tt-card-more');
+  b.type = 'button';
+  b.setAttribute('aria-label', 'Move to…');
+  b.setAttribute('aria-haspopup', 'menu');
+  b.title = 'Move to…';
+  host.icon(b, 'more-horizontal');
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const choices = moveChoices(model, task);
+    if (choices) host.onMoveMenu?.(task, choices, e);
+  });
+  return b;
+}
+
+/**
+ * A dot per column and "2 / 4", following the scroll position. styles.css shows it only when the
+ * board is narrow enough to show one column at a time.
+ */
+function pager(scroller: HTMLElement, count: number): { bar: HTMLElement; update(): void } {
+  const bar = el('div', 'tt-pager');
+  bar.setAttribute('aria-hidden', 'true');
+  const dots = el('span', 'tt-pager-dots');
+  for (let i = 0; i < count; i++) dots.append(el('span', 'tt-pager-dot'));
+  const text = el('span', 'tt-pager-text');
+  bar.append(dots, text);
+  const update = () => {
+    const headers = [...scroller.querySelectorAll<HTMLElement>('.tt-col-header')];
+    const index = Math.max(0, headers.indexOf(columnInView(scroller)!));
+    [...dots.children].forEach((dot, i) => dot.classList.toggle('is-active', i === index));
+    text.textContent = `${index + 1} / ${count}`;
+  };
+  let queued = false;
+  scroller.addEventListener('scroll', () => {
+    if (queued) return;
+    queued = true;
+    (scroller.ownerDocument.defaultView ?? window).requestAnimationFrame(() => { queued = false; update(); });
+  }, { passive: true });
+  return { bar, update };
+}
+
+/** Whether the board is narrow enough that styles.css snaps its columns, one per swipe. */
+function swipesColumns(scroller: HTMLElement): boolean {
+  return (getComputedStyle(scroller).scrollSnapType ?? '').startsWith('x');
+}
+
+/** The column header nearest the middle of the board: the column in view when they're shown one at a time. */
+function columnInView(scroller: HTMLElement): HTMLElement | undefined {
+  if (scroller.clientWidth === 0) return undefined;
+  let best: HTMLElement | undefined;
+  for (const header of scroller.querySelectorAll<HTMLElement>('.tt-col-header')) {
+    if (!best || Math.abs(offsetFromMiddle(scroller, header)) < Math.abs(offsetFromMiddle(scroller, best))) best = header;
+  }
+  return best;
+}
+
+/** How far right of the middle of the scroller's visible area the middle of `target` is. */
+function offsetFromMiddle(scroller: HTMLElement, target: HTMLElement): number {
+  const view = scroller.getBoundingClientRect();
+  const box = target.getBoundingClientRect();
+  return box.left + box.width / 2 - (view.left + scroller.clientLeft + scroller.clientWidth / 2);
+}
+
 function addDropZone(zone: HTMLElement, host: RenderHost, target: (taskId: string) => DropTarget): void {
   zone.addEventListener('dragover', (e) => {
     if (!draggingId) return;
@@ -689,6 +771,7 @@ function chevron(): SVGElement {
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
+  // Shared with the standalone browser harness; nodes are adopted by the destination document.
   const node = document.createElement(tag);
   node.className = cls;
   if (text !== undefined) node.textContent = text;

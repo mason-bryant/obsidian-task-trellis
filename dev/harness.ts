@@ -163,6 +163,32 @@ const host: RenderHost = {
     files[parent.path] = insertSubtask(files[parent.path]!.join('\n'), parent.line, line, '\t').split('\n');
     render();
   },
+  // A plain list standing in for Obsidian's menu (a bottom sheet on phones).
+  onMoveMenu: (task, choices) => {
+    const dialog = document.getElementById('move') as HTMLDialogElement;
+    const list = dialog.querySelector<HTMLElement>('.move-list')!;
+    list.replaceChildren();
+    for (const [title, group] of [['Move to column', choices.columns], ['Move to row', choices.rows]] as const) {
+      const label = document.createElement('div');
+      label.className = 'move-label';
+      label.textContent = title;
+      list.append(label);
+      for (const choice of group) {
+        const item = document.createElement('button');
+        item.className = 'move-item';
+        item.disabled = choice.current;
+        item.append(choice.current ? `${choice.label} ✓` : choice.label);
+        if (choice.detail) item.append(Object.assign(document.createElement('span'), { className: 'tt-menu-detail', textContent: choice.detail }));
+        item.onclick = () => {
+          dialog.close();
+          host.onDrop(task.id, choice.target);
+        };
+        list.append(item);
+      }
+    }
+    dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+    dialog.showModal();
+  },
 };
 
 function offerUndo(before: string, label: string): void {

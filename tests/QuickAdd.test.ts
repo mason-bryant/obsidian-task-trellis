@@ -1,11 +1,44 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuickAdd } from '../src/obsidian/QuickAdd.ts';
 import { buildBoard } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import { notices, TFile } from './mocks/obsidian.ts';
+import { Events, notices, TFile } from './mocks/obsidian.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
 beforeEach(() => { notices.length = 0; });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+it('cancels Templater recovery when disabled without writing the task again', async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('window', globalThis);
+  const file = new TFile('Inbox.md');
+  const workspace = new Events();
+  const offref = vi.spyOn(workspace, 'offref');
+  const read = vi.fn(async () => '');
+  const process = vi.fn(async () => undefined);
+  let unload = () => {};
+  const plugin = {
+    register: (cleanup: () => void) => { unload = cleanup; },
+    app: {
+      workspace,
+      plugins: { enabledPlugins: new Set(['templater-obsidian']) },
+      vault: { configDir: '.obsidian', adapter: { read: async () => '{}' },
+        getFileByPath: () => null, create: async () => file, process, read },
+    },
+    settings: { newTaskKind: 'note', newTaskNote: 'Inbox.md', newTaskHeading: '' },
+  } as unknown as TaskTrellisPlugin;
+  const config = parseBoardConfig('House', {}).config;
+  await new QuickAdd(plugin).addFromBoard(buildBoard([], config, '2026-10-23', () => undefined),
+    { rowId: 'now', columnId: 'backlog' }, 'New task', false);
+  expect(process).toHaveBeenCalledTimes(1);
+  unload();
+  workspace.trigger('templater:overwrite-file', { file });
+  await vi.runAllTimersAsync();
+  expect(offref).toHaveBeenCalledTimes(1);
+  expect(read).not.toHaveBeenCalled();
+  expect(process).toHaveBeenCalledTimes(1);
+});
+
 describe('new-task filter feedback', () => {
   it.each([
     { rules: { 'include-tags': ['home'] }, pageTags: ['Home/Kitchen'], siblingTags: [], text: 'Call supplier', hidden: false },
@@ -18,6 +51,7 @@ describe('new-task filter feedback', () => {
     let content = '';
     const position = { start: { line: 0 }, end: { line: 0 } };
     const plugin = {
+      register: () => undefined,
       app: {
         vault: { configDir: '.obsidian', getFileByPath: () => file,
           adapter: { read: async () => '{}' }, process: async (_file: TFile, transform: (text: string) => string) => { content = transform(content); } },
@@ -36,6 +70,7 @@ describe('new-task filter feedback', () => {
     const file = new TFile('Inbox.md');
     let content = '';
     const plugin = {
+      register: () => undefined,
       app: {
         vault: { configDir: '.obsidian', getFileByPath: () => file,
           adapter: { read: async () => '{}' }, process: async (_file: TFile, transform: (text: string) => string) => { content = transform(content); } },

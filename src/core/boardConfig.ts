@@ -187,18 +187,24 @@ export function parseBoardConfig(
 /** List values arrive as YAML lists, or as one comma-separated string from the Properties editor. */
 function stringList(raw: unknown): string[] {
   if (raw === undefined || raw === null) return [];
-  const items = Array.isArray(raw) ? raw : String(raw).split(',');
+  if (typeof raw === 'object' && !Array.isArray(raw)) return [];
+  const items = Array.isArray(raw) ? raw : scalarText(raw).split(',');
   return items
     .filter((v) => v !== null && v !== undefined && typeof v !== 'object')
     .map((v) => String(v).trim())
     .filter((v) => v !== '');
 }
 
+/** YAML objects are not valid scalar settings; avoid interpreting them as "[object Object]". */
+function scalarText(raw: unknown): string {
+  return typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean' ? String(raw) : '<non-scalar value>';
+}
+
 function newTasksSetting(raw: unknown, warnings: string[]): BoardConfig['newTasks'] {
   if (raw === undefined || raw === null || raw === '') return 'default';
-  const v = String(raw).trim().toLowerCase();
+  const v = scalarText(raw).trim().toLowerCase();
   if (v === 'default' || v === 'daily' || v === 'note') return v;
-  warnings.push(`new-tasks "${String(raw)}" should be default, daily or note; using default.`);
+  warnings.push(`new-tasks "${scalarText(raw)}" should be default, daily or note; using default.`);
   return 'default';
 }
 
@@ -212,8 +218,8 @@ function dueNowSetting(f: Record<string, unknown>, warnings: string[]): { dueNow
   const rawUnit = f[FM.dueNowUnit];
   let dueNowUnit: DueNowUnit = 'days';
   if (typeof rawUnit === 'string' && /^weeks?$/i.test(rawUnit.trim())) dueNowUnit = 'weeks';
-  else if (rawUnit !== undefined && rawUnit !== null && !/^days?$/i.test(String(rawUnit).trim())) {
-    warnings.push(`due-now-unit "${String(rawUnit)}" should be days or weeks; using days.`);
+  else if (rawUnit !== undefined && rawUnit !== null && !/^days?$/i.test(scalarText(rawUnit).trim())) {
+    warnings.push(`due-now-unit "${scalarText(rawUnit)}" should be days or weeks; using days.`);
   }
   const raw = FM.dueNow in f ? f[FM.dueNow] : f[LEGACY_FM.dueNowDays];
   return {
@@ -229,9 +235,9 @@ function intSetting(raw: unknown, fallback: number, min: number, max: number): n
 
 function weekStartSetting(raw: unknown, warnings: string[]): number {
   if (raw === undefined || raw === null || raw === '') return 1;
-  const i = WEEKDAYS.indexOf(String(raw).trim().toLowerCase());
+  const i = WEEKDAYS.indexOf(scalarText(raw).trim().toLowerCase());
   if (i >= 0) return i;
-  warnings.push(`week-start "${String(raw)}" is not a weekday; using Monday.`);
+  warnings.push(`week-start "${scalarText(raw)}" is not a weekday; using Monday.`);
   return 1;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyEdit, buildBoard, columnOf, planDrop, quickMoveTarget, taskId, type BoardTask } from '../src/core/board.ts';
+import { applyEdit, buildBoard, columnOf, moveChoices, planDrop, quickMoveTarget, taskId, type BoardTask, type MoveChoice } from '../src/core/board.ts';
 import { destinationFor, parseBoardConfig, type BoardConfig } from '../src/core/boardConfig.ts';
 import { startOfWeek } from '../src/core/dates.ts';
 import { computeRows, rowForDue } from '../src/core/rows.ts';
@@ -358,6 +358,75 @@ describe('quickMoveTarget', () => {
 
   it('leaves completed cards alone', () => {
     expect(quickMoveTarget(model, tasks[4]!)).toBeNull();
+  });
+});
+
+describe('moveChoices', () => {
+  const c = config({ 'week-horizon': 2 });
+  const tasks = [
+    task('- [ ] one 📅 2026-10-22 #tt/house/doing/100', 'a.md', 0),
+    task('- [ ] two 📅 2026-10-23 #tt/house/backlog/100', 'a.md', 1),
+    task('- [ ] undated #tt/house/doing/200', 'a.md', 2),
+    task('- [x] fin 📅 2026-10-22 ✅ 2026-10-21 #tt/house/done/100', 'c.md', 0),
+  ];
+  const model = buildBoard(tasks, c, TODAY, () => undefined);
+  const brief = (choices: MoveChoice[]) => choices.map((m) => [m.label, m.detail, m.target, m.current]);
+
+  it('lists every column in the card’s row and every row in its column, each at the end of the cell', () => {
+    const choices = moveChoices(model, tasks[0]!)!;
+    expect(brief(choices.columns)).toEqual([
+      ['Backlog', '', { rowId: 'now', columnId: 'backlog', index: 1 }, false],
+      ['Doing', '', { rowId: 'now', columnId: 'doing', index: 1 }, true],
+      ['Waiting', '', { rowId: 'now', columnId: 'waiting', index: 0 }, false],
+      ['Done', 'completes it', { rowId: 'now', columnId: 'done', index: 1 }, false],
+    ]);
+    expect(brief(choices.rows)).toEqual([
+      ['No due date', 'removes the due date', { rowId: 'none', columnId: 'doing', index: 1 }, false],
+      ['Due now', '', { rowId: 'now', columnId: 'doing', index: 1 }, true],
+      ['Oct 29 – Nov 1', 'due Oct 29', { rowId: 'week-2026-10-26', columnId: 'doing', index: 0 }, false],
+      ['Week of Nov 2', 'due Nov 2', { rowId: 'week-2026-11-02', columnId: 'doing', index: 0 }, false],
+      ['Later', 'due Nov 9', { rowId: 'later', columnId: 'doing', index: 0 }, false],
+    ]);
+  });
+
+  it('applies through planDrop like a drag to the end of the cell', () => {
+    const toBacklog = moveChoices(model, tasks[0]!)!.columns[0]!;
+    expect(planDrop(model, 'a.md:0', toBacklog.target).get('a.md:0')).toEqual({ column: 'backlog', sort: 200 });
+    const deferred = moveChoices(model, tasks[2]!)!.rows.find((r) => r.label === 'Later')!;
+    expect(planDrop(model, 'a.md:2', deferred.target).get('a.md:2')).toEqual({ column: 'doing', sort: 100, due: '2026-11-09' });
+  });
+
+  it('leaves completed cards alone', () => {
+    expect(moveChoices(model, tasks[3]!)).toBeNull();
+  });
+
+  describe('with a No due date column', () => {
+    const u = config({ columns: ['Someday', 'Backlog', 'Doing', 'Done'], 'undated-column': 'Someday', 'week-horizon': 1 });
+    const idea = task('- [ ] idea #tt/house/doing/100', 'a.md', 0);
+    const dated = task('- [ ] dated 📅 2026-10-22 #tt/house/backlog/100', 'a.md', 1);
+    const m = buildBoard([idea, dated], u, TODAY, () => undefined);
+
+    it('lists the column (row "none") in place of the No due date row', () => {
+      const choices = moveChoices(m, dated)!;
+      expect(choices.columns[0]).toEqual({ label: 'Someday', detail: 'removes the due date', target: { rowId: 'none', columnId: 'someday', index: 1 }, current: false });
+      expect(choices.rows.map((r) => r.target.rowId)).toEqual(['now', 'week-2026-10-26', 'later']);
+      expect(planDrop(m, dated.id, choices.columns[0]!.target).get(dated.id)).toMatchObject({ column: 'backlog', due: null });
+    });
+
+    it('sends a card leaving it to Due now in the chosen column, or its tagged column for a row', () => {
+      const choices = moveChoices(m, idea)!;
+      expect(brief(choices.columns)).toEqual([
+        ['Someday', '', { rowId: 'none', columnId: 'someday', index: 1 }, true],
+        ['Backlog', 'due Oct 28', { rowId: 'now', columnId: 'backlog', index: 1 }, false],
+        ['Doing', 'due Oct 28', { rowId: 'now', columnId: 'doing', index: 0 }, false],
+        ['Done', 'completes it', { rowId: 'now', columnId: 'done', index: 0 }, false],
+      ]);
+      expect(choices.rows.map((r) => [r.label, r.target.columnId, r.current])).toEqual([
+        ['Due now', 'doing', false],
+        ['Oct 29 – Nov 1', 'doing', false],
+        ['Later', 'doing', false],
+      ]);
+    });
   });
 });
 

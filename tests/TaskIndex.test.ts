@@ -10,9 +10,10 @@ function fakeApp(read: () => Promise<string> = async () => '') {
   const vault = Object.assign(new Events(), { getMarkdownFiles: () => [file], cachedRead: read });
   const app = { metadataCache, vault } as unknown as App;
   const index = new TaskIndex(app, () => false);
-  index.attach({ registerEvent: () => undefined } as unknown as Plugin);
+  const cleanups: (() => void)[] = [];
+  index.attach({ registerEvent: () => undefined, register: (cleanup: () => void) => cleanups.push(cleanup) } as unknown as Plugin);
   const change = (content: string, c = cache()) => metadataCache.trigger('changed', file, content, c);
-  return { index, change, metadataCache, vault };
+  return { index, change, metadataCache, vault, unload: () => cleanups.forEach((cleanup) => cleanup()) };
 }
 
 /** A cache with top-level tasks on lines 1 and 2. */
@@ -32,6 +33,28 @@ afterEach(() => {
 });
 
 describe('TaskIndex', () => {
+  it('cancels pending notifications on unload', () => {
+    const { index, change, unload } = fakeApp();
+    const updated = vi.fn();
+    index.on('updated', updated);
+    change('# Today\n- [ ] Pending task\n');
+    unload();
+    vi.runAllTimers();
+    expect(updated).not.toHaveBeenCalled();
+    expect(index.all()).toEqual([]);
+  });
+
+  it('stops an in-flight rebuild on unload', async () => {
+    let finishRead = (_content: string) => undefined as void;
+    const { index, unload } = fakeApp(() => new Promise((resolve) => (finishRead = resolve)));
+    const rebuilt = index.rebuild();
+    unload();
+    finishRead('# Today\n- [ ] Stale task\n');
+    await rebuilt;
+    vi.runAllTimers();
+    expect(index.all()).toEqual([]);
+    expect(index.version).toBe(0);
+  });
   it('only tells boards about edits that change a task line or the front matter', () => {
     const { index, change } = fakeApp();
     let updates = 0;

@@ -1,6 +1,6 @@
 # Task Trellis
 
-An Obsidian plugin that shows the tasks in your vault as cards on a kanban board: workflow columns across, due-date rows down. Everything is stored in the task lines themselves, in the Tasks plugin's emoji format, so the vault stays plain markdown.
+An Obsidian plugin that shows the tasks in your vault as cards on a kanban board: workflow columns across, due-date rows down. Everything is stored in the task lines themselves, in the Tasks plugin's emoji format, so the vault stays plain Markdown.
 
 ```
                │ Backlog      │ Doing        │ Waiting      │ Done
@@ -80,6 +80,8 @@ Both property lists accept a single string, a list of rules, or a mapping. Use a
 - Cards use theme-aware surfaces, line icons and a single metadata footer. Overdue cards have a slim red edge and a relative overdue label. A partial first week displays its actual date range.
 - Tasks indented under a task are its subtasks. They show inside the parent's card, in note order, and go wherever the parent goes, whatever their own date or column. Completed ones stay visible, struck through. A chevron and completion count (for example **1/3**) above each list shares a row with the add-subtask button. Its tooltip says **Hide subtasks** or **Show subtasks**. The board remembers each list’s visibility. **Collapse all subtasks** and **Expand all subtasks** apply to the whole board, including nested lists and hidden columns or rows, and are remembered when you reopen it. If the parent isn't on the board (filtered out, or completed long ago), its open subtasks show as cards of their own.
 - **Compact** reduces card spacing without changing which subtask lists are expanded. Use the column picker to focus on one workflow column, especially in a narrow pane. These display choices last for the open board view.
+- On a board under 600px wide (a phone, or a narrow pane on desktop), each column fills the board and a sideways swipe moves one column; the dots above the board show which column is in view. Column headers and row labels stay in view on every column.
+- On touch screens and narrow boards, open cards have a ⋯ button. **Move to…** lists the board's columns (in the card's row) and rows (in its column), with what the move also does, such as the due date it sets. The card goes to the end of the chosen cell, as if dragged there. On touch screens the card buttons are 44px tap targets, and the add buttons show without hovering.
 - After moving or completing a task, **Undo** restores the latest change, including a recurring task's generated occurrence. To protect subsequent edits, Undo skips any note whose content has changed since that action.
 
 ## Adding tasks
@@ -92,16 +94,46 @@ Both property lists accept a single string, a list of rules, or a mapping. Use a
 
 ## Development
 
+Use Node.js 22.13 or a newer supported even-numbered release (CI uses Node.js 22). This is a development requirement; it does not change the plugin's minimum Obsidian version. The Moment override keeps the Obsidian API packages' development dependency patched; Moment is not bundled in the plugin.
+
 ```bash
-npm install
+npm ci
+npm run lint      # official Obsidian review rules
 npm test           # vitest
 npm run build      # typecheck + main.js
+npm run check:release # manifest, versions, release files and license notices
+npm run package    # build and prepare dist/task-trellis/ locally
 npm run dev        # rebuild on change
 npm run harness    # dev/harness.js, then open dev/harness.html over http
 ```
 
 `dev/harness.html` runs the real board model and renderer against an in-memory vault, for checking the UI without Obsidian. It includes light/dark themes, the shared settings editor, filter suggestions and task-action Undo. The Source checkbox reveals the resulting task lines.
 
-Every pull request runs the full test suite, TypeScript checking, the production build, and the browser harness build in GitHub Actions. The `Tests and build` check is required on `main` before merging, including for administrators, and the branch must be up to date.
+Every pull request runs lint, the full test suite, TypeScript checking, the production build, release validation, and the browser harness build in GitHub Actions. The `Tests and build` check is required on `main` before merging, including for administrators, and the branch must be up to date.
 
 To try it in a vault, copy `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/task-trellis/` and enable **Task Trellis** under Community plugins.
+
+## Privacy and integrations
+
+Task Trellis works locally and has no remote service integration. It collects no telemetry, includes no ads, requires no account or payment, and does not access files outside the vault. It does not install or update plugins or dependencies. Its runtime dependency is bundled in `main.js`. Obsidian renders card text as Markdown, so remote images or embeds included in your task text can cause Obsidian to load that content from its source.
+
+The plugin reads Markdown tasks and metadata throughout the vault, except configured exclusions and the boards folder. Board actions edit task lines; board settings edit the board note's properties. Plugin preferences are saved through Obsidian's plugin data API.
+
+The **Tasks** community plugin is optional: it provides the task editor and recurring-task behavior when available. Task Trellis reads its `setCreatedDate` preference from `<vault>/<configDir>/plugins/obsidian-tasks-plugin/data.json`. Without Tasks, cards open the source note and new tasks use a plain text prompt. The **Daily notes** core plugin is needed only when the destination is today's daily note; choosing a specific note works without it. If **Templater** is enabled, Task Trellis waits briefly for template processing so newly added tasks survive it. These integrations operate inside the vault.
+
+## License and credits
+
+Task Trellis is licensed under the [MIT license](LICENSE). Portions of the sorting and filtering logic are adapted from [4D Eisenhower Matrix](https://github.com/krcaljaroslav/4D-eisenhower-matrix) by Jaroslav Krčál (MIT). The runtime also includes [monkey-around](https://github.com/pjeby/monkey-around) by PJ Eby (ISC). See [third-party notices](THIRD_PARTY_NOTICES.txt); all notices are embedded in the generated bundle.
+
+## Submission readiness
+
+This repository has not been submitted to the Community directory. The preparation review on October 23, 2026 covered the official [developer policies](https://docs.obsidian.md/community-directory/developer-policies), [submission requirements](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins), [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin%20guidelines), [manifest reference](https://docs.obsidian.md/Reference/Manifest), and [submission procedure](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin). Automated checks help prevent regressions; they do not imply acceptance by Obsidian.
+
+Before submission:
+
+- **Resolve code provenance eligibility.** The MIT attribution above preserves the original license, but the directory has a separate fork policy. Because this plugin contains adapted code, obtain publicly verifiable approval from the original author or clarify eligibility with Obsidian before applying. No approval is recorded in this repository. The repository's GitHub `fork: false` flag alone does not settle this requirement.
+- **Complete native compatibility testing.** Test on Obsidian 1.8.7 (the declared minimum) and the current stable version, in a disposable vault. Check desktop light/dark themes, keyboard interaction, pop-out windows, reload/disable/re-enable with boards open, and task editing with and without Tasks, Daily notes, and Templater. Test iOS and Android, especially card movement and narrow layouts. No Node.js or Electron APIs are bundled, but mobile interaction has not been verified. Fix failures or adjust compatibility claims before release.
+- **Review internal integrations.** Automatic board opening patches `WorkspaceLeaf.setViewState`; preserving board tabs uses the internal view registry with a public API fallback. Daily notes and tag search also use guarded internal interfaces. Smoke-test them after Obsidian updates; the declared API version alone cannot guarantee those interfaces.
+- **Check the listing again.** The public repository has the required README, license and manifest. `task-trellis` / `Task Trellis` had no exact match in the public plugin catalog at review time; availability and naming still need confirmation when applying. There is no funding URL because the plugin does not request donations.
+- **Prepare a release only when ready.** Keep `manifest.json`, `package.json` and `versions.json` synchronized. Run `npm ci`, `npm run lint`, `npm test`, `npm run harness`, and `npm run package`. Inspect `dist/task-trellis/` and install those exact files in the test vault. The build checks mobile-incompatible runtime imports and preserves notices; packaging validates metadata and assets.
+- **Publish and submit only with maintainer authorization.** A GitHub release must have a tag exactly matching the manifest version (for example `0.1.0`, without `v`) and attach `main.js`, `manifest.json` and `styles.css` as individual assets. The default branch must contain the matching manifest and reviewable source. Apply through the [Community directory](https://community.obsidian.md/) using an Obsidian account linked to GitHub. Address the automated review and any reviewer requests before publication. No release or submission is created by this repo's CI or package command.
