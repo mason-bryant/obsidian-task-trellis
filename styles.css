@@ -33,6 +33,7 @@
   min-height: 0;
   overflow: auto;
 }
+.tt-vertical-scroll { display: contents; }
 
 .tt-grid {
   display: grid;
@@ -639,14 +640,16 @@
 .tt-pager-dot.is-active { width: 16px; background: var(--interactive-accent); }
 @container trellis (max-width: 600px) {
   /* cqw counts a vertical scrollbar in (desktop Obsidian's take up room), which would shift each column. */
-  .tt-scroll { overflow-x: hidden; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; overscroll-behavior-x: none; scrollbar-width: none; touch-action: pan-y pinch-zoom; }
+  /* Keep WebKit's native vertical scrolling on a different element from paging.
+   * Sharing an overflow-hidden horizontal offset with it resets the column. */
+  .tt-scroll { --tt-column-paging: 1; overflow: hidden; overscroll-behavior-x: none; scrollbar-width: none; touch-action: pan-y pinch-zoom; }
+  .tt-vertical-scroll { display: block; height: 100%; width: calc(var(--tt-columns) * 100cqw); overflow-x: hidden; overflow-y: auto; overscroll-behavior-x: none; scrollbar-width: none; touch-action: pan-y pinch-zoom; }
   /* A deliberate horizontal drag follows the finger freely until release. */
-  .tt-scroll.tt-scroll--swiping { scroll-snap-type: none; user-select: none; }
+  .tt-scroll.tt-scroll--swiping { user-select: none; }
   /* Columns one board width apart: the grid's 16px side padding on both sides of each. */
   .tt-grid { grid-template-columns: repeat(var(--tt-columns), calc(100cqw - 32px)); column-gap: 32px; }
-  .tt-col-header { scroll-snap-align: start; scroll-snap-stop: always; }
   /* Row labels on every column, also right of a No due date column, lined up with the cards. */
-  .tt-row-sticky { left: 16px; }
+  .tt-row-sticky { left: calc(16px + var(--tt-page-left, 0px)); }
   .tt-row-bar--rest > .tt-row-sticky { display: inline-flex; }
   .tt-pager { display: flex; }
   .tt-scroll-hint:not([hidden]) { display: none; }
@@ -683,6 +686,17 @@
 .is-mobile .tt-cell > .tt-add { order: -1; position: static; bottom: auto; margin-top: 0; }
 .is-mobile .tt-cell > .tt-add::before { display: none; }
 .is-mobile .tt-add-input { font-size: max(16px, var(--font-ui-small)); }
+
+/* The floating mobile navigation overlaps the view. Leave real scrollable space
+ * after the grid so the last card and its actions can clear it, including on iOS. */
+@media (pointer: coarse) {
+  .tt-grid { padding-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
+  /* The size-contained undated column can overflow past the grid itself. Its
+   * spacer must follow its cards, rather than only padding the shorter grid. */
+  .tt-cell--undated::after { content: ''; flex: none; height: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
+}
+.is-mobile .tt-grid { padding-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
+.is-mobile .tt-cell--undated::after { content: ''; flex: none; height: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 
 /* A dedicated grab area distinguishes moving a card from scrolling its list. */
 .tt-card-drag-handle { display: none; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -8px -8px 0; color: var(--text-faint); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }

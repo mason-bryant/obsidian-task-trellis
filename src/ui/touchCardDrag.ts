@@ -3,7 +3,7 @@ export function installTouchCardDrag(scroller: HTMLElement, host: {
   start(id: string): void;
   move(x: number, y: number): void;
   end(commit: boolean): void;
-}): void {
+}, scrollTarget: () => HTMLElement = () => scroller): void {
   const doc = scroller.ownerDocument;
   const view = doc.defaultView!;
   let drag: {
@@ -21,13 +21,14 @@ export function installTouchCardDrag(scroller: HTMLElement, host: {
   const autoScroll = () => {
     if (!drag?.ghost) return;
     if (!scroller.isConnected) { finish(false); return; }
-    const box = scroller.getBoundingClientRect();
+    const vertical = scrollTarget();
+    const box = vertical.getBoundingClientRect();
     // Clear the sticky column heading at the top and the system toolbar at the bottom.
     const top = box.top + 80;
     const bottom = Math.min(box.bottom, view.visualViewport?.height ?? view.innerHeight) - 64;
     const speed = drag.y < top ? -Math.min(12, (top - drag.y) / 4) :
       drag.y > bottom ? Math.min(12, (drag.y - bottom) / 4) : 0;
-    if (speed) { scroller.scrollTop += speed; update(); }
+    if (speed) { vertical.scrollTop += speed; update(); }
     frame = view.requestAnimationFrame(autoScroll);
   };
   const finish = (commit: boolean) => {

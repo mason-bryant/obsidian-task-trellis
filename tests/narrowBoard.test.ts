@@ -49,6 +49,21 @@ describe('Move to…', () => {
 });
 
 describe('one column at a time', () => {
+  it('restores the inner vertical position and outer page across a narrow-board redraw', () => {
+    const style = document.createElement('style');
+    style.textContent = '.tt-scroll { --tt-column-paging: 1; }';
+    document.head.append(style);
+    try {
+      draw();
+      root.querySelector<HTMLElement>('.tt-scroll')!.scrollLeft = 400;
+      root.querySelector<HTMLElement>('.tt-vertical-scroll')!.scrollTop = 300;
+      draw();
+      expect(root.querySelector<HTMLElement>('.tt-scroll')!.scrollLeft).toBe(400);
+      expect(root.querySelector<HTMLElement>('.tt-scroll')!.scrollTop).toBe(0);
+      expect(root.querySelector<HTMLElement>('.tt-vertical-scroll')!.scrollTop).toBe(300);
+    } finally { style.remove(); }
+  });
+
   it('keeps Obsidian swipe exclusion on task targets after redraws, without excluding the toolbar', () => {
     // Obsidian's mobile recognizer walks ancestors looking for a truthy ignoreSwipe.
     // Verify the integration boundary for nested hits and rebuilt board content.
