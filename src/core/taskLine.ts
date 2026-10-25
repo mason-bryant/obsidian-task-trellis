@@ -1,4 +1,4 @@
-import { stripTaskLabels } from './labels.ts';
+import { stripLegacyTaskLabels, stripTaskLabels } from './labels.ts';
 import type { ISODate } from './dates.ts';
 
 /** Every Task Trellis tag starts with `#tt/`. */
@@ -64,7 +64,7 @@ export type ParsedTask = {
 const TASK_LINE_RE = /^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[)([^\]])(\]\s+)(.*)$/;
 const SEGMENT = '[\\p{L}\\p{N}_-]+';
 const placementRe = () =>
-  new RegExp(`(^|\\s)#${TAG_PREFIX}\\/(${SEGMENT})\\/(${SEGMENT})(?:\\/(\\d+))?(?=\\s|$)`, 'gu');
+  new RegExp(`(^|\\s)#${TAG_PREFIX}\\/(${SEGMENT})\\/((?!label/)${SEGMENT})(?:\\/(\\d+))?(?=\\s|$)`, 'giu');
 const TAG_RE = /(?:^|\s)#([\p{L}\p{N}_/-]+)/gu;
 // Trailing run of placement tags and a block id; new fields go in front of it.
 const TAIL_RE = new RegExp(`(?:\\s+(?:#${TAG_PREFIX}\\/[\\p{L}\\p{N}_/-]+|\\^[A-Za-z0-9-]+))+\\s*$`, 'u');
@@ -112,7 +112,7 @@ export function parseTaskLine(line: string): ParsedTask | null {
   const m = TASK_LINE_RE.exec(line);
   if (!m) return null;
   const status = m[2] ?? ' ';
-  const body = stripTaskLabels(m[4] ?? '');
+  const body = stripLegacyTaskLabels(m[4] ?? '');
 
   const placements: Record<string, Placement> = {};
   for (const p of body.matchAll(placementRe())) {
@@ -133,7 +133,7 @@ export function parseTaskLine(line: string): ParsedTask | null {
     if (tag && !/^\d+$/.test(tag)) tags.push(tag);
   }
 
-  let text = withoutPlacements.replace(/<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->/g, '');
+  let text = stripTaskLabels(withoutPlacements).replace(/<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->/g, '');
   for (const re of FIELD_RES) text = text.replace(re, ' ');
   text = text.replace(/\s+/g, ' ').trim();
 

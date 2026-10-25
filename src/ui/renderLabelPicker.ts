@@ -1,4 +1,4 @@
-import { LABEL_COLORS, labelDescription, labelTextColor, normalizeLabelColor, type BoardLabel } from '../core/labels.ts';
+import { LABEL_COLORS, newLabelId, labelDescription, labelTextColor, normalizeLabelColor, type BoardLabel } from '../core/labels.ts';
 
 export type LabelPickerHost = {
   icon(el: HTMLElement, name: string): void;
@@ -35,7 +35,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     search.setAttribute('aria-label', 'Search labels'); search.value = query;
     const list = node('div', 'tt-label-list');
     const create = button('Create a new label', 'tt-label-create');
-    create.onclick = () => editor({ id: `label-${crypto.randomUUID()}`, name: '', color: LABEL_COLORS[0].color });
+    create.onclick = () => editor({ id: newLabelId(labels), name: '', color: LABEL_COLORS[0].color });
     root.append(search, list, create, error);
     function rows(): void {
       list.replaceChildren();
@@ -103,7 +103,8 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     const submit = button('Save label', 'mod-cta'); submit.type = 'submit';
     actions.append(cancel, submit);
     form.append(preview, nameField, node('div', 'tt-label-field', 'Color'), swatches, hexField,
-      node('p', 'tt-label-help', 'Changes apply to every task using this label on this board.'), actions);
+      node('p', 'tt-label-help', 'Changes apply to every task using this label on this board.'),
+      node('p', 'tt-label-help', `Permanent tag ID: ${label.id}`), actions);
     form.onsubmit = (e) => {
       e.preventDefault();
       const next = normalizeLabelColor(hex.value);

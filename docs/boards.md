@@ -37,3 +37,5 @@ These properties are stored in the board note. The settings form handles the usu
 | `new-tasks-heading` | | The section new tasks go at the end of; empty adds to the end of the note. |
 
 Every board gets an **Open board: ‹name›** command, so you can give each board its own hotkey. The command id comes from the slug, so the hotkey survives renaming the note.
+
+The column name `Label` is reserved for the `#tt/<board>/label/<id>` tag namespace. Use a different column name.

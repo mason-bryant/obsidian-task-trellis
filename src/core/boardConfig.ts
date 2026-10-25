@@ -128,6 +128,7 @@ export function parseBoardConfig(
   const columns: BoardColumn[] = [];
   for (const label of stringList(f[FM.columns])) {
     const id = slugify(label);
+    if (id === 'label') { warnings.push('"Label" is reserved for label tags. Rename this column.'); continue; }
     if (id && !columns.some((c) => c.id === id)) columns.push({ id, label });
   }
   if (columns.length === 0) {
