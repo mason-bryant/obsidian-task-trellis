@@ -7,6 +7,7 @@ let host: Parameters<typeof installTouchCardDrag>[1];
 let capture: number | null;
 let tick: FrameRequestCallback;
 let vertical: HTMLElement;
+let stops: number[];
 function pointer(type: string, x: number, y: number, target = handle, id = 1) {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperties(event, Object.fromEntries(Object.entries({
@@ -18,6 +19,10 @@ function pointer(type: string, x: number, y: number, target = handle, id = 1) {
 beforeEach(() => {
   scroller = document.createElement('div');
   vertical = scroller;
+  stops = [];
+  scroller.scrollTo = vi.fn((options?: ScrollToOptions | number) => {
+    scroller.scrollLeft = typeof options === 'number' ? options : options?.left ?? scroller.scrollLeft;
+  });
   card = document.createElement('div'); card.className = 'tt-card'; card.dataset.id = 'House.md:0';
   handle = document.createElement('span'); handle.className = 'tt-card-drag-handle';
   card.append(handle); scroller.append(card); document.body.replaceChildren(scroller);
@@ -30,7 +35,7 @@ beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { tick = callback; return 1; });
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
   host = { start: vi.fn(), move: vi.fn(), end: vi.fn() };
-  installTouchCardDrag(scroller, host, () => vertical);
+  installTouchCardDrag(scroller, host, () => vertical, () => stops);
 });
 
 describe('touch card handle', () => {
@@ -100,5 +105,88 @@ describe('touch card handle', () => {
     pointer('pointerdown', 150, 230, card); pointer('pointerup', 150, 230, card);
     card.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
     expect(edit).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('dragging into off-screen columns', () => {
+  beforeEach(() => { stops = [0, 400, 800]; });
+
+  it.each([-1, 1])('pages in direction %s only after an edge hold, then refreshes the drop target', (direction) => {
+    scroller.scrollLeft = 400;
+    scroller.scrollTop = 150;
+    pointer('pointerdown', 350, 300);
+    const x = direction === 1 ? 380 : 20;
+    pointer('pointermove', x, 300);
+    tick(0); tick(499);
+    expect(scroller.scrollLeft).toBe(400);
+    tick(500);
+    expect(scroller.scrollLeft).toBe(direction === 1 ? 800 : 0);
+    expect(scroller.scrollTop).toBe(150);
+    expect(host.move).toHaveBeenLastCalledWith(x, 300);
+    expect(host.end).not.toHaveBeenCalled();
+    pointer('pointerup', x, 300);
+    expect(host.end).toHaveBeenCalledWith(true);
+  });
+
+  it('allows a multi-column move with a pause between pages and stops at the last column', () => {
+    pointer('pointerdown', 350, 300); pointer('pointermove', 380, 300);
+    tick(0); tick(500);
+    expect(scroller.scrollLeft).toBe(400);
+    tick(1249);
+    expect(scroller.scrollLeft).toBe(400);
+    tick(1250);
+    expect(scroller.scrollLeft).toBe(800);
+    tick(3000);
+    expect(scroller.scrollLeft).toBe(800);
+    expect(scroller.scrollTo).toHaveBeenCalledTimes(2);
+    pointer('pointerup', 200, 300);
+  });
+
+  it('does not page on a vertical reorder even though the handle starts at the right edge', () => {
+    pointer('pointerdown', 375, 300); pointer('pointermove', 382, 400);
+    tick(0); tick(1000);
+    expect(scroller.scrollLeft).toBe(0);
+    pointer('pointerup', 382, 400);
+  });
+
+  it('resets the hold when leaving the edge and can reverse direction', () => {
+    scroller.scrollLeft = 400;
+    pointer('pointerdown', 350, 300); pointer('pointermove', 380, 300);
+    tick(0); tick(400);
+    pointer('pointermove', 200, 300); tick(450);
+    pointer('pointermove', 380, 300); tick(500); tick(900);
+    expect(scroller.scrollLeft).toBe(400);
+    pointer('pointermove', 20, 300); tick(950); tick(1450);
+    expect(scroller.scrollLeft).toBe(0);
+    pointer('pointerup', 200, 300);
+  });
+
+  it.each(['pointerup', 'pointercancel', 'lostpointercapture'])('stops edge navigation after %s and never commits cancellation', (type) => {
+    pointer('pointerdown', 350, 300); pointer('pointermove', 380, 300);
+    tick(0); tick(500);
+    pointer(type, 380, 300, scroller);
+    tick(1500);
+    expect(scroller.scrollLeft).toBe(400);
+    expect(host.end).toHaveBeenCalledWith(type === 'pointerup');
+    expect(capture).toBeNull();
+  });
+
+  it('leaves wide boards and a filtered single column unchanged', () => {
+    for (const positions of [[], [0]]) {
+      stops = positions;
+      pointer('pointerdown', 350, 300); pointer('pointermove', 380, 300);
+      tick(0); tick(1000);
+      expect(scroller.scrollTo).not.toHaveBeenCalled();
+      pointer('pointerup', 380, 300);
+    }
+  });
+
+  it('does not navigate while the pointer is outside the board', () => {
+    pointer('pointerdown', 350, 300); pointer('pointermove', 410, 300);
+    tick(0); tick(1000);
+    pointer('pointermove', 380, 50); tick(1500); tick(2500);
+    expect(scroller.scrollTo).not.toHaveBeenCalled();
+    pointer('pointercancel', 380, 50, scroller);
   });
 });

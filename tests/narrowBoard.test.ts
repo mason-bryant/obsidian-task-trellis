@@ -104,10 +104,10 @@ describe('one column at a time', () => {
 });
 
 describe('touch card placement', () => {
-  function pointer(target: HTMLElement, type: string, y: number) {
+  function pointer(target: HTMLElement, type: string, y: number, x = 250) {
     const event = new Event(type, { bubbles: true, cancelable: true });
     Object.defineProperties(event, Object.fromEntries(Object.entries({
-      pointerId: 1, isPrimary: true, pointerType: 'touch', button: 0, clientX: 250, clientY: y,
+      pointerId: 1, isPrimary: true, pointerType: 'touch', button: 0, clientX: x, clientY: y,
     }).map(([key, value]) => [key, { value }])));
     target.dispatchEvent(event);
   }
@@ -125,6 +125,49 @@ describe('touch card placement', () => {
     expect(host.onDrop).toHaveBeenCalledWith(open.id, { rowId: 'none', columnId: 'backlog', index: 0 });
     expect(host.onDragEnd).toHaveBeenCalledTimes(1);
     expect(root.querySelector('.tt-drop-indicator')).toBeNull();
+  });
+  it('pages a held card into another column, drops there, and keeps that page on a vertical gesture', () => {
+    const style = document.createElement('style');
+    style.textContent = '.tt-scroll { --tt-column-paging: 1; }';
+    document.head.append(style);
+    let tick: FrameRequestCallback = () => undefined;
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { tick = callback; return 1; });
+    try {
+      draw();
+      const scroller = root.querySelector<HTMLElement>('.tt-scroll')!;
+      scroller.setPointerCapture = vi.fn(); scroller.hasPointerCapture = () => false;
+      scroller.getBoundingClientRect = () => ({ left: 0, right: 400, top: 100, bottom: 700 } as DOMRect);
+      Object.defineProperty(scroller, 'clientWidth', { value: 400 });
+      scroller.scrollTo = vi.fn((options?: ScrollToOptions | number) => {
+        scroller.scrollLeft = typeof options === 'number' ? options : options?.left ?? scroller.scrollLeft;
+      });
+      root.querySelectorAll<HTMLElement>('.tt-col-header').forEach((header, index) => {
+        header.getBoundingClientRect = () => ({ left: index * 400 - scroller.scrollLeft, width: 400 } as DOMRect);
+      });
+      scroller.scrollLeft = 400; // The source task is in Doing.
+      const source = card(open).parentElement!;
+      const destination = root.querySelector<HTMLElement>('.tt-cell[data-row="now"][data-column="waiting"]')!;
+      Object.defineProperty(document, 'elementFromPoint', { configurable: true,
+        value: () => scroller.scrollLeft === 800 ? destination : source });
+      const handle = card(open).querySelector<HTMLElement>('.tt-card-drag-handle')!;
+      pointer(handle, 'pointerdown', 300, 350);
+      pointer(scroller, 'pointermove', 300, 380);
+      tick(0); tick(500);
+      expect(scroller.scrollLeft).toBe(800);
+      expect(source.querySelector('.tt-drop-indicator')).toBeNull();
+      expect(destination.querySelector('.tt-drop-indicator')).not.toBeNull();
+      pointer(scroller, 'pointerup', 300, 200);
+      expect(host.onDrop).toHaveBeenCalledExactlyOnceWith(open.id, { rowId: 'now', columnId: 'waiting', index: 0 });
+      expect(host.onDragEnd).toHaveBeenCalledTimes(1);
+      // Both gesture handlers are installed: a subsequent vertical gesture must
+      // neither switch back to Backlog nor start another card move.
+      pointer(card(open), 'pointerdown', 300, 200);
+      pointer(scroller, 'pointermove', 200, 205);
+      pointer(scroller, 'pointerup', 200, 205);
+      expect(scroller.scrollLeft).toBe(800);
+      expect(host.onDrop).toHaveBeenCalledTimes(1);
+      expect(root.querySelector('.tt-drop-indicator')).toBeNull();
+    } finally { style.remove(); raf.mockRestore(); }
   });
   it('does not write a move when released outside any drop zone', () => {
     draw();

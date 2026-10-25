@@ -254,9 +254,10 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const alignRowLabels = () => scrollEl.style.setProperty('--tt-page-left', `${scrollEl.scrollLeft}px`);
   scrollEl.addEventListener('scroll', alignRowLabels, { passive: true });
   alignRowLabels();
-  installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), () =>
+  const columnPositions = () =>
     [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].map((header) =>
-      scrollEl.scrollLeft + offsetFromMiddle(scrollEl, header)));
+      scrollEl.scrollLeft + offsetFromMiddle(scrollEl, header));
+  installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), columnPositions);
   let touchTarget: DropTarget | null = null;
   installTouchCardDrag(scrollEl, {
     start: (id) => { draggingId = id; dragStartedAt = Date.now(); },
@@ -278,7 +279,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       try { if (commit && id && touchTarget) host.onDrop(id, touchTarget); }
       finally { touchTarget = null; host.onDragEnd(); }
     },
-  }, () => verticalScroller(scrollEl));
+  }, () => verticalScroller(scrollEl), () => swipesColumns(scrollEl) ? columnPositions() : []);
 }
 
 function cell(rowId: string, column: BoardColumn, model: BoardModel, host: RenderHost): HTMLElement {

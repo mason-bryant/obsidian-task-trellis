@@ -3,7 +3,8 @@ export function installTouchCardDrag(scroller: HTMLElement, host: {
   start(id: string): void;
   move(x: number, y: number): void;
   end(commit: boolean): void;
-}, scrollTarget: () => HTMLElement = () => scroller): void {
+}, scrollTarget: () => HTMLElement = () => scroller,
+columnPositions: () => number[] = () => []): void {
   const doc = scroller.ownerDocument;
   const view = doc.defaultView!;
   let drag: {
@@ -12,13 +13,38 @@ export function installTouchCardDrag(scroller: HTMLElement, host: {
   } | null = null;
   let frame = 0;
   let suppressClick = false;
+  let edge: { direction: number; since: number } | null = null;
   const update = () => {
     if (!drag?.ghost) return;
     drag.ghost.style.left = `${drag.x - drag.offsetX}px`;
     drag.ghost.style.top = `${drag.y - drag.offsetY}px`;
     host.move(drag.x, drag.y);
   };
-  const autoScroll = () => {
+  const pageAtEdge = (time: number) => {
+    if (!drag) return;
+    const stops = columnPositions();
+    const box = scroller.getBoundingClientRect();
+    const direction = drag.x < box.left + 36 ? -1 : drag.x > box.right - 36 ? 1 : 0;
+    // Handles already sit at the right edge. Require an outward movement so a
+    // vertical reorder (or a little finger drift) cannot change columns.
+    if (stops.length < 2 || !direction || direction * (drag.x - drag.startX) < 16 ||
+      drag.y < box.top || drag.y > box.bottom || drag.x < box.left || drag.x > box.right) {
+      edge = null;
+      return;
+    }
+    if (edge?.direction !== direction) edge = { direction, since: time };
+    if (time - edge.since < 500) return;
+    const index = stops.reduce((best, stop, i) =>
+      Math.abs(stop - scroller.scrollLeft) < Math.abs(stops[best]! - scroller.scrollLeft) ? i : best, 0);
+    const next = index + direction;
+    if (next < 0 || next >= stops.length) return;
+    // One complete page keeps hit-testing and the drop indicator in agreement.
+    // Holding at the edge can continue through further columns, with a pause.
+    scroller.scrollTo({ left: stops[next]!, behavior: 'instant' });
+    edge.since = time + 250;
+    update();
+  };
+  const autoScroll = (time: number) => {
     if (!drag?.ghost) return;
     if (!scroller.isConnected) { finish(false); return; }
     const vertical = scrollTarget();
@@ -29,11 +55,13 @@ export function installTouchCardDrag(scroller: HTMLElement, host: {
     const speed = drag.y < top ? -Math.min(12, (top - drag.y) / 4) :
       drag.y > bottom ? Math.min(12, (drag.y - bottom) / 4) : 0;
     if (speed) { vertical.scrollTop += speed; update(); }
+    pageAtEdge(time);
     frame = view.requestAnimationFrame(autoScroll);
   };
   const finish = (commit: boolean) => {
     const current = drag;
     drag = null;
+    edge = null;
     if (!current) return;
     view.cancelAnimationFrame(frame);
     current.ghost?.remove();
