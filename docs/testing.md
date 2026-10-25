@@ -82,3 +82,13 @@ For the remaining native pass, use a disposable vault with fictional tasks. Test
 ## Submission status
 
 No directory submission or author outreach has been made. This report accompanies the 0.1.10 release preparation; check the repository release history for publication status. The remaining decision points are the compatibility gaps above and directory eligibility given the historical adaptations. See [provenance](provenance.md) and [submission draft](submission.md).
+
+
+## Phone cross-column drag follow-up (2026-10-25, 0.1.12)
+
+Added edge navigation only while dragging a card by its handle in the narrow, paged layout. Wide layouts keep the existing drag behavior. No changes to normal column swiping, native vertical scrolling, or Obsidian's swipe exclusion.
+
+- All 301 tests across 24 files pass, including 11 new regression cases covering both edge directions, dwell timing, multiple pages, edge limits, vertical reordering near the right edge, leaving/reversing an edge hold, release/cancellation, wide and single-filtered-column layouts, and out-of-bounds gestures.
+- A rendered-board integration test verifies that paging refreshes the drop indicator, dropping targets the newly visible column, and a subsequent vertical gesture retains that column.
+- Lint, production packaging, and harness build pass.
+- Native iPhone interaction with the new edge hold remains unverified; automated pointer/layout tests do not establish real-device gesture behavior.
