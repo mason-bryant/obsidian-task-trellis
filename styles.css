@@ -709,7 +709,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 44px;
+  width: 22px;
   align-items: center;
   justify-content: center;
   border-top-right-radius: inherit;
@@ -727,10 +727,10 @@
 .tt-card-drag-handle:hover { color: var(--text-muted); background: var(--background-modifier-hover); }
 @media (pointer: coarse) {
   .tt-card-drag-handle { display: flex; }
-  .tt-card, .tt-board--compact .tt-card { padding-right: 54px; }
+  .tt-card, .tt-board--compact .tt-card { padding-right: 32px; }
 }
 .is-mobile .tt-card-drag-handle { display: flex; }
-.is-mobile .tt-card, .is-mobile .tt-board--compact .tt-card { padding-right: 54px; }
+.is-mobile .tt-card, .is-mobile .tt-board--compact .tt-card { padding-right: 32px; }
 .tt-touch-dragging { user-select: none; -webkit-user-select: none; }
 .tt-touch-drag-ghost { position: fixed; pointer-events: none; z-index: 10000; opacity: .8; margin: 0; box-sizing: border-box; transition: none; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
 
