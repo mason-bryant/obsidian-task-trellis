@@ -30,3 +30,9 @@
 For color coding, see [Use colored labels](labels.md). For quick capture on an iPhone, see [Set up the iOS shortcut](ios-shortcuts.md).
 
 Task Trellis’s label, board settings, new board, and fallback new-task editors use a green checkmark on the left to save or create, and an X on the right to cancel. These actions stay above the scrolling form on phones. The separate Tasks plugin supplies its own task editor and controls.
+
+## Keyboard access
+
+Tab to a card and press **Enter** to edit it (or open its source without the Tasks plugin). Use **Alt+Up** / **Alt+Down** to move an open card within its current column and date row. The card’s **⋯** menu provides moves to other columns and date rows without dragging. Done cards keep their completion-date order.
+
+Tab through checkboxes, label controls and action buttons to use them directly. Settings tabs also support arrow keys, Home and End. Save with the green checkmark; Cancel or Escape discards an unsaved editor draft. Label assignment checkboxes save immediately; editing a label’s name or color requires the checkmark.

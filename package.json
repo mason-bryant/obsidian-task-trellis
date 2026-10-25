@@ -1,7 +1,7 @@
 {
   "name": "obsidian-task-trellis",
-  "version": "0.1.9",
-  "description": "Obsidian plugin: vault tasks on a kanban board, with workflow columns across and due-date rows down.",
+  "version": "0.1.10",
+  "description": "Manage tasks across your notes with configurable kanban boards, due-date rows, colored labels, and mobile task capture.",
   "main": "main.js",
   "private": true,
   "type": "module",
@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint main.ts src package.json --max-warnings 0",
     "check:release": "node scripts/check-release.mjs",
-    "package": "npm run build && node scripts/check-release.mjs --package"
+    "package": "npm run build && node scripts/check-release.mjs --package",
+    "benchmark": "node scripts/benchmark.mjs"
   },
   "license": "MIT",
   "dependencies": {

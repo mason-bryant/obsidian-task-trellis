@@ -8,7 +8,7 @@ export default [
     rules: {
       'obsidianmd/ui/sentence-case': ['error', {
         brands: ['Task Trellis', 'Daily notes'],
-        ignoreWords: ['Enter', 'Tasks'],
+        ignoreWords: ['Enter', 'Tasks', 'Alt', 'Up', 'Down'],
         // Literal paths and hexadecimal color samples are not prose.
         ignoreRegex: ['^templates\\nzzz_archived$', '^#[A-Fa-f0-9]{6}$'],
       }],
@@ -16,7 +16,7 @@ export default [
   },
   {
     files: ['src/settings.ts'],
-    // Declarative settings were introduced in 1.13.0; this plugin supports 1.8.7.
+    // Retain the tested imperative settings UI and compile against the narrower 1.8.7 API types.
     rules: { 'obsidianmd/settings-tab/prefer-setting-definitions': 'off' },
   },
   {

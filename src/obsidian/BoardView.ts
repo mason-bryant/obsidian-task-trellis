@@ -148,7 +148,6 @@ export class BoardView extends FileView {
       info.push('The Tasks plugin is not enabled: clicking a card opens its source line instead of the Tasks editor.');
     }
     if (this.model.total === 0) {
-      info.push('No tasks match this board yet. Open Settings to change its filters.');
       const missing = this.missingFilterKeys();
       if (missing.length > 0) {
         this.board.warnings.push(`No note has a property named ${missing.map((k) => `"${k}"`).join(', ')}, so filter-properties matches nothing.`);
@@ -172,7 +171,7 @@ export class BoardView extends FileView {
   private host(): RenderHost {
     return {
       onLabels: (task) => this.openLabels(task),
-      onSettings: () => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config).open(); },
+      onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
       undo: this.undoAction ? { label: this.undoAction.label, run: () => void this.undo() } : undefined,
       renderText: (el, task) => {
@@ -237,7 +236,11 @@ export class BoardView extends FileView {
         section('Move to column', choices.columns);
         menu.addSeparator();
         section('Move to row', choices.rows);
-        menu.showAtMouseEvent(evt);
+        const anchor = evt.currentTarget as HTMLElement | null;
+        if (evt.detail === 0 && anchor) {
+          const bounds = anchor.getBoundingClientRect();
+          menu.showAtPosition({ x: bounds.left, y: bounds.bottom });
+        } else menu.showAtMouseEvent(evt);
       },
     };
   }
@@ -249,6 +252,10 @@ export class BoardView extends FileView {
     let current = task;
     new LabelPickerModal(this.app, labels, taskLabels(task.raw, slug), {
       showSearch: this.plugin.settings.showLabelSearch,
+      onClose: () => {
+        [...this.contentEl.querySelectorAll<HTMLElement>('[data-board-focus]')]
+          .find((el) => el.dataset.boardFocus === `labels:${current.id}`)?.focus({ preventScroll: true });
+      },
       icon: (el, name) => setIcon(el, name),
       saveSelection: async (ids) => {
         const written = await this.plugin.writer.setLabels(current, slug, ids, (action) => {

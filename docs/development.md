@@ -22,3 +22,9 @@ Every pull request runs lint, the full test suite, TypeScript checking, the prod
 To try it in a vault, copy `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/task-trellis/` and enable **Task Trellis** under Community plugins.
 
 See [Release and submission checklist](releasing.md) for publishing requirements. Screenshot sources and capture notes are in [images/README.md](images/README.md).
+
+## Repeatable readiness checks
+
+`npm test` includes deterministic reorder stress, multi-note write/Undo safety, concurrent stale-write protection, destination guidance and color-contrast tests. These use synthetic data, not a personal vault.
+
+`npm run benchmark` measures task parsing and filtered board-model construction for 10,000 and 50,000 synthetic tasks. It prints machine details and seven measured runs after a warm-up. It does not measure DOM rendering, native app startup, disk I/O or sync. See [the test report](testing.md).

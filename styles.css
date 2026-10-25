@@ -635,7 +635,9 @@
  * mid-card. Column widths come from .tt-scroll (cqw). Container queries need iOS 16 or later.
  */
 .tt-scroll { container-type: inline-size; }
-.tt-pager, .tt-row-bar--rest > .tt-row-sticky, .tt-card-icon.tt-card-more { display: none; }
+.tt-pager, .tt-row-bar--rest > .tt-row-sticky { display: none; }
+/* Keep non-dragging moves available to keyboard users on desktop too. */
+.tt-card-icon.tt-card-more { display: inline-flex; }
 .tt-pager { align-items: center; justify-content: center; gap: 8px; padding: 0 16px 6px; color: var(--text-muted); font-size: var(--font-ui-smaller); font-variant-numeric: tabular-nums; }
 .tt-pager-dots { display: inline-flex; gap: 5px; }
 .tt-pager-dot { width: 6px; height: 6px; border-radius: 3px; background: var(--background-modifier-border-hover); transition: width 150ms ease, background-color 150ms ease; }
@@ -762,7 +764,7 @@
 .tt-label-choice { display: flex; flex: 1; min-width: 0; align-items: center; gap: 12px; cursor: pointer; }
 .tt-label-choice input { flex: none; margin: 0; }
 .tt-label-swatch { display: flex; align-items: center; flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border-radius: 6px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.4; }
-.tt-label-edit { width: 40px; min-height: 44px; flex: none; }
+.tt-label-edit { width: 44px; min-height: 44px; flex: none; }
 .tt-label-edit svg { width: 20px; height: 20px; }
 .tt-label-picker .tt-label-create { width: 100%; min-height: 44px; justify-content: flex-start; }
 .tt-label-editor { display: flex; flex-direction: column; gap: 16px; }
@@ -777,13 +779,17 @@
 
 /* Editor actions stay outside the scrolling fields and above the mobile keyboard. */
 .tt-editor-modal:not(dialog), dialog.tt-editor-modal[open] { display: flex; flex-direction: column; }
-.tt-editor-modal { max-height: min(85dvh, var(--tt-editor-height, 85dvh)); overflow: hidden; }
+.tt-editor-modal {
+  --tt-editor-safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --tt-editor-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  max-height: min(85dvh, var(--tt-editor-height, 85dvh)); overflow: hidden;
+}
 .tt-editor-modal > .modal-header, .tt-editor-modal > .modal-title, .tt-editor-modal .modal-close-button, .tt-editor-modal > .modal-header-button { display: none; }
 .tt-editor-header-slot { flex: none; }
 .tt-editor-header { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; align-items: center; padding: 0 0 12px; }
 .tt-editor-title { text-align: center; font-size: var(--font-ui-medium); font-weight: 600; overflow-wrap: anywhere; }
 button.tt-editor-save, button.tt-editor-cancel { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; min-height: 44px; padding: 8px; border: 0; border-radius: 50%; box-shadow: none; cursor: pointer; }
-button.tt-editor-save { background: var(--background-secondary); color: var(--color-green, #2eaf68); }
+button.tt-editor-save { background: var(--background-secondary); color: var(--tt-save-color, #15803d); }
 button.tt-editor-cancel { background: var(--background-secondary); color: var(--text-normal); }
 button.tt-editor-save:hover, button.tt-editor-cancel:hover { background: var(--background-modifier-hover); }
 button.tt-editor-save svg, button.tt-editor-cancel svg { width: 24px; height: 24px; stroke-width: 2.5; }
@@ -796,6 +802,19 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
 .tt-add-actions { align-items: center; margin-bottom: 8px; }
 .tt-add-actions .tt-add-cancel { margin-left: auto; }
 @media (pointer: coarse) {
-  .tt-editor-modal { position: fixed; top: var(--tt-editor-top, 12px); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: var(--tt-editor-height, 85dvh); }
+  .tt-editor-modal { position: fixed; top: calc(var(--tt-editor-top, 12px) + var(--tt-editor-safe-top)); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: calc(var(--tt-editor-height, 85dvh) - var(--tt-editor-safe-top) - var(--tt-editor-safe-bottom)); }
 }
-.is-mobile .tt-editor-modal { position: fixed; top: var(--tt-editor-top, 12px); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: var(--tt-editor-height, 85dvh); }
+.is-mobile .tt-editor-modal { position: fixed; top: calc(var(--tt-editor-top, 12px) + var(--tt-editor-safe-top)); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: calc(var(--tt-editor-height, 85dvh) - var(--tt-editor-safe-top) - var(--tt-editor-safe-bottom)); }
+
+/* Keep the save glyph legible in both built-in theme families. */
+.theme-dark, [data-theme="dark"] { --tt-save-color: #4ade80; }
+.tt-board :is(button, select, input, .tt-card):focus-visible,
+.tt-label-picker :is(button, input):focus-visible {
+  outline: 2px solid var(--interactive-accent, #7c3aed); outline-offset: 2px;
+}
+.tt-empty-state .tt-toolbar-button { margin: 4px 8px 4px 0; }
+/* iOS zooms focused fields below 16px, moving modal actions out of place. */
+@media (pointer: coarse) {
+  .tt-editor-modal :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: max(16px, var(--font-ui-small, 16px)); }
+}
+.is-mobile .tt-editor-modal :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: max(16px, var(--font-ui-small, 16px)); }

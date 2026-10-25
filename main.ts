@@ -1,3 +1,4 @@
+import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
 import { prepareEditorModal, renderEditorHeader } from './src/ui/editorHeader.ts';
 import { around } from 'monkey-around';
 import {
@@ -14,7 +15,7 @@ import {
   type ViewCreator,
   type ViewState,
 } from 'obsidian';
-import { LEGACY_FM, newBoardFrontmatter, type BoardConfig } from './src/core/boardConfig.ts';
+import { LEGACY_FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
 import { draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { setSubtaskCollapse } from './src/core/collapse.ts';
@@ -334,6 +335,7 @@ export default class TaskTrellisPlugin extends Plugin {
       Object.assign(fm, newBoardFrontmatter(slug));
     });
     await this.openBoard(file);
+    new BoardSettingsModal(this.app, this, file, parseBoardConfig(name, newBoardFrontmatter(slug)).config, 'destination').open();
   }
 }
 

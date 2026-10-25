@@ -1,3 +1,4 @@
+import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
 import { setTaskLabels, taskLabels } from '../src/core/labels.ts';
 import { renderLabelPicker } from '../src/ui/renderLabelPicker.ts';
@@ -9,7 +10,7 @@ import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { propertyValueStrings } from '../src/core/filters.ts';
 import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
-import { renderBoardSettings } from '../src/ui/renderBoardSettings.ts';
+import { renderBoardSettings, type Section } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
 import { parseTaskLine, setClosedFallback, setPlacement } from '../src/core/taskLine.ts';
@@ -101,7 +102,7 @@ let highlighted: string | null = null;
 const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
   icon: previewIcon,
-  onSettings: () => openSettings(),
+  onSettings: (section) => openSettings(section),
   onLabels: (task) => {
     const dialog = document.createElement('dialog'); dialog.className = 'tt-label-modal';
     const body = document.createElement('div'); body.className = 'modal-content';
@@ -256,7 +257,7 @@ function render(): void {
 }
 
 
-function openSettings(): void {
+function openSettings(initialSection: Section = 'columns'): void {
   const dialog = document.getElementById('settings') as HTMLDialogElement;
   const body = dialog.querySelector<HTMLElement>('.modal-content')!;
   const chrome = prepareEditorModal(dialog);
@@ -304,6 +305,12 @@ function openSettings(): void {
     return () => list.remove();
   };
   const form = renderBoardSettings(body, draft, original, {
+    initialSection,
+    destinationAdvice: (draft) => destinationAdvice(parseBoardConfig(original.name, { slug: original.slug, ...draftToFrontmatter(draft, original).frontmatter }).config,
+      { kind: 'note', note: 'Daily/Today.md', heading: '' }, {
+        dailyAvailable: true, excluded: (path) => path.startsWith('Task Trellis/'),
+        metadata: (path) => ({ frontmatter: frontmatter[path], tags: noteTags(path) }),
+      }),
     header: chrome.header,
     icon: previewIcon,
     attachKeySuggest: (input) => suggest(input, () => [...new Set(Object.values(frontmatter).flatMap(Object.keys))]),
@@ -334,7 +341,7 @@ function openSettings(): void {
 let saves = 0;
 let suggestId = 0;
 
-document.getElementById('open-settings')!.addEventListener('click', openSettings);
+document.getElementById('open-settings')!.addEventListener('click', () => openSettings());
 document.getElementById('theme')!.addEventListener('change', (event) => {
   document.documentElement.dataset.theme = (event.target as HTMLSelectElement).value;
 });

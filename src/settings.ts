@@ -44,7 +44,7 @@ export function normalizeSettings(raw: unknown): TaskTrellisSettings {
   };
 }
 
-// Keep compatibility with the declared minimum, 1.8.7; declarative settings require 1.13.0.
+// Use the imperative settings API; update dependent controls in place to retain focus.
 export class TaskTrellisSettingTab extends PluginSettingTab {
   constructor(
     app: App,
@@ -113,23 +113,22 @@ export class TaskTrellisSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.newTaskKind = value === 'note' ? 'note' : 'daily';
             await this.plugin.saveSettings();
-            this.display();
+            noteSetting.settingEl.toggle(this.plugin.settings.newTaskKind === 'note');
           }),
       );
-    if (this.plugin.settings.newTaskKind === 'note') {
-      new Setting(containerEl)
-        .setName('Note')
-        .setDesc('Path of the note, created if it does not exist.')
-        .addText((text) =>
-          text
-            .setPlaceholder('Inbox.md')
-            .setValue(this.plugin.settings.newTaskNote)
-            .onChange(async (value) => {
-              this.plugin.settings.newTaskNote = value.trim();
-              await this.plugin.saveSettings();
-            }),
-        );
-    }
+    const noteSetting = new Setting(containerEl)
+      .setName('Note')
+      .setDesc('Path of the note, created if it does not exist.')
+      .addText((text) =>
+        text
+          .setPlaceholder('Inbox.md')
+          .setValue(this.plugin.settings.newTaskNote)
+          .onChange(async (value) => {
+            this.plugin.settings.newTaskNote = value.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+    noteSetting.settingEl.toggle(this.plugin.settings.newTaskKind === 'note');
     new Setting(containerEl)
       .setName('Under heading')
       .setDesc('New tasks go at the end of this section, added if the note lacks it. Leave empty to add to the end of the note.')
