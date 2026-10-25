@@ -1,3 +1,6 @@
+import './browserDOM.ts';
+import { uiElement } from '../src/ui/dom.ts';
+import { promptText } from './promptText.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
@@ -106,8 +109,8 @@ const host: RenderHost = {
   onSettings: (section) => openSettings(section),
   onColumnWidthsChange: (widths) => { config.columnWidths = widths; },
   onLabels: (task) => {
-    const dialog = document.createElement('dialog'); dialog.className = 'tt-label-modal';
-    const body = document.createElement('div'); body.className = 'modal-content';
+    const dialog = uiElement(document, 'dialog'); dialog.className = 'tt-label-modal';
+    const body = uiElement(document, 'div'); body.className = 'modal-content';
     dialog.append(body); document.body.append(dialog);
     const chrome = prepareEditorModal(dialog);
     dialog.onclose = () => { chrome.destroy(); dialog.remove(); document.querySelector<HTMLButtonElement>(`[data-board-focus="labels:${task.id}"]`)?.focus(); };
@@ -160,10 +163,10 @@ const host: RenderHost = {
     render();
   },
   onEdit: (task) => {
-    const next = window.prompt('Edit task line (stands in for the Tasks modal)', task.raw);
-    if (next === null) return;
-    files[task.path]![task.line] = next;
-    render();
+    void promptText('Edit task line (stands in for the Tasks modal)', task.raw).then((next) => {
+      if (next === null) return;
+      files[task.path]![task.line] = next; render();
+    });
   },
   onOpenSource: (task, _newTab) => {
     highlighted = task.id;
@@ -171,7 +174,7 @@ const host: RenderHost = {
   },
   onDragEnd: () => undefined,
   // Mirrors QuickAdd: today's note (here Daily/Today.md) under its "## Tasks" heading.
-  onAddTask: (target, text, detailed) => {
+  onAddTask: async (target, text, detailed) => {
     const m = model();
     const fields = {
       due: m.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
@@ -180,10 +183,10 @@ const host: RenderHost = {
     };
     let line: string | null = buildNewTaskLine(text, fields);
     if (detailed) {
-      const edited = window.prompt('Task line (stands in for the Tasks modal)', buildNewTaskLine(text, { due: fields.due }));
+      const edited = await promptText('Task line (stands in for the Tasks modal)', buildNewTaskLine(text, { due: fields.due }));
       line = edited ? finishNewTaskLine(edited, fields) : null;
     }
-    if (!line || !parseTaskLine(line)?.text) return;
+    if (!line || !parseTaskLine(line)?.text) return false;
     const plan = planNewTaskAtTop(line, m);
     for (const task of Object.values(m.cells).flatMap((columns) => Object.values(columns).flat())) {
       const edit = plan.edits.get(task.id);
@@ -193,16 +196,18 @@ const host: RenderHost = {
     const path = 'Daily/Today.md';
     files[path] = insertUnderHeading(files[path]!.join('\n'), '## Tasks', [line]).split('\n');
     render();
+    return true;
   },
-  onAddSubtask: (parent, text, detailed) => {
+  onAddSubtask: async (parent, text, detailed) => {
     let line: string | null = buildNewTaskLine(text, { created: today });
     if (detailed) {
-      const edited = window.prompt('Subtask line (stands in for the Tasks modal)', buildNewTaskLine(text, {}));
+      const edited = await promptText('Subtask line (stands in for the Tasks modal)', buildNewTaskLine(text, {}));
       line = edited ? finishNewTaskLine(edited, { created: today }) : null;
     }
-    if (!line || !parseTaskLine(line)?.text) return;
+    if (!line || !parseTaskLine(line)?.text) return false;
     files[parent.path] = insertSubtask(files[parent.path]!.join('\n'), parent.line, line, '\t').split('\n');
     render();
+    return true;
   },
   // A plain list standing in for Obsidian's menu (a bottom sheet on phones).
   onMoveMenu: (task, choices) => {
@@ -210,16 +215,16 @@ const host: RenderHost = {
     const list = dialog.querySelector<HTMLElement>('.move-list')!;
     list.replaceChildren();
     for (const [title, group] of [['Move to column', choices.columns], ['Move to row', choices.rows]] as const) {
-      const label = document.createElement('div');
+      const label = uiElement(document, 'div');
       label.className = 'move-label';
       label.textContent = title;
       list.append(label);
       for (const choice of group) {
-        const item = document.createElement('button');
+        const item = uiElement(document, 'button');
         item.className = 'move-item';
         item.disabled = choice.current;
         item.append(choice.current ? `${choice.label} ✓` : choice.label);
-        if (choice.detail) item.append(Object.assign(document.createElement('span'), { className: 'tt-menu-detail', textContent: choice.detail }));
+        if (choice.detail) item.append(Object.assign(uiElement(document, 'span'), { className: 'tt-menu-detail', textContent: choice.detail }));
         item.onclick = () => {
           dialog.close();
           host.onDrop(task.id, choice.target);
@@ -252,11 +257,11 @@ function render(): void {
   const src = document.getElementById('source')!;
   src.replaceChildren();
   for (const [path, lines] of Object.entries(files)) {
-    const h = document.createElement('h4');
+    const h = uiElement(document, 'h4');
     h.textContent = path;
     src.append(h);
     lines.forEach((line, i) => {
-      const row = document.createElement('div');
+      const row = uiElement(document, 'div');
       row.className = `src-line${highlighted === `${path}:${i}` ? ' is-highlighted' : ''}`;
       row.textContent = line;
       src.append(row);
@@ -272,7 +277,7 @@ function openSettings(initialSection: Section = 'columns'): void {
   const keys = document.getElementById('property-keys')!;
   keys.replaceChildren(
     ...[...new Set(Object.values(frontmatter).flatMap((fm) => Object.keys(fm)))].map((k) => {
-      const o = document.createElement('option');
+      const o = uiElement(document, 'option');
       o.value = k;
       return o;
     }),
@@ -304,10 +309,10 @@ function openSettings(initialSection: Section = 'columns'): void {
     render();
   };
   const suggest = (input: HTMLInputElement, values: () => string[]) => {
-    const list = document.createElement('datalist'); list.id = `suggest-${++suggestId}`;
+    const list = uiElement(document, 'datalist'); list.id = `suggest-${++suggestId}`;
     input.setAttribute('list', list.id);
     const update = () => list.replaceChildren(...values().map((value) => {
-      const option = document.createElement('option'); option.value = value; return option;
+      const option = uiElement(document, 'option'); option.value = value; return option;
     }));
     input.onfocus = update; update(); dialog.append(list);
     return () => list.remove();

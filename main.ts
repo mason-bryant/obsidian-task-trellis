@@ -1,3 +1,5 @@
+import { boardNameError } from './src/core/boardName.ts';
+import { isComposing } from './src/ui/dom.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
 import { prepareEditorModal, renderEditorHeader } from './src/ui/editorHeader.ts';
@@ -27,7 +29,7 @@ import { BoardView, VIEW_TYPE_BOARD } from './src/obsidian/BoardView.ts';
 import { BoardListView, VIEW_TYPE_BOARD_LIST } from './src/obsidian/BoardListView.ts';
 import { BoardNavigation } from './src/obsidian/BoardNavigation.ts';
 import { TaskIndex } from './src/obsidian/TaskIndex.ts';
-import { TaskWriter } from './src/obsidian/TaskWriter.ts';
+import { TaskWriter, type UndoAction } from './src/obsidian/TaskWriter.ts';
 import { QuickAdd } from './src/obsidian/QuickAdd.ts';
 import { ShortcutActions } from './src/obsidian/ShortcutActions.ts';
 import { DEFAULT_SETTINGS, normalizeSettings, TaskTrellisSettingTab, type TaskTrellisSettings } from './src/settings.ts';
@@ -204,26 +206,36 @@ export default class TaskTrellisPlugin extends Plugin {
   async saveBoardSettings(file: TFile, config: BoardConfig, draft: BoardDraft): Promise<string[]> {
     const { frontmatter, errors, renames, removed } = draftToFrontmatter(draft, config);
     if (errors.length > 0) return errors;
-    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-      if (fm[FM.columnWidths] !== undefined) {
-        fm[FM.columnWidths] = remapColumnWidths(
-          parseColumnWidths(fm[FM.columnWidths], config.columns.map((c) => c.id)), renames, removed);
-      }
-      Object.assign(fm, frontmatter);
-      for (const key of Object.values(LEGACY_FM)) delete fm[key];
-    });
-    if (renames.size > 0) await this.retagColumns(config.slug, renames);
+    const retagUndo = renames.size ? await this.retagColumns(config.slug, renames) : null;
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        if (fm[FM.columnWidths] !== undefined) {
+          fm[FM.columnWidths] = remapColumnWidths(
+            parseColumnWidths(fm[FM.columnWidths], config.columns.map((c) => c.id)), renames, removed);
+        }
+        Object.assign(fm, frontmatter);
+        for (const key of Object.values(LEGACY_FM)) delete fm[key];
+      });
+    } catch (error) {
+      await retagUndo?.undo();
+      throw error;
+    }
     return [];
   }
 
-  private async retagColumns(slug: string, renames: Map<string, string>): Promise<void> {
+  private async retagColumns(slug: string, renames: Map<string, string>): Promise<UndoAction | null> {
     const tasks = this.index.all().filter((t) => renames.has(t.placements[slug]?.column ?? ''));
     const edits = new Map<string, TaskEdit>();
     for (const task of tasks) {
       const placement = task.placements[slug]!;
       edits.set(task.id, { column: renames.get(placement.column)!, sort: placement.sort });
     }
-    await this.writer.applyEdits(tasks, edits, slug);
+    const result = await this.writer.applyEdits(tasks, edits, slug);
+    if (result.skippedIds.length) {
+      await result.action?.undo();
+      throw new Error('Some tasks could not be retagged. The board configuration was not changed. Check the affected notes and try again.');
+    }
+    return result.action;
   }
 
   async openAsBoard(leaf: WorkspaceLeaf, file: TFile): Promise<void> {
@@ -314,18 +326,16 @@ export default class TaskTrellisPlugin extends Plugin {
   }
 
   promptNewBoard(): void {
-    new NewBoardModal(this.app, (name) => {
-      void this.createBoard(name).catch(() => new Notice('Task Trellis: could not create the board.'));
-    }).open();
+    new NewBoardModal(this.app, (name) => this.createBoard(name)).open();
   }
 
-  private async createBoard(name: string): Promise<void> {
+  private async createBoard(name: string): Promise<boolean> {
     const folder = normalizePath(this.settings.boardsFolder);
     if (!this.app.vault.getFolderByPath(folder)) await this.app.vault.createFolder(folder);
     const path = normalizePath(`${folder}/${name}.md`);
     if (this.app.vault.getAbstractFileByPath(path)) {
       new Notice(`Task Trellis: ${path} already exists.`);
-      return;
+      return false;
     }
     const taken = new Set(this.boards.boards().map((b) => b.config.slug));
     const base = slugify(name) || 'board';
@@ -341,6 +351,7 @@ export default class TaskTrellisPlugin extends Plugin {
     });
     await this.openBoard(file);
     new BoardSettingsModal(this.app, this, file, parseBoardConfig(name, newBoardFrontmatter(slug)).config, 'destination').open();
+    return true;
   }
 }
 
@@ -373,28 +384,33 @@ class NewBoardModal extends Modal {
 
   constructor(
     app: App,
-    private onSubmit: (name: string) => void,
+    private onSubmit: (name: string) => Promise<boolean>,
   ) {
     super(app);
   }
 
   onOpen(): void {
     this.setTitle('New Task Trellis board');
-    const submit = () => {
-      const name = this.name.trim().replace(/[\\/:]/g, '-');
-      if (!name) return;
-      this.close();
-      this.onSubmit(name);
+    let busy = false;
+    const submit = async () => {
+      if (busy) return;
+      const name = this.name.trim();
+      const error = boardNameError(this.name);
+      if (error) { new Notice(error); return; }
+      busy = true;
+      try { if (await this.onSubmit(name)) this.close(); }
+      catch (error) { console.error('[Task Trellis] board creation failed', error); new Notice('Task Trellis: could not create the board. Your name has been kept; check the folder and try again.'); }
+      finally { busy = false; }
     };
     new Setting(this.contentEl).setName('Board name').addText((text) => {
       text.setPlaceholder('House projects').onChange((v) => (this.name = v));
       text.inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') submit();
+        if (!isComposing(e) && e.key === 'Enter') { e.preventDefault(); void submit(); }
       });
       window.setTimeout(() => text.inputEl.focus(), 0);
     });
     this.chrome = prepareEditorModal(this.modalEl);
-    renderEditorHeader(this.chrome.header, 'New board', setIcon, submit, () => this.close(), 'Create board');
+    renderEditorHeader(this.chrome.header, 'New board', setIcon, () => void submit(), () => this.close(), 'Create board');
   }
 
   onClose(): void {

@@ -172,3 +172,22 @@ describe('TaskIndex', () => {
     expect(index.all().map((t) => t.text)).toEqual(['newer read']);
   });
 });
+
+it('refreshes duplicate snapshots after prose edits without redrawing, but never refreshes a changed identity', () => {
+  const { index, change } = fakeApp();
+  change('First prose\n- [ ] same\n- [ ] same\n'); vi.advanceTimersByTime(200);
+  const old = index.all()[0]!; const version = index.version;
+  change('New prose\n- [ ] same\n- [ ] same\n'); vi.advanceTimersByTime(200);
+  expect(index.version).toBe(version);
+  expect(index.currentSnapshot(old).duplicateSource).toContain('New prose');
+  change('New prose\n- [ ] different\n- [ ] same\n');
+  expect(index.currentSnapshot(old)).toBe(old);
+});
+it('notifies removal of the old path when a renamed file disappears during its read', async () => {
+  const { index, change, vault } = fakeApp(async () => { throw new Error('Deleted'); });
+  Object.assign(vault, { getAbstractFileByPath: () => null });
+  change('Heading\n- [ ] old\n'); vi.advanceTimersByTime(200);
+  vault.trigger('rename', new TFile('Renamed.md'), file.path);
+  await vi.runAllTimersAsync();
+  expect(index.all()).toEqual([]); expect(index.version).toBe(2);
+});

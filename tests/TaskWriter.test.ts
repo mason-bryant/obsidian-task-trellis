@@ -220,9 +220,9 @@ describe('Undo', () => {
     const a = task('a.md', 0, '- [ ] one'), b = task('b.md', 0, '- [ ] two');
     const action = await new TaskWriter(fakeApp(files)).applyEdits([a, b], new Map([[a.id, { column: 'doing', sort: 100 }], [b.id, { column: 'doing', sort: 200 }]]), 'house');
     expect(files).not.toEqual(before);
-    expect(await action!.undo()).toBe(true);
+    expect(await action.action!.undo()).toBe(true);
     expect(files).toEqual(before);
-    expect(await action!.undo()).toBe(false);
+    expect(await action.action!.undo()).toBe(false);
   });
 
   it('does not overwrite edits made after the action', async () => {
@@ -231,7 +231,7 @@ describe('Undo', () => {
     const action = await new TaskWriter(fakeApp(files)).applyEdits([t], new Map([[t.id, { column: 'doing' }]]), 'house');
     files['a.md'] += 'A later edit\n';
     const edited = files['a.md'];
-    expect(await action!.undo()).toBe(false);
+    expect(await action.action!.undo()).toBe(false);
     expect(files['a.md']).toBe(edited);
     expect(notices.at(-1)).toContain('were not undone');
   });
@@ -243,7 +243,7 @@ describe('Undo', () => {
     const action = await new TaskWriter(app).applyEdits([t], new Map([[t.id, { column: 'doing' }]]), 'house');
     const after = files['a.md'];
     Object.assign(app.vault, { getAbstractFileByPath: () => new TFile('a.md') });
-    expect(await action!.undo()).toBe(false);
+    expect(await action.action!.undo()).toBe(false);
     expect(files['a.md']).toBe(after);
   });
 
@@ -297,4 +297,33 @@ it('can assign multiple labels to one of two identical tasks without editing its
   expect(other.twins).toBe(1);
   const edited = await writer.setLabels(other, 'home', ['blue'], () => undefined);
   expect(files['a.md']).toBe(`# A\n${second.raw}\n# B\n${edited.raw}\n`);
+});
+
+it('reports applied/skipped ids after a partial write and preserves Undo for successful notes', async () => {
+  const files = { 'a.md': '- [ ] one\n', 'b.md': '- [ ] changed\n' };
+  const a = task('a.md', 0, '- [ ] one'), b = task('b.md', 0, '- [ ] two');
+  const result = await new TaskWriter(fakeApp(files)).applyEdits([a, b], new Map([[a.id, { column: 'doing' }], [b.id, { column: 'doing' }]]), 'house');
+  expect(result.appliedIds).toEqual([a.id]); expect(result.skippedIds).toEqual([b.id]);
+  expect(result.action?.paths).toEqual(['a.md']); await result.action?.undo();
+  expect(files).toEqual({ 'a.md': '- [ ] one\n', 'b.md': '- [ ] changed\n' });
+});
+it('preserves successful writes and their undo when another file write throws', async () => {
+  const files = { 'a.md': '- [ ] one\n', 'b.md': '- [ ] two\n' };
+  const app = fakeApp(files); const process = app.vault.process.bind(app.vault);
+  app.vault.process = async (file, fn) => { if (file.path === 'b.md') throw new Error('Disk full'); return process(file, fn); };
+  const a = task('a.md', 0, '- [ ] one'), b = task('b.md', 0, '- [ ] two');
+  const result = await new TaskWriter(app).applyEdits([a, b], new Map([[a.id, { column: 'doing' }], [b.id, { column: 'doing' }]]), 'house');
+  expect(result.failedPaths).toEqual(['b.md']); expect(result.skippedIds).toEqual([b.id]);
+  expect(await result.action?.undo()).toBe(true); expect(files['a.md']).toBe('- [ ] one\n');
+});
+it('preserves mixed line endings between multiple edits, and does not rewrite skipped tasks', async () => {
+  const content = '- [ ] first\r\nText\n- [ ] second\nTail\r\n';
+  const files = { 'a.md': content }; const writer = new TaskWriter(fakeApp(files));
+  const missing = task('a.md', 0, '- [ ] absent');
+  const skipped = await writer.applyEdits([missing], new Map([[missing.id, { column: 'doing' }]]), 'house');
+  expect(skipped.action).toBeNull(); expect(files['a.md']).toBe(content);
+  const a = task('a.md', 0, '- [ ] first'), b = task('a.md', 2, '- [ ] second');
+  const saved = await writer.applyEdits([a, b], new Map([[a.id, { column: 'doing' }], [b.id, { column: 'doing' }]]), 'house');
+  expect(files['a.md']).toBe('- [ ] first #tt/house/doing\r\nText\n- [ ] second #tt/house/doing\nTail\r\n');
+  await saved.action?.undo(); expect(files['a.md']).toBe(content);
 });

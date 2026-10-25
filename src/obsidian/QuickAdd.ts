@@ -1,3 +1,5 @@
+import { isComposing } from '../ui/dom.ts';
+import { recoverDraft } from './recoverDraft.ts';
 import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
 import { setIcon, Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type Events } from 'obsidian';
 import type { BoardModel, BoardTask } from '../core/board.ts';
@@ -5,7 +7,7 @@ import { destinationFor, type BoardConfig, type NewTaskDestination } from '../co
 import { todayISO } from '../core/dates.ts';
 import { taskMatchesBoard } from '../core/filters.ts';
 import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, type NewTaskFields } from '../core/newTask.ts';
-import { parseTaskLine, setDueDate } from '../core/taskLine.ts';
+import { parseTaskLine, setDueDate, normalizeRequestMarker } from '../core/taskLine.ts';
 import type { ShortcutTask } from '../core/shortcut.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
@@ -55,7 +57,7 @@ export class QuickAdd {
   }
 
   /** From a board cell: the cell's column, the row's drop date, at the top of the cell. */
-  async addFromBoard(model: BoardModel, target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<void> {
+  async addFromBoard(model: BoardModel, target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<boolean> {
     const { config } = model;
     const fields: NewTaskFields = {
       due: model.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
@@ -66,20 +68,45 @@ export class QuickAdd {
       },
     };
     const line = detailed ? await this.compose(text, fields) : text.trim() ? buildNewTaskLine(text, fields) : null;
-    if (line) await this.add(line, destinationFor(config, this.defaultDestination()), config, model);
+    if (!line) return false;
+    const save = (draft: string) => this.add(draft, destinationFor(config, this.defaultDestination()), config, model);
+    try {
+      const saved = await save(line);
+      if (!saved && detailed) recoverDraft(this.app, line, save);
+      return saved;
+    } catch (error) {
+      if (detailed) recoverDraft(this.app, line, save);
+      throw error;
+    }
   }
 
   /** A subtask goes in the parent's note, under the parent, with no date or column of its own. */
-  async addSubtask(parent: BoardTask, text: string, detailed: boolean): Promise<void> {
+  async addSubtask(parent: BoardTask, text: string, detailed: boolean): Promise<boolean> {
     const fields: NewTaskFields = { created: await this.createdDate() };
     const line = detailed ? await this.compose(text, fields) : text.trim() ? buildNewTaskLine(text, fields) : null;
-    if (line && !this.stopped) await this.plugin.writer.insertSubtask(parent, line);
+    if (!line || this.stopped) return false;
+    const save = (draft: string) => this.plugin.writer.insertSubtask(parent, draft);
+    try {
+      const saved = await save(line);
+      if (!saved && detailed) recoverDraft(this.app, line, save);
+      return saved;
+    } catch (error) {
+      if (detailed) recoverDraft(this.app, line, save);
+      throw error;
+    }
   }
 
   /** From the command palette: no board, so the task shows in each matching board's first column. */
   async addFromCommand(): Promise<void> {
-    const line = await this.compose('', { created: await this.createdDate() });
-    if (line) await this.add(line, this.defaultDestination(), null);
+    let line: string | null = null;
+    try {
+      line = await this.compose('', { created: await this.createdDate() });
+      if (line && !await this.add(line, this.defaultDestination(), null)) recoverDraft(this.app, line, (draft) => this.add(draft, this.defaultDestination(), null));
+    } catch (error) {
+      console.error('[Task Trellis] add failed', error);
+      new Notice('Task Trellis: could not save the task. Your draft has been kept.');
+      if (line) recoverDraft(this.app, line, (draft) => this.add(draft, this.defaultDestination(), null));
+    }
   }
 
   /** URL capture uses explicit date/column inputs, never an interactive task editor. */
@@ -103,7 +130,7 @@ export class QuickAdd {
     const filtered = !taskMatchesBoard({ path: file.path, tags: parseTaskLine(line)?.tags ?? [] }, config, cache?.frontmatter, noteTags(cache));
     if (filtered && !created) throw new Error('The board’s filters would hide this task. Adjust its text/tags or new-task destination; no task was added.');
     const marker = request.requestId ? `<!-- task-trellis-request:${request.requestId} -->` : '';
-    const savedLine = marker ? `${line} ${marker}` : line;
+    const savedLine = normalizeRequestMarker(marker ? `${line} ${marker}` : line);
     let duplicate = false;
     await this.app.vault.process(file, (content) => {
       if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
@@ -138,16 +165,17 @@ export class QuickAdd {
     return finishNewTaskLine(first, fields);
   }
 
-  private async add(line: string, dest: NewTaskDestination, board: BoardConfig | null, model?: BoardModel): Promise<void> {
-    if (this.stopped) return;
+  private async add(line: string, dest: NewTaskDestination, board: BoardConfig | null, model?: BoardModel): Promise<boolean> {
+    if (this.stopped) return false;
     const target = await this.resolve(dest);
-    if (!target || this.stopped) return;
+    if (!target || this.stopped) return false;
     const { file, created } = target;
     if (model) {
       const plan = planNewTaskAtTop(line, model);
       if (plan.edits.size) {
         const cards = Object.values(model.cells).flatMap((columns) => Object.values(columns).flat());
-        await this.plugin.writer.applyEdits(cards, plan.edits, model.config.slug);
+        const result = await this.plugin.writer.applyEdits(cards, plan.edits, model.config.slug);
+        if (result.skippedIds.length) throw new Error('Some tasks changed before the new task could be ordered. Please retry.');
       }
       line = plan.line;
     }
@@ -158,7 +186,7 @@ export class QuickAdd {
         new Notice('Task Trellis: template processing may have replaced the new task. Check the destination note.');
       });
       if (!board) new Notice(`Task Trellis: added to ${file.basename}.`);
-      return;
+      return true;
     }
     const cache = this.app.metadataCache.getFileCache(file);
     const tags = parseTaskLine(line)?.tags ?? [];
@@ -167,6 +195,7 @@ export class QuickAdd {
     } else if (!board) {
       new Notice(`Task Trellis: added to ${file.basename}.`);
     }
+    return true;
   }
 
   private async resolve(dest: NewTaskDestination): Promise<{ file: TFile; created: boolean } | null> {
@@ -258,7 +287,7 @@ function promptForText(app: App): Promise<string> {
     new Setting(modal.contentEl).setName('Task').addText((text) => {
       text.onChange((v) => (value = v));
       text.inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') submit();
+        if (!isComposing(e) && e.key === 'Enter') submit();
       });
       window.setTimeout(() => text.inputEl.focus(), 0);
     });

@@ -41,3 +41,17 @@ export function getAllTags(cache: { frontmatter?: Record<string, unknown>; tags?
   return [...frontmatter.filter((tag): tag is string => typeof tag === 'string').map((tag) => tag.startsWith('#') ? tag : `#${tag}`),
     ...(cache.tags ?? []).map((tag) => tag.tag)];
 }
+
+export class Component { load() {} unload() {} }
+export class FileView {
+  app: unknown;
+  contentEl: HTMLElement;
+  constructor(leaf: { app: unknown }) { this.app = leaf.app; this.contentEl = document.createElement('div'); }
+}
+export const MarkdownRenderer = { render: async () => {} };
+export class Menu {}
+export const setIcon = () => {};
+export class Plugin {}
+export class FuzzySuggestModal {}
+export class WorkspaceLeaf {}
+export class PluginSettingTab {}

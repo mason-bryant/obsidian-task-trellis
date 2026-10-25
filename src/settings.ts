@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, type SettingDefinitionItem } from 'obsidian';
 import type { NewTaskKind } from './core/boardConfig.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS: TaskTrellisSettings = {
   collapsed: {},
   newTaskKind: 'daily',
   newTaskNote: '',
-  newTaskHeading: '### 🚀 things I plan to accomplish',
+  newTaskHeading: '',
 };
 
 export function normalizeSettings(raw: unknown): TaskTrellisSettings {
@@ -44,111 +44,57 @@ export function normalizeSettings(raw: unknown): TaskTrellisSettings {
   };
 }
 
-// Use the imperative settings API; update dependent controls in place to retain focus.
+/** Searchable definitions; custom renderers retain validation and index-refresh side effects. */
 export class TaskTrellisSettingTab extends PluginSettingTab {
-  constructor(
-    app: App,
-    private plugin: TaskTrellisPlugin,
-  ) {
-    super(app, plugin);
-  }
+  constructor(app: App, private trellis: TaskTrellisPlugin) { super(app, trellis); }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    new Setting(containerEl)
-      .setName('Boards folder')
-      .setDesc('Every note in this folder opens as a board. Its tasks are not shown on boards.')
-      .addText((text) =>
-        text
-          .setPlaceholder(DEFAULT_SETTINGS.boardsFolder)
-          .setValue(this.plugin.settings.boardsFolder)
-          .onChange(async (value) => {
-            this.plugin.settings.boardsFolder = value.replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.boardsFolder;
-            await this.plugin.saveSettings();
-            this.plugin.onConfigChanged();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('Excluded folders')
-      .setDesc('One folder per line. Tasks in these folders never appear on a board.')
-      .addTextArea((text) =>
-        text
-          // Literal, case-sensitive example paths rather than prose.
-          .setPlaceholder('templates\nzzz_archived')
-          .setValue(this.plugin.settings.excludedFolders.join('\n'))
-          .onChange(async (value) => {
-            this.plugin.settings.excludedFolders = value
-              .split('\n')
-              .map((f) => f.trim().replace(/^\/+|\/+$/g, ''))
-              .filter(Boolean);
-            await this.plugin.saveSettings();
-            this.plugin.onConfigChanged();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('Show label search')
-      .setDesc('Show a search box in the label picker. Hidden by default.')
-      .addToggle((toggle) => toggle.setValue(this.plugin.settings.showLabelSearch).onChange(async (value) => {
-        this.plugin.settings.showLabelSearch = value;
-        await this.plugin.saveSettings();
-      }));
-
-    new Setting(containerEl).setName('New tasks').setHeading();
-    new Setting(containerEl)
-      .setName('Add new tasks to')
-      .setDesc(
-        this.plugin.quickAdd.dailyNotesAvailable()
-          ? "Today's daily note is found or created by Obsidian's Daily notes plugin, with your template. Boards can override this."
-          : "The core Daily notes plugin is off, so new tasks need a specific note. Boards can override this.",
-      )
-      .addDropdown((d) =>
-        d
-          .addOption('daily', "Today's daily note")
-          .addOption('note', 'A specific note')
-          .setValue(this.plugin.settings.newTaskKind)
-          .onChange(async (value) => {
-            this.plugin.settings.newTaskKind = value === 'note' ? 'note' : 'daily';
-            await this.plugin.saveSettings();
-            noteSetting.settingEl.toggle(this.plugin.settings.newTaskKind === 'note');
-          }),
-      );
-    const noteSetting = new Setting(containerEl)
-      .setName('Note')
-      .setDesc('Path of the note, created if it does not exist.')
-      .addText((text) =>
-        text
-          .setPlaceholder('Inbox.md')
-          .setValue(this.plugin.settings.newTaskNote)
-          .onChange(async (value) => {
-            this.plugin.settings.newTaskNote = value.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
-    noteSetting.settingEl.toggle(this.plugin.settings.newTaskKind === 'note');
-    new Setting(containerEl)
-      .setName('Under heading')
-      .setDesc('New tasks go at the end of this section, added if the note lacks it. Leave empty to add to the end of the note.')
-      .addText((text) =>
-        text
-          .setPlaceholder('## Tasks')
-          .setValue(this.plugin.settings.newTaskHeading)
-          .onChange(async (value) => {
-            this.plugin.settings.newTaskHeading = value;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl).setName('Other').setHeading();
-    new Setting(containerEl)
-      .setName('Tasks plugin')
-      .setDesc(
-        this.plugin.writer.tasksApi()
-          ? 'Found. Cards open the Tasks edit modal, and completing a card uses Tasks (done dates, recurrence).'
-          : 'Not found or disabled. Clicking a card opens its source line, and completing a card only flips the checkbox and adds a ✅ date.',
-      );
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    const plugin = this.trellis;
+    const settings = plugin.settings;
+    return [
+      {
+        name: 'Boards folder', desc: 'Every note in this folder opens as a board. Its tasks are not shown on boards.',
+        render: (setting) => { setting.addText((text) => text.setPlaceholder(DEFAULT_SETTINGS.boardsFolder).setValue(settings.boardsFolder).onChange(async (value) => {
+          settings.boardsFolder = value.replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.boardsFolder;
+          await plugin.saveSettings(); plugin.onConfigChanged();
+        })); },
+      },
+      {
+        name: 'Excluded folders', desc: 'One folder per line. Tasks in these folders never appear on a board.',
+        render: (setting) => { setting.addTextArea((text) => text.setPlaceholder('templates\nzzz_archived').setValue(settings.excludedFolders.join('\n')).onChange(async (value) => {
+          settings.excludedFolders = value.split('\n').map((f) => f.trim().replace(/^\/+|\/+$/g, '')).filter(Boolean);
+          await plugin.saveSettings(); plugin.onConfigChanged();
+        })); },
+      },
+      {
+        name: 'Show label search', desc: 'Show a search box in the label picker. Hidden by default.',
+        render: (setting) => { setting.addToggle((toggle) => toggle.setValue(settings.showLabelSearch).onChange(async (value) => {
+          settings.showLabelSearch = value; await plugin.saveSettings();
+        })); },
+      },
+      {
+        name: 'Add new tasks to',
+        desc: plugin.quickAdd.dailyNotesAvailable() ? "Today's daily note uses the Daily notes plugin and its template. Boards can override this." : 'The core Daily notes plugin is off. Select a specific note, or enable Daily notes.',
+        render: (setting) => { setting.addDropdown((dropdown) => dropdown.addOption('daily', "Today's daily note").addOption('note', 'A specific note').setValue(settings.newTaskKind).onChange(async (value) => {
+          settings.newTaskKind = value === 'note' ? 'note' : 'daily'; await plugin.saveSettings(); this.update();
+        })); },
+      },
+      {
+        name: 'New task note', desc: 'Path of the note, created if it does not exist. Used when adding to a specific note.',
+        render: (setting) => { setting.addText((text) => text.setPlaceholder('Inbox.md').setValue(settings.newTaskNote).setDisabled(settings.newTaskKind !== 'note').onChange(async (value) => {
+          settings.newTaskNote = value.trim(); await plugin.saveSettings();
+        })); },
+      },
+      {
+        name: 'Under heading', desc: 'New tasks go at the end of this section, added if missing. Leave empty to append to the note.',
+        render: (setting) => { setting.addText((text) => text.setPlaceholder('## Tasks').setValue(settings.newTaskHeading).onChange(async (value) => {
+          settings.newTaskHeading = value; await plugin.saveSettings();
+        })); },
+      },
+      {
+        name: 'Tasks plugin',
+        desc: plugin.writer.tasksApi() ? 'Found. Cards open the Tasks editor; completing a card uses Tasks dates and recurrence.' : 'Not found or disabled. Cards open their source line; completing a card adds a done date.',
+      },
+    ];
   }
 }

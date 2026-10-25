@@ -80,10 +80,10 @@ it('writes 5,000 tasks across 100 notes without touching surrounding content or 
   // A sync/editor update after the write must survive Undo, even in a large batch.
   const changed = `${files.get('Notes/0.md')}External edit\n`;
   files.set('Notes/0.md', changed);
-  expect(await undo?.undo()).toBe(false);
+  expect(await undo.action?.undo()).toBe(false);
   expect(files.get('Notes/0.md')).toBe(changed);
   for (const [path, text] of files) if (path !== 'Notes/0.md') expect(text).toBe(originals.get(path));
-  expect(await undo?.undo()).toBe(false);
+  expect(await undo.action?.undo()).toBe(false);
 });
 
 it('explains missing, excluded and filtered task destinations without writing anything', () => {

@@ -1,3 +1,4 @@
+import { uiElement } from './dom.ts';
 import { MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, type ColumnWidths } from '../core/columnWidths.ts';
 
 /** The host defers board redraws while a resize or its save is in progress. */
@@ -57,7 +58,7 @@ export function installColumnResize(grid: HTMLElement, initial: ColumnWidths, ho
   };
   for (const header of headers) {
     const column = header.dataset.column!;
-    const handle = grid.ownerDocument.createElement('div');
+    const handle = uiElement(grid.ownerDocument, 'div');
     handle.className = 'tt-column-resize';
     handle.tabIndex = 0;
     handle.dataset.boardFocus = `resize:${column}`;
@@ -67,6 +68,7 @@ export function installColumnResize(grid: HTMLElement, initial: ColumnWidths, ho
     handle.setAttribute('aria-valuemin', String(MIN_COLUMN_WIDTH));
     handle.setAttribute('aria-valuemax', String(MAX_COLUMN_WIDTH));
     handle.title = 'Drag to resize. Double-click or press Home to reset all column widths. Arrow keys adjust width.';
+    header.classList.add('tt-col-header--resizable');
     header.append(handle);
     handle.addEventListener('pointerdown', (event) => {
       if (drag) { finish(false); return; }

@@ -1,7 +1,7 @@
 /* Task Trellis — colours and sizes come from Obsidian theme variables. */
 
-.task-trellis-view {
-  padding: 0 !important;
+.view-content.task-trellis-view {
+  padding: 0;
   overflow: hidden;
 }
 
@@ -577,10 +577,6 @@
   .tt-settings-footer { flex-wrap: wrap; }
   .tt-settings-footer > :first-child { flex-basis: 100%; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .tt-board *, .tt-settings * { animation: none !important; transition: none !important; }
-  .tt-card:hover { transform: none; }
-}
 
 .tt-filter-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
 .tt-filter-group { min-width: 0; padding: 14px; }
@@ -651,7 +647,7 @@
   /* A deliberate horizontal drag follows the finger freely until release. */
   .tt-scroll.tt-scroll--swiping { user-select: none; }
   /* Columns one board width apart: the grid's 16px side padding on both sides of each. */
-  .tt-grid { grid-template-columns: repeat(var(--tt-columns), calc(100cqw - 32px)); column-gap: 32px; }
+  .tt-grid { grid-template-columns: repeat(var(--tt-columns), calc(100cqw - 32px)); gap: 0 32px; }
   /* Row labels on every column, also right of a No due date column, lined up with the cards. */
   .tt-row-sticky { left: calc(16px + var(--tt-page-left, 0px)); }
   .tt-row-bar--rest > .tt-row-sticky { display: inline-flex; }
@@ -820,7 +816,7 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
 .is-mobile .tt-editor-modal :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: max(16px, var(--font-ui-small, 16px)); }
 
 /* Spreadsheet-style column boundaries, limited to multi-column views. */
-.tt-col-header:has(.tt-column-resize) { padding-right: 20px; }
+.tt-col-header.tt-col-header--resizable { padding-right: 20px; }
 .tt-col-title { min-width: 0; overflow-wrap: anywhere; }
 .tt-column-resize { position: absolute; top: 0; right: -6px; bottom: 0; width: 16px; z-index: 4; cursor: col-resize; touch-action: none; }
 .tt-column-resize::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 7px; width: 2px; background: var(--background-modifier-border); }
@@ -838,3 +834,11 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 .tt-scheme-swatches { display: flex; width: 100%; gap: 3px; }
 .tt-scheme-swatches > span { flex: 1; min-width: 0; height: 16px; border-radius: 3px; }
 .tt-scheme-preview { display: flex; flex-direction: column; gap: 6px; }
+
+.tt-recovery-input { width: 100%; min-height: 8em; }
+
+/* Last in the cascade; specificity covers Trellis transitions without !important. */
+@media (prefers-reduced-motion: reduce) {
+  .tt-board.tt-board *, .tt-settings.tt-settings *, .tt-editor-modal.tt-editor-modal * { animation: none; transition: none; }
+  .tt-board .tt-card:hover { transform: none; }
+}
