@@ -1,3 +1,4 @@
+import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
 import { setTaskLabels, taskLabels } from '../src/core/labels.ts';
@@ -103,6 +104,7 @@ const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
   icon: previewIcon,
   onSettings: (section) => openSettings(section),
+  onColumnWidthsChange: (widths) => { config.columnWidths = widths; },
   onLabels: (task) => {
     const dialog = document.createElement('dialog'); dialog.className = 'tt-label-modal';
     const body = document.createElement('div'); body.className = 'modal-content';
@@ -114,6 +116,12 @@ const host: RenderHost = {
       header: chrome.header, onClose: () => dialog.close(),
       showSearch: new URLSearchParams(location.search).has('label-search'),
       icon: previewIcon,
+      previousScheme: config.previousLabelScheme,
+      saveScheme: async (id) => {
+        const next = applyLabelScheme({ labels: config.labels, previous: config.previousLabelScheme }, id);
+        config.labels = next.labels; config.previousLabelScheme = next.previous;
+        render(); return next;
+      },
       saveSelection: async (ids) => {
         const before = JSON.stringify(files);
         files[task.path]![task.line] = setTaskLabels(files[task.path]![task.line]!, config.slug, ids);
@@ -286,7 +294,7 @@ function openSettings(initialSection: Section = 'columns'): void {
           const to = p && r.renames.get(p.column);
           if (p && to) files[t.path]![t.line] = setPlacement(t.raw, original.slug, to, p.sort);
         }
-        ({ config, warnings } = parseBoardConfig('House', { slug: original.slug, labels: config.labels, ...r.frontmatter }));
+        ({ config, warnings } = parseBoardConfig('House', { slug: original.slug, labels: config.labels, 'previous-label-scheme': config.previousLabelScheme, 'column-widths': config.columnWidths, ...r.frontmatter }));
         (window as unknown as { lastSave: unknown }).lastSave = r.frontmatter;
       }
     }

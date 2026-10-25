@@ -19,3 +19,13 @@ Older hidden-comment assignments are still readable. Changing a task's selection
 When editing a label, use the green checkmark at the top left to save, or the X at the top right to discard the edit and return to the picker. These controls stay above the scrolling fields while the phone keyboard is open. Checking labels in the picker still saves each selection immediately.
 
 Label search is hidden by default. To show it, turn on **Settings → Task Trellis → Show label search**, then reopen the label picker. This preference applies to all boards.
+
+## Choose a color scheme
+
+Open a task’s labels, then choose **Color scheme** at the bottom. Select a scheme to preview your existing labels and use the **green checkmark** to apply it. The X returns without changing anything. Names, permanent IDs and task assignments stay the same.
+
+Available schemes: **Trellis** (the original colors), **Tableau balanced**, **Tableau classic**, **Botanical**, **Mediterranean**, **Retro pop**, **Jewel box**, **Neon studio**, **Sorbet**, **Velvet** and **Modern primary**. Each has six colors; boards with more than six labels repeat those colors in label order.
+
+Applying a different scheme saves each label’s exact outgoing color—including custom hex colors—as **Previous scheme**. Choose that entry and apply to restore it. The outgoing colors become the new Previous scheme, so you can switch back again. This single snapshot is stored in the board note and travels with sync. Renamed or reordered labels restore by permanent ID; newly added labels without a saved color stay unchanged, and deleted labels are not recreated. Applying unchanged colors keeps the existing snapshot.
+
+The two Tableau options use six-color selections from [Tableau categorical palettes](https://help.tableau.com/current/pro/desktop/en-us/formatting_create_custom_colors.htm) and [Tableau 10](https://github.com/d3/d3-scale-chromatic/blob/main/src/categorical/Tableau10.js). The other alternatives are original palettes informed by [Wix’s color scheme examples](https://www.wix.com/blog/website-color-schemes).

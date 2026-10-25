@@ -1,3 +1,6 @@
+import { applyLabelScheme, parsePreviousScheme, type LabelSchemeState } from '../core/labelSchemes.ts';
+import { isColumnResizing } from '../ui/columnResize.ts';
+import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
 import { parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { LabelPickerModal } from './LabelPickerModal.ts';
@@ -126,7 +129,7 @@ export class BoardView extends FileView {
       this.cancelRender = null;
       this.renderQueued = false;
       // Redrawing mid-drag would drop the dragged element; onDragEnd catches up.
-      if (!isDragging()) this.render();
+      if (!isDragging() && !isColumnResizing(this.contentEl)) this.render();
     });
     this.cancelRender = () => win.cancelAnimationFrame(frame);
   }
@@ -171,6 +174,21 @@ export class BoardView extends FileView {
   private host(): RenderHost {
     return {
       onLabels: (task) => this.openLabels(task),
+      onColumnWidthsChange: async (widths) => {
+        const file = this.file;
+        if (!file) return;
+        try {
+          await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+            const columns = this.plugin.boards.entry(file).config.columns.map((c) => c.id);
+            const next = parseColumnWidths(widths, columns);
+            if (Object.keys(next).length) fm[FM.columnWidths] = next;
+            else delete fm[FM.columnWidths];
+          });
+        } catch (error) {
+          new Notice('Task Trellis: could not save column widths. The previous widths have been restored.');
+          throw error;
+        }
+      },
       onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
       undo: this.undoAction ? { label: this.undoAction.label, run: () => void this.undo() } : undefined,
@@ -252,6 +270,20 @@ export class BoardView extends FileView {
     let current = task;
     new LabelPickerModal(this.app, labels, taskLabels(task.raw, slug), {
       showSearch: this.plugin.settings.showLabelSearch,
+      previousScheme: this.board.config.previousLabelScheme,
+      saveScheme: async (id) => {
+        let updated!: LabelSchemeState;
+        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+          const current = { labels: parseLabels(fm[FM.labels], []), previous: parsePreviousScheme(fm[FM.previousLabelScheme]) };
+          updated = applyLabelScheme(current, id);
+          if (updated !== current) {
+            fm[FM.labels] = updated.labels;
+            fm[FM.previousLabelScheme] = updated.previous;
+          }
+        });
+        this.queueRender();
+        return updated;
+      },
       onClose: () => {
         [...this.contentEl.querySelectorAll<HTMLElement>('[data-board-focus]')]
           .find((el) => el.dataset.boardFocus === `labels:${current.id}`)?.focus({ preventScroll: true });

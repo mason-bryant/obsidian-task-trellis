@@ -10,13 +10,17 @@ Use **Settings → Columns** to name your workflow stages, **Dates** to choose t
 
 ## Property reference
 
+On desktop and tablet multi-column layouts, drag a column header's right boundary to resize it. Other columns keep their widths. Widths are saved with the board and survive reopening or renaming a column. Double-click a boundary to return all columns to equal, responsive widths. Keyboard users can focus a boundary and press Left/Right (10 pixels), Shift+Left/Right (50 pixels), or Home to reset all widths. Escape cancels an active drag. Phone single-column layouts keep their full-width pages.
+
 These properties are stored in the board note. The settings form handles the usual configuration; you do not need to edit YAML to get started.
 
 | Property | Default | Meaning |
 |---|---|---|
 | `slug` | from the note name | Used in placement tags and the board's command id. Set once; keep it stable. |
 | `labels` | Six unnamed colors | Board-specific label definitions, managed through a card’s tag icon. |
+| `previous-label-scheme` | none | Exact previous colors keyed by label ID, managed by the color scheme picker. |
 | `columns` | Backlog, Doing, Waiting, Done | Columns, left to right. |
+| `column-widths` | automatic | Optional column-ID-to-pixel-width map, managed by dragging header boundaries. Widths are limited to 240–1000 pixels; phone layouts ignore them. |
 | `done-column` | `Done` if there is one | Column kept in step with the checkbox. Leave empty for none. Listed newest completed first. |
 | `limit-done` | true | Cap the completed cards shown in each row of the Done column. |
 | `done-limit` | 5 | How many completed cards show per row before the rest go behind "more". |

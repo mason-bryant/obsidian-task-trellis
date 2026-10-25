@@ -1,3 +1,4 @@
+import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
 import { prepareEditorModal, renderEditorHeader } from './src/ui/editorHeader.ts';
 import { around } from 'monkey-around';
@@ -15,7 +16,7 @@ import {
   type ViewCreator,
   type ViewState,
 } from 'obsidian';
-import { LEGACY_FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
+import { FM, LEGACY_FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
 import { draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { setSubtaskCollapse } from './src/core/collapse.ts';
@@ -201,9 +202,13 @@ export default class TaskTrellisPlugin extends Plugin {
 
   /** Writes the settings form to the board note and retags tasks in renamed columns. Returns validation errors. */
   async saveBoardSettings(file: TFile, config: BoardConfig, draft: BoardDraft): Promise<string[]> {
-    const { frontmatter, errors, renames } = draftToFrontmatter(draft, config);
+    const { frontmatter, errors, renames, removed } = draftToFrontmatter(draft, config);
     if (errors.length > 0) return errors;
     await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      if (fm[FM.columnWidths] !== undefined) {
+        fm[FM.columnWidths] = remapColumnWidths(
+          parseColumnWidths(fm[FM.columnWidths], config.columns.map((c) => c.id)), renames, removed);
+      }
       Object.assign(fm, frontmatter);
       for (const key of Object.values(LEGACY_FM)) delete fm[key];
     });

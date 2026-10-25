@@ -23,3 +23,5 @@ The bundled `monkey-around` dependency remains under ISC, with its notice preser
 ## Permission and directory policy
 
 The [MIT license](https://opensource.org/license/mit) grants permission to use, modify and redistribute code subject to its notice conditions; it does not require a separate permission request. Obsidian's [directory policies](https://docs.obsidian.md/community-directory/developer-policies) separately restrict forks and inherited code. There is no recorded author approval or directory eligibility determination in this repository. Disclose this history to reviewers rather than asserting that a rewrite automatically settles their policy.
+
+The maintainer decided on October 25, 2026 to proceed with submission without a separate eligibility inquiry, given the replaced implementations and retained credit. Historical notices remain intact; this is a maintainer decision, not a recorded author approval or Obsidian determination.

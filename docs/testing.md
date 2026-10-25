@@ -2,7 +2,7 @@
 
 # Community readiness test report
 
-October 25, 2026. Candidate 0.1.10 on `codex/community-readiness`, based on release 0.1.9. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
+Updated October 25, 2026 for released version **0.1.12**. The original readiness review covered 0.1.10; version-specific follow-ups and maintainer confirmations are recorded below. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
 
 ## Changes made during this review
 
@@ -17,7 +17,7 @@ October 25, 2026. Candidate 0.1.10 on `codex/community-readiness`, based on rele
 
 ## Automated checks
 
-Application suite: **290 tests across 24 files**. Shortcut generator: **8 Python tests**. Lint, TypeScript checking, production packaging, notice/asset validation and preview build pass.
+Current application suite: **301 tests across 24 files** (290 at the initial 0.1.10 review). Shortcut generator: **8 Python tests**. Lint, TypeScript checking, production packaging, notice/asset validation and preview build pass.
 
 New stress coverage:
 
@@ -57,10 +57,10 @@ This is not a WCAG certification. Enlarged native UI and light/dark themes were 
 
 | Environment | Evidence | Remaining |
 |---|---|---|
-| Real iOS Obsidian 1.14.5 (387), maintainer’s device | Candidate 0.1.10 verified in installed plugins and reloaded. Synced QA board opened; label assignment/color save, completion/Undo, horizontal swipe and vertical column retention passed. Native safe-area fix verified. | Text entry was unreliable through Mirroring; fresh task capture, renaming and software-keyboard coverage remain unverified for this native candidate. Broad integration matrix not completed. |
+| Real iPhone, maintainer’s device | Agent-operated 0.1.10 checks on Obsidian 1.14.5 (387) covered label/color save, completion/Undo, swiping, column retention, safe areas and online sync. On October 25 the maintainer confirmed the 0.1.12 phone checklist, including cross-column dragging, task creation and label rename/save with the keyboard open. | Exact device/OS/app versions were not reconfirmed for the maintainer’s 0.1.12 pass. Broad integration matrix not completed. |
 | iPhone simulator / Safari | Shared UI tested, including current destination guidance, software keyboard and save visibility | Does not establish native Obsidian integration behavior |
 | macOS Obsidian 1.13.7 | Fresh-vault workflow, Tasks absent/present, Daily notes off/on, Templater off/on, recurrence and Undo, pop-out labels, light/dark themes, enlarged settings, and 1,000-card native rendering. Details below. [Initial evidence](qa/native-readiness.png) | Every combination of optional-plugin settings and third-party themes has not been tested |
-| Declared minimum: Obsidian 1.13.7 | Candidate 0.1.10 raises the minimum to the version actually tested natively. Historical releases retain their original minimum in versions.json. Type checking still uses the narrower 1.8.7 API package. | Earlier app versions are no longer claimed by this candidate |
+| Declared minimum: Obsidian 1.13.7 | Since 0.1.10, the minimum is the version actually tested natively. Historical releases retain their original minimum in versions.json. Type checking still uses the narrower 1.8.7 API package. | Earlier app versions are not claimed by the current release |
 | Android; Windows; Linux | No native test recorded | Required before claiming complete platform coverage |
 
 For the remaining native pass, use a disposable vault with fictional tasks. Test fresh install → create board → destination → filters → add/edit/complete/reorder/label → Undo → reload/disable/re-enable. Repeat with Tasks absent/present, Daily notes off/on and Templater off/on. Test two board windows, source-note navigation, light/dark themes and offline capture. With a synced test vault, verify both local persistence and remote arrival separately. Record app/plugin versions, device and results; do not infer sync success from an app-open event.
@@ -81,7 +81,7 @@ For the remaining native pass, use a disposable vault with fictional tasks. Test
 
 ## Submission status
 
-No directory submission or author outreach has been made. This report accompanies the 0.1.10 release preparation; check the repository release history for publication status. The remaining decision points are the compatibility gaps above and directory eligibility given the historical adaptations. See [provenance](provenance.md) and [submission draft](submission.md).
+Release 0.1.12 is published. No directory submission or author outreach has been made. The maintainer has chosen to proceed without a separate provenance eligibility inquiry; history and notices remain documented without claiming a directory determination. Remaining coverage gaps are disclosed above. See [provenance](provenance.md) and the updated [submission draft](submission.md).
 
 
 ## Phone cross-column drag follow-up (2026-10-25, 0.1.12)
@@ -91,4 +91,25 @@ Added edge navigation only while dragging a card by its handle in the narrow, pa
 - All 301 tests across 24 files pass, including 11 new regression cases covering both edge directions, dwell timing, multiple pages, edge limits, vertical reordering near the right edge, leaving/reversing an edge hold, release/cancellation, wide and single-filtered-column layouts, and out-of-bounds gestures.
 - A rendered-board integration test verifies that paging refreshes the drop indicator, dropping targets the newly visible column, and a subsequent vertical gesture retains that column.
 - Lint, production packaging, and harness build pass.
-- Native iPhone interaction with the new edge hold remains unverified; automated pointer/layout tests do not establish real-device gesture behavior.
+- **Maintainer confirmation, October 25:** the requested 0.1.12 iPhone checklist passed: cross-column dragging in both directions, vertical reordering, subsequent scrolling, new-task creation and label rename/save with the keyboard open. This closes the phone smoke checklist based on the maintainer’s explicit confirmation, not an automated device run.
+
+
+## Short VoiceOver follow-up (October 25, installed 0.1.12)
+
+Opened the synthetic QA board in native macOS Obsidian 1.13.7 and confirmed the installed plugin manifest was 0.1.12. System Settings initially showed VoiceOver off. Its switch changed to on, but the app inventory reported VoiceOver not running; selecting VoiceOver timed out. The standard activation shortcut and VoiceOver navigation command did not produce a verifiable screen-reader session. Restored the switch to **off** and verified it. Result: **inconclusive; no VoiceOver pass claimed**.
+
+The native accessibility tree did expose label checkboxes with names and checked states, named edit buttons, Close and Add Label. Closing the picker with Escape returned focus to its originating Labels button. These observations are accessibility-tree and focus evidence only; speech output and screen-reader navigation were not verified. No task contents or label assignments were changed. An empty note accidentally created by quick-switcher input during navigation was moved to the vault’s recoverable trash.
+
+## Column resizing (0.1.13, October 25)
+
+The 312-test suite (25 files), lint, production packaging and harness build passed. Eleven resize cases cover live updates, neighboring column stability, pointer cancellation/lost capture/Escape, narrow-layout isolation, click-only behavior, bounds, keyboard controls, failed-save rollback, configuration parsing and column rename/removal. In the rendered desktop harness, dragging Backlog changed its width from 303 to 403 pixels without changing its neighbors; Right increased it to 413, and Home restored equal 303-pixel columns. Native tablet touch resizing and device-to-device width sync have not yet been tested.
+
+## Planned Android smoke test
+
+Use the official [Android Studio and Emulator](https://developer.android.com/studio/install) on Apple silicon, with an ARM64 phone image created through [Device Manager](https://developer.android.com/studio/run/managing-avds). Install the actual Android Obsidian app from its [official download page](https://obsidian.md/download), then load 0.1.12 into a disposable local vault with synthetic tasks. Test board creation, task capture with the software keyboard, label editing, column swiping, within/across-column dragging, completion/Undo, reload persistence and TalkBack if available. This setup is proposed, not installed or tested. Emulator results would establish Android-app behavior in that environment, not real-device touch or performance coverage.
+
+## Label color schemes (0.1.13, October 25)
+
+All 319 tests across 26 files pass, along with lint and production packaging. The approved ten palettes plus Trellis are present. New tests cover exact custom-color restoration through serialized board properties, stable IDs/names, renamed/reordered/deleted/new labels, unchanged and empty palettes, cycling past six labels, invalid snapshot data, preview cancellation, assignment preservation, write failure/retry and overlapping-write prevention. The browser harness confirmed selecting Mediterranean, applying it, reopening the picker with Previous scheme available, and restoring the six original colors. Native iOS interaction and cross-device scheme sync have not been tested for this change.
+
+The final palette set replaces Spring light with Modern primary. All 16 focused label tests and packaging passed after the replacement. Installed locally into Mason Remote with settings preserved; native Obsidian showed the new resize controls and Modern primary in the scheme picker. No palette changes were applied to the personal board during this installation check.

@@ -1,3 +1,5 @@
+import { parsePreviousScheme, type PreviousScheme } from './labelSchemes.ts';
+import { parseColumnWidths, type ColumnWidths } from './columnWidths.ts';
 import { defaultLabels, parseLabels, type BoardLabel } from './labels.ts';
 import { slugify } from './taskLine.ts';
 
@@ -10,7 +12,9 @@ export type BoardConfig = {
   name: string;
   slug: string;
   columns: BoardColumn[];
+  columnWidths: ColumnWidths;
   labels: BoardLabel[];
+  previousLabelScheme: PreviousScheme;
   doneColumn: string | null;
   /** Show at most `doneLimit` cards per Done cell, the rest behind a "more" toggle. */
   limitDone: boolean;
@@ -58,7 +62,9 @@ export type DueNowUnit = 'days' | 'weeks';
 export const FM = {
   slug: 'slug',
   labels: 'labels',
+  previousLabelScheme: 'previous-label-scheme',
   columns: 'columns',
+  columnWidths: 'column-widths',
   doneColumn: 'done-column',
   limitDone: 'limit-done',
   doneLimit: 'done-limit',
@@ -164,7 +170,9 @@ export function parseBoardConfig(
       name,
       slug,
       columns,
+      columnWidths: parseColumnWidths(f[FM.columnWidths], columns.map((c) => c.id)),
       labels: parseLabels(f[FM.labels], warnings),
+      previousLabelScheme: parsePreviousScheme(f[FM.previousLabelScheme]),
       doneColumn,
       limitDone: boolSetting(f[FM.limitDone], true),
       doneLimit: intSetting(f[FM.doneLimit], 5, 1, 100),
