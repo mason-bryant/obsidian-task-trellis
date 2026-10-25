@@ -129,3 +129,11 @@ describe('new cards appear first', () => {
     expect(files.get('Existing.md')).toContain('^keep');
   });
 });
+
+it('reports a missing destination as failure without pretending the task was saved', async () => {
+  const plugin = { register: () => {}, app: { vault: { adapter: { read: async () => '{}' } } },
+    settings: { newTaskKind: 'daily', newTaskHeading: '' } } as unknown as TaskTrellisPlugin;
+  const config = parseBoardConfig('Review', {}).config;
+  expect(await new QuickAdd(plugin).addFromBoard(buildBoard([], config, '2026-10-25', () => undefined), { rowId: 'now', columnId: 'backlog' }, 'Keep me', false)).toBe(false);
+  expect(notices.at(-1)).toContain('Daily notes');
+});

@@ -13,3 +13,8 @@ it('keeps an explicit label-search preference after loading saved settings', () 
   expect(normalizeSettings({ showLabelSearch: false }).showLabelSearch).toBe(false);
   expect(normalizeSettings({ showLabelSearch: 'false' }).showLabelSearch).toBe(false);
 });
+
+it('uses a neutral heading for new installations and preserves existing saved headings', () => {
+  expect(normalizeSettings(undefined).newTaskHeading).toBe('');
+  expect(normalizeSettings({ newTaskHeading: '### My existing section' }).newTaskHeading).toBe('### My existing section');
+});

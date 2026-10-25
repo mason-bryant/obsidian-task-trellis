@@ -1,9 +1,11 @@
+import { replaceNoteLine } from '../core/lineEndings.ts';
+import { recoverDraft } from './recoverDraft.ts';
 import { setTaskLabels } from '../core/labels.ts';
 import { Notice, TFile, type App, type WorkspaceLeaf } from 'obsidian';
 import { applyEdit, type BoardTask, type TaskEdit } from '../core/board.ts';
 import { todayISO } from '../core/dates.ts';
 import { insertSubtask } from '../core/subtasks.ts';
-import { dedupeFields, movePlacementsToEnd, parseTaskLine, setClosedFallback } from '../core/taskLine.ts';
+import { dedupeFields, movePlacementsToEnd, parseTaskLine, setClosedFallback, normalizeRequestMarker } from '../core/taskLine.ts';
 
 const TASKS_PLUGIN_ID = 'obsidian-tasks-plugin';
 
@@ -21,7 +23,8 @@ type PluginHost = {
 };
 
 type FileChange = { file: TFile; before: string; after: string };
-export type UndoAction = { undo(): Promise<boolean> };
+export type UndoAction = { paths: string[]; undo(): Promise<boolean> };
+export type EditResult = { action: UndoAction | null; appliedIds: string[]; skippedIds: string[]; failedPaths: string[] };
 
 /** Writes task lines back to their notes, through the Tasks plugin when it is available. */
 export class TaskWriter {
@@ -60,21 +63,31 @@ export class TaskWriter {
     return out;
   }
 
-  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string): Promise<UndoAction | null> {
+  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string): Promise<EditResult> {
     const byPath = new Map<string, BoardTask[]>();
     for (const task of tasks) {
-      if (!edits.has(task.id)) continue;
-      byPath.set(task.path, [...(byPath.get(task.path) ?? []), task]);
+      if (edits.has(task.id)) byPath.set(task.path, [...(byPath.get(task.path) ?? []), task]);
     }
-    let missed = 0;
+    const result: EditResult = { action: null, appliedIds: [], skippedIds: [], failedPaths: [] };
     const changes: FileChange[] = [];
     for (const [path, fileTasks] of byPath) {
-      missed += await this.rewrite(path, fileTasks, (task) =>
-        applyEdit(task.raw, edits.get(task.id)!, slug, (l) => this.toggleLine(l, path)), changes,
-      );
+      const applied: string[] = [];
+      try {
+        await this.rewrite(path, fileTasks, (task) => {
+          applied.push(task.id);
+          return applyEdit(task.raw, edits.get(task.id)!, slug, (l) => this.toggleLine(l, path));
+        }, changes);
+        result.appliedIds.push(...applied);
+      } catch (error) {
+        console.error('[Task Trellis] write failed', error);
+        result.failedPaths.push(path);
+      }
     }
-    if (missed > 0) new Notice(`Task Trellis: ${missed} task(s) changed since the board loaded and were not updated.`);
-    return this.undoFor(changes);
+    const applied = new Set(result.appliedIds);
+    result.skippedIds = [...edits.keys()].filter((id) => !applied.has(id));
+    if (result.skippedIds.length) new Notice(`Task Trellis: ${result.skippedIds.length} task(s) could not be updated. Check the affected notes and try again.`);
+    result.action = this.undoFor(changes);
+    return result;
   }
 
   /** Returns the lines written in place of the task, or null if nothing was written. */
@@ -115,13 +128,23 @@ export class TaskWriter {
     const result = await api.editTaskLineModal(task.raw);
     if (!result) return null;
     const lines = result.split('\n').map((l) => movePlacementsToEnd(dedupeFields(l)));
-    const missed = await this.rewrite(task.path, [task], () => lines);
-    if (missed > 0) new Notice('Task Trellis: that task changed while you were editing it, so the edit was not saved.');
-    return missed > 0 ? null : lines;
+    const save = async (draft: string): Promise<boolean> => {
+      const missed = await this.rewrite(task.path, [task], () => draft.split('\n').map((l) => movePlacementsToEnd(dedupeFields(l))));
+      if (missed) new Notice('Task Trellis: that task changed while you were editing. Copy your draft and reopen the task.');
+      return missed === 0;
+    };
+    try {
+      if (await save(lines.join('\n'))) return lines;
+    } catch (error) {
+      console.error('[Task Trellis] edit failed', error);
+      new Notice('Task Trellis: could not save the edit. Your draft has been kept.');
+    }
+    recoverDraft(this.app, lines.join('\n'), save);
+    return null;
   }
 
   /** Adds `line` as the parent's last subtask, indented the way the editor would (Settings → Editor → Indent using tabs). */
-  async insertSubtask(parent: BoardTask, line: string): Promise<void> {
+  async insertSubtask(parent: BoardTask, line: string): Promise<boolean> {
     const file = this.app.vault.getAbstractFileByPath(parent.path);
     let found = false;
     if (file instanceof TFile) {
@@ -132,6 +155,7 @@ export class TaskWriter {
       });
     }
     if (!found) new Notice('Task Trellis: that task changed since the board loaded, so the subtask was not added. Try again.');
+    return found;
   }
 
   private indentUnit(): string {
@@ -174,7 +198,7 @@ export class TaskWriter {
   private undoFor(changes: FileChange[]): UndoAction | null {
     if (!changes.length) return null;
     let used = false;
-    return { undo: async () => {
+    return { paths: changes.map((change) => change.file.path), undo: async () => {
       if (used) return false;
       used = true;
       let skipped = 0;
@@ -201,8 +225,8 @@ export class TaskWriter {
     let missed = 0;
     let change: FileChange | undefined;
     await this.app.vault.process(file, (content) => {
-      const eol = content.includes('\r\n') ? '\r\n' : '\n';
       const lines = content.split(/\r?\n/);
+      let after = content;
       const located = tasks
         .map((task) => ({ task, at: locate(lines, task) }))
         .sort((a, b) => b.at - a.at);
@@ -211,9 +235,9 @@ export class TaskWriter {
           missed++;
           continue;
         }
-        lines.splice(at, 1, ...linesFor(task, at));
+        const replacement = linesFor(task, at).map(normalizeRequestMarker);
+        after = replaceNoteLine(after, at, replacement);
       }
-      const after = lines.join(eol);
       if (after !== content) change = { file, before: content, after };
       return after;
     });

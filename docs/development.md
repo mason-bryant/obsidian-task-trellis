@@ -2,7 +2,7 @@
 
 # Develop Task Trellis
 
-Use Node.js 22.13 or a newer supported even-numbered release (CI uses Node.js 22). This is a development requirement; it does not change the plugin's minimum Obsidian version. The Moment override keeps the Obsidian API packages' development dependency patched; Moment is not bundled in the plugin.
+Use Node.js 22.13 or a newer supported even-numbered release (CI tests Node.js 22 and 24). This is a development requirement; it does not change the plugin's minimum Obsidian version. The Moment override keeps the Obsidian API packages' development dependency patched; Moment is not bundled in the plugin.
 
 ```bash
 npm ci
@@ -24,6 +24,8 @@ To try it in a vault, copy `main.js`, `manifest.json` and `styles.css` into `<va
 See [Release and submission checklist](releasing.md) for publishing requirements. Screenshot sources and capture notes are in [images/README.md](images/README.md).
 
 ## Repeatable readiness checks
+
+`npm run lint` checks production source and the preview harness with the official Obsidian rules, without suppressing DOM-helper or declarative-settings rules. The preview supplies a small DOM-helper shim because it runs outside Obsidian.
 
 `npm test` includes deterministic reorder stress, multi-note write/Undo safety, concurrent stale-write protection, destination guidance and color-contrast tests. These use synthetic data, not a personal vault.
 

@@ -1,3 +1,4 @@
+import { joinEditedLines } from './lineEndings.ts';
 const LIST_ITEM_RE = /^[\s>]*(?:[-*+]|\d+[.)])\s/;
 const LEAD_RE = /^[\s>]*/;
 
@@ -13,7 +14,6 @@ export function indentWidth(line: string): number {
  * under it, indented like its existing subtasks, or one `indentUnit` deeper than the parent.
  */
 export function insertSubtask(content: string, parentIndex: number, line: string, indentUnit: string): string {
-  const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const lines = content.split(/\r?\n/);
   const parent = lines[parentIndex]!;
   const depth = indentWidth(parent);
@@ -29,5 +29,5 @@ export function insertSubtask(content: string, parentIndex: number, line: string
   }
   const lead = childLead ?? LEAD_RE.exec(parent)![0] + indentUnit;
   lines.splice(last + 1, 0, lead + line.trimStart());
-  return lines.join(eol);
+  return joinEditedLines(content, lines);
 }

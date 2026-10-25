@@ -2,7 +2,7 @@
 
 # Community-directory submission draft
 
-Updated October 25, 2026 for **release 0.1.13**. **Not submitted.** The release must be published with matching default-branch metadata before submitting.
+Updated October 25, 2026 for **release 0.1.13**. **Submitted; automatic review of 0.1.13 failed.** The portal lists the source error and recommendations. The `codex/community-review-fixes` branch addresses the findings; no passing portal result is claimed yet.
 
 ## Listing
 
@@ -31,7 +31,7 @@ Customize columns and filter tasks by tags, folders or note properties. On phone
 
 ## Release and validation status
 
-- Release 0.1.13 adds eleven label color schemes, exact Previous scheme restoration and multi-column resizing. Required release assets are `main.js`, `manifest.json` and `styles.css`; license notices are also included.
+- Release 0.1.13 adds eleven label color schemes, exact Previous scheme restoration and multi-column resizing. Required release assets are `main.js`, `manifest.json` and `styles.css`; license notices are embedded in the bundle. Future releases attach only the three supported install files.
 - Validation: **319 application tests**, **8 shortcut tests**, lint, build, release validation and preview build. The release PR must pass CI before merge.
 - The new scheme picker and resize controls were verified loaded in native macOS Obsidian after local installation. Scheme apply/restore was verified in the browser harness; native iPad resizing and cross-device scheme sync remain untested.
 - Minimum Obsidian version is **1.13.7**, tested natively on macOS. No compatibility with earlier versions is claimed.
@@ -48,4 +48,14 @@ Customize columns and filter tasks by tags, folders or note properties. On phone
 
 The maintainer has chosen to proceed without a separate provenance eligibility inquiry. Historical attribution and the [provenance record](provenance.md) remain available; no author approval or directory eligibility determination is claimed. This decision is not an instruction to contact other authors.
 
-The maintainer authorized starting the directory submission process on October 25. Account linking and any binding agreement still require the appropriate account flow. No directory submission has been made.
+The maintainer authorized starting the directory submission process on October 25. Account linking and any binding agreement still require the appropriate account flow. The portal now contains the submission and its 0.1.13 automated review.
+
+## Resubmitting fixes
+
+1. Open [Task Trellis in the submission portal](https://community.obsidian.md/account/plugins/task-trellis).
+2. Choose **Review branch**, enter `codex/community-review-fixes` in **Branch, tag, or commit SHA**, and click **Run preview scan** to scan the PR before release.
+3. After the branch passes review and CI, merge it. Update the package, manifest and versions map together for the next release, then push the matching version tag.
+4. The release workflow builds, checks and attests the three install assets and publishes the release. The portal scans new releases automatically; use **Check for new releases** if needed.
+5. Read the new review result. Do not create another plugin listing or assume a branch pass is final directory acceptance.
+
+The remaining `display: contents` warning concerns a structural wrapper in the desktop grid, overridden to a scrolling block on narrow layouts. It has no interactive semantics. Retaining it avoids rewriting the tested mobile scroll structure solely for a scanner warning targeting an older Obsidian release. Vault enumeration and user-initiated clipboard writing are documented in [privacy](privacy.md).

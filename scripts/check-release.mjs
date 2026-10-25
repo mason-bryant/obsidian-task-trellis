@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile, mkdir, copyFile } from 'node:fs/promises';
+import { readFile, mkdir, copyFile, rm } from 'node:fs/promises';
 
 const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const manifest = await readJson('manifest.json');
@@ -28,8 +28,8 @@ if (process.env.GITHUB_REF_TYPE === 'tag') {
   assert.equal(process.env.GITHUB_REF_NAME, manifest.version, 'Release tag must exactly equal the manifest version.');
 }
 
-const files = ['main.js', 'manifest.json', 'styles.css', 'LICENSE', 'THIRD_PARTY_NOTICES.txt'];
-for (const file of [...files, 'README.md']) assert((await readFile(file, 'utf8')).trim(), `${file} must not be empty.`);
+const files = ['main.js', 'manifest.json', 'styles.css'];
+for (const file of [...files, 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.txt']) assert((await readFile(file, 'utf8')).trim(), `${file} must not be empty.`);
 const bundle = await readFile('main.js', 'utf8');
 for (const notice of ['LICENSE', 'THIRD_PARTY_NOTICES.txt']) {
   assert(bundle.includes((await readFile(notice, 'utf8')).replaceAll('*/', '* /')), `${notice} must be preserved in main.js.`);
@@ -41,6 +41,7 @@ assert(bundle.includes('module.exports'), 'Release bundle must use CommonJS.');
 if (process.argv.includes('--package')) {
   const destination = `dist/${manifest.id}`;
   await mkdir(destination, { recursive: true });
+  for (const old of ['LICENSE', 'THIRD_PARTY_NOTICES.txt']) await rm(`${destination}/${old}`, { force: true });
   for (const file of files) await copyFile(file, `${destination}/${file}`);
   console.log(`Prepared ${destination} (${manifest.version}). Nothing was uploaded or published.`);
 } else {

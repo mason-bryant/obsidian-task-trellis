@@ -1,3 +1,4 @@
+import { uiElement, isComposing } from './dom.ts';
 import { installColumnResize } from './columnResize.ts';
 import type { Section } from './renderBoardSettings.ts';
 import { labelDescription, taskLabels } from '../core/labels.ts';
@@ -24,8 +25,8 @@ export type RenderHost = {
   /** Called when a drag ends, so a host that deferred redraws can catch up. */
   onDragEnd(): void;
   /** Adds a task to a cell; `detailed` opens the full editor first. */
-  onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean): void;
-  onAddSubtask(parent: BoardTask, text: string, detailed: boolean): void;
+  onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<boolean> | boolean;
+  onAddSubtask(parent: BoardTask, text: string, detailed: boolean): Promise<boolean> | boolean;
   /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
   onSettings?(section?: Section): void;
@@ -50,7 +51,7 @@ let dragStartedAt = 0;
  * The open "Add task" or "Add subtask" box, kept across redraws so typing isn't lost when the board
  * updates. Keys include the board's slug, so a box open on one board doesn't show on another.
  */
-let composer: { key: string; text: string } | null = null;
+let composer: { key: string; text: string; saving?: boolean; refresh?: () => void } | null = null;
 /** During a redraw, whether focus was in the board before it; null between redraws. */
 let redrawHadFocus: boolean | null = null;
 
@@ -350,7 +351,7 @@ function addBox(
   key: string,
   placeholder: string,
   host: RenderHost,
-  onSubmit: (text: string, detailed: boolean) => void,
+  onSubmit: (text: string, detailed: boolean) => Promise<boolean> | boolean,
   onClose: () => void,
 ): HTMLElement {
   const box = el('div', 'tt-add-box');
@@ -368,31 +369,47 @@ function addBox(
     if (isOpen()) composer = null;
     onClose();
   };
-  const submit = (detailed: boolean) => {
-    const text = input.value.trim();
+  const draft = composer;
+  const refresh = () => {
+    if (composer !== draft || !draft) return;
+    input.value = draft.text;
+    input.readOnly = !!draft.saving;
+    box.setAttribute('aria-busy', String(!!draft.saving));
+    box.querySelectorAll<HTMLButtonElement>('button:not(.tt-add-cancel)').forEach((b) => { b.disabled = !!draft.saving; });
+  };
+  if (draft) draft.refresh = refresh;
+  const submit = async (detailed: boolean) => {
+    if (!draft || composer !== draft || draft.saving) return;
+    const text = draft.text.trim();
     if (!text && !detailed) return;
-    if (detailed) close();
-    else {
-      input.value = '';
-      if (isOpen()) composer!.text = '';
+    draft.saving = true; draft.refresh?.();
+    try {
+      const saved = await onSubmit(text, detailed);
+      if (saved && composer === draft) draft.text = '';
+    } catch {
+      // Hosts display the cause; keep the draft even if an unexpected host failure escapes.
+      if (composer === draft) box.setAttribute('aria-label', 'Task not saved. Your text has been kept; try again.');
+    } finally {
+      draft.saving = false;
+      if (composer === draft) draft.refresh?.();
     }
-    onSubmit(text, detailed);
   };
   input.addEventListener('keydown', (e) => {
+    if (isComposing(e)) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       close();
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      submit(e.metaKey || e.ctrlKey);
+      void submit(e.metaKey || e.ctrlKey);
     }
   });
   input.addEventListener('blur', () => {
     // Clicking one of the buttons blurs first; let its click run. A box another one replaced closes too.
     window.setTimeout(() => {
       if (!box.isConnected) return;
-      if (!isOpen() || (!input.value.trim() && !box.contains(box.ownerDocument.activeElement))) close();
+      if (!isOpen() || (!draft?.saving && !input.value.trim() && !box.contains(box.ownerDocument.activeElement))) close();
     }, 150);
   });
 
@@ -401,11 +418,11 @@ function addBox(
   add.title = 'Add task'; add.setAttribute('aria-label', 'Add task');
   host.icon(add, 'check');
   add.type = 'button';
-  add.addEventListener('click', () => submit(false));
+  add.addEventListener('click', () => void submit(false));
   const details = el('button', '', 'Details…');
   details.type = 'button';
   details.title = 'Open the Tasks editor for priority, dates and recurrence';
-  details.addEventListener('click', () => submit(true));
+  details.addEventListener('click', () => void submit(true));
   const cancel = el('button', 'clickable-icon tt-add-cancel tt-editor-cancel');
   cancel.type = 'button';
   cancel.setAttribute('aria-label', 'Cancel');
@@ -414,6 +431,7 @@ function addBox(
   actions.append(add, details, cancel);
 
   box.append(actions, input);
+  refresh();
   // Clicks inside the box shouldn't reach the cell or card.
   box.addEventListener('click', (e) => e.stopPropagation());
   // Right after the redraw that attaches it, before the next keystroke arrives.
@@ -885,7 +903,7 @@ function chevron(): SVGElement {
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
   // Shared with the standalone browser harness; nodes are adopted by the destination document.
-  const node = document.createElement(tag);
+  const node = uiElement(document, tag);
   node.className = cls;
   if (text !== undefined) node.textContent = text;
   return node;

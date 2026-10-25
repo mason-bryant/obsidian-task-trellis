@@ -49,7 +49,9 @@ export class TaskIndex extends Events {
       vault.on('rename', (file, oldPath) => {
         this.rebuilding?.touched.add(oldPath).add(file.path);
         this.byFile.delete(oldPath);
-        if (file instanceof TFile) void this.readFile(file).then(() => this.notify());
+        if (file instanceof TFile) void this.readFile(file).catch((error: unknown) => {
+          if (this.app.vault.getAbstractFileByPath(file.path) === file) console.error('[Task Trellis] renamed note could not be read', error);
+        }).finally(() => this.notify());
         else this.notify();
       }),
     );
@@ -96,6 +98,28 @@ export class TaskIndex extends Events {
     return [...this.byFile.values()].flatMap((f) => f.tasks);
   }
 
+  /** Refresh only files touched by a write/Undo; normal metadata events still reconcile later. */
+  async refresh(paths: string[]): Promise<void> {
+    for (const path of new Set(paths)) {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile)) { if (this.byFile.delete(path)) this.notify(); continue; }
+      try {
+        const content = await this.app.vault.cachedRead(file);
+        const cache = this.app.metadataCache.getFileCache(file);
+        if (cache) this.updateFile(file, content, cache);
+      } catch (error) {
+        if (this.app.vault.getAbstractFileByPath(path) === file) console.error('[Task Trellis] note refresh failed', error);
+      }
+    }
+  }
+
+  /** Prose-only updates need fresh duplicate snapshots without forcing a board redraw. */
+  currentSnapshot(task: BoardTask): BoardTask {
+    const current = this.byFile.get(task.path);
+    return task.displayKey && task.displayKey === current?.key
+      ? current.tasks.find((next) => next.id === task.id && next.raw === task.raw) ?? task : task;
+  }
+
   private updateFile(file: TFile, data: string, cache: CachedMetadata): void {
     if (this.stopped) return;
     this.rebuilding?.touched.add(file.path);
@@ -105,9 +129,9 @@ export class TaskIndex extends Events {
     }
     const next = fileTasks(file.path, data, cache);
     // Ordinary prose edits do not change the board; note tags and properties can affect filters.
-    if (this.byFile.get(file.path)?.key === next.key) return;
+    const changed = this.byFile.get(file.path)?.key !== next.key;
     this.byFile.set(file.path, next);
-    this.notify();
+    if (changed) this.notify();
   }
 
   private async readFile(file: TFile): Promise<void> {
@@ -139,9 +163,8 @@ function fileTasks(path: string, content: string, cache: CachedMetadata): FileTa
     cache.frontmatter ?? null,
     noteTags(cache),
     tasks.map((t) => [t.line, t.raw, t.parentId ?? null, t.twins ?? 0]),
-    // Duplicate task identities depend on the surrounding note, so refresh their snapshot too.
-    tasks.some((t) => t.twins) ? content : null,
   ]);
+  for (const task of tasks) task.displayKey = key;
   return { tasks, key };
 }
 

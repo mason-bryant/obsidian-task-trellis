@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -26,13 +26,14 @@ function fixture() {
 }
 
 describe('release checks', () => {
-  it('packages the three install assets and licenses without publishing', () => {
+  it('packages only the three install assets, with licenses embedded in the bundle', () => {
     const { root, run, version } = fixture();
     const result = run(version, ['--package']);
     expect(result.status, result.stderr).toBe(0);
-    for (const file of ['main.js', 'manifest.json', 'styles.css', 'LICENSE', 'THIRD_PARTY_NOTICES.txt']) {
+    for (const file of ['main.js', 'manifest.json', 'styles.css']) {
       expect(readFileSync(join(root, 'dist/task-trellis', file))).toEqual(readFileSync(join(root, file)));
     }
+    expect(existsSync(join(root, 'dist/task-trellis/LICENSE'))).toBe(false);
   });
 
   it.each([

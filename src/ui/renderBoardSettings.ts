@@ -1,3 +1,4 @@
+import { uiElement, isComposing } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { convertDueNow, filterError, filterWarnings, WEEKDAY_NAMES, type BoardDraft, type DraftFilter } from '../core/boardDraft.ts';
@@ -83,7 +84,11 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         list.append(chip);
       });
     };
+    let composing = false;
+    entry.addEventListener('compositionstart', () => { composing = true; });
+    entry.addEventListener('compositionend', () => { composing = false; });
     const commit = () => {
+      if (composing) return;
       const value = entry.value.trim();
       if (!value) return;
       for (const item of (splitCommas ? value.split(',') : [value]).map((v) => v.trim()).filter(Boolean)) {
@@ -92,6 +97,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       entry.value = ''; changed([...current]); update();
     };
     entry.onkeydown = (event) => {
+      if (isComposing(event)) return;
       if (event.key === 'Enter') { event.preventDefault(); commit(); }
       if (event.key === 'Backspace' && !entry.value && current.length) {
         entry.value = current.pop()!; changed([...current]); update();
@@ -294,7 +300,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
   // Shared with the standalone browser harness; nodes are adopted by the destination document.
-  const node = document.createElement(tag); node.className = cls; if (text !== undefined) node.textContent = text; return node;
+  const node = uiElement(document, tag); node.className = cls; if (text !== undefined) node.textContent = text; return node;
 }
 function button(text: string, cls: string): HTMLButtonElement {
   const node = el('button', cls, text); node.type = 'button'; return node;

@@ -1,3 +1,4 @@
+import { uiElement } from './dom.ts';
 import { applyLabelScheme, LABEL_SCHEMES, type LabelSchemeState, type PreviousScheme } from '../core/labelSchemes.ts';
 import { renderEditorHeader, type EditorHeader } from './editorHeader.ts';
 import { LABEL_COLORS, newLabelId, labelDescription, labelTextColor, normalizeLabelColor, type BoardLabel } from '../core/labels.ts';
@@ -23,11 +24,11 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
   let query = '';
   let busy = false;
   let header: EditorHeader;
-  const headerSlot = host.header ?? root.ownerDocument.createElement('div');
+  const headerSlot = host.header ?? uiElement(root.ownerDocument, 'div');
   root.classList.add('tt-label-picker');
   root.dataset.ignoreSwipe = 'true';
   const node = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
-    const el = root.ownerDocument.createElement(tag); el.className = cls; el.textContent = text; return el;
+    const el = uiElement(root.ownerDocument, tag); el.className = cls; el.textContent = text; return el;
   };
   const button = (text: string, cls = '') => { const b = node('button', cls, text); b.type = 'button'; return b; };
   const error = node('p', 'tt-label-error'); error.setAttribute('role', 'alert'); error.hidden = true;

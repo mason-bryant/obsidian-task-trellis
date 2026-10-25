@@ -162,3 +162,11 @@ describe('slugify', () => {
     expect(slugify('Próximo')).toBe('próximo');
   });
 });
+
+it('moves legacy shortcut markers ahead of metadata when editing placements', () => {
+  const line = '- [ ] Capture 📅 2026-10-30 <!-- task-trellis-request:abc123 --> #tt/home/backlog';
+  const result = movePlacementsToEnd(line);
+  expect(result).toBe('- [ ] <!-- task-trellis-request:abc123 --> Capture 📅 2026-10-30 #tt/home/backlog');
+  expect(parseTaskLine(result)?.dueDate).toBe('2026-10-30');
+  expect(parseTaskLine(result)?.text).toBe('Capture');
+});

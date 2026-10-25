@@ -1,3 +1,4 @@
+import { joinEditedLines } from './lineEndings.ts';
 import type { ISODate } from './dates.ts';
 import { columnOf, workflowColumnOf, type BoardModel, type BoardTask, type TaskEdit } from './board.ts';
 import { rowForDue } from './rows.ts';
@@ -59,7 +60,6 @@ type HeadingSpec = { level?: number; text: string };
  * end of the note; an empty `heading` appends to the end.
  */
 export function insertUnderHeading(content: string, heading: string, newLines: string[]): string {
-  const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const lines = content.split(/\r?\n/);
   const spec = parseHeadingSpec(heading);
   const all = headings(lines);
@@ -71,14 +71,14 @@ export function insertUnderHeading(content: string, heading: string, newLines: s
     let last = (next ? next.index : lines.length) - 1;
     while (last > found.index && lines[last]!.trim() === '') last--;
     lines.splice(last + 1, 0, ...newLines);
-    return lines.join(eol);
+    return joinEditedLines(content, lines);
   }
 
   const endsWithNewline = lines.length > 1 && lines[lines.length - 1] === '';
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === '') lines.pop();
   const tail = spec ? [`${'#'.repeat(spec.level ?? 2)} ${heading.replace(/^#+\s*/, '').trim()}`, ...newLines] : newLines;
   const out = lines.length > 0 ? [...lines, '', ...tail] : tail;
-  return out.join(eol) + (endsWithNewline || lines.length === 0 ? eol : '');
+  return joinEditedLines(content, endsWithNewline || lines.length === 0 ? [...out, ''] : out);
 }
 
 function parseHeadingSpec(heading: string): HeadingSpec | null {

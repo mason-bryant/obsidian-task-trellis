@@ -188,6 +188,7 @@ export function removePlacement(line: string, slug: string): string {
 
 /** Moves every placement tag to the end of the line, keeping their order (Tasks' editor moves them into the description). */
 export function movePlacementsToEnd(line: string): string {
+  line = normalizeRequestMarker(line);
   const tags = [...line.matchAll(placementRe())].map((m) => m[0].trim());
   if (tags.length === 0) return line;
   return appendAtEnd(line.replace(placementRe(), ''), tags);
@@ -247,4 +248,15 @@ function appendAtEnd(line: string, tags: string[]): string {
   const block = BLOCK_ID_RE.exec(base);
   const insert = tags.map((t) => ` ${t}`).join('');
   return block ? `${base.slice(0, block.index)}${insert}${base.slice(block.index)}` : `${base}${insert}`;
+}
+
+/** Keep request deduplication metadata before the trailing fields that Tasks parses. */
+export function normalizeRequestMarker(line: string): string {
+  const markers = line.match(/<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->/g);
+  if (!markers) return line;
+  const cleaned = line.replace(/\s*<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->/g, '').trimEnd();
+  const task = TASK_LINE_RE.exec(cleaned);
+  if (!task) return line;
+  // Place ahead of the description too: this remains safe even if the description contains fields.
+  return `${task[1]}${task[2]}${task[3]}${markers.join(' ')} ${task[4]!.trimStart()}`;
 }

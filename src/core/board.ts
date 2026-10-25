@@ -17,6 +17,8 @@ export type BoardTask = ParsedTask & {
   twins?: number;
   /** Note snapshot for duplicate lines, whose identity cannot be inferred after the note changes. */
   duplicateSource?: string;
+  /** Index display signature; refresh snapshots only while card identities are unchanged. */
+  displayKey?: string;
 };
 
 export type BoardModel = {

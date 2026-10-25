@@ -165,6 +165,8 @@ export class BoardView extends FileView {
       .map((file) => this.app.metadataCache.getFileCache(file)?.frontmatter)) : [];
   }
 
+  private moveQueue: Promise<void> = Promise.resolve();
+
   private withPending(task: BoardTask): BoardTask {
     const entry = this.pending.get(task.id);
     const parsed = entry ? parseTaskLine(entry.raw) : null;
@@ -224,17 +226,21 @@ export class BoardView extends FileView {
         this.render();
       },
       onDrop: (taskId, target) => void this.drop(taskId, target),
-      onToggle: (task) => void this.plugin.writer.toggle(task, (action) => {
+      onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
       }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); new Notice('Task Trellis: could not update the task.'); }),
-      onEdit: (task) => void this.plugin.writer.editInModal(task).then((lines) => this.showWritten(task, lines)),
+      onEdit: (task) => void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); new Notice('Task Trellis: could not open the task editor.'); }),
       onOpenSource: (task, newTab) => void this.plugin.writer.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
-      onAddTask: (target, text, detailed) => {
-        if (this.model) void this.plugin.quickAdd.addFromBoard(this.model, target, text, detailed);
+      onAddTask: async (target, text, detailed) => {
+        try { return this.model ? await this.plugin.quickAdd.addFromBoard(this.model, target, text, detailed) : false; }
+        catch (error) { console.error('[Task Trellis] add failed', error); new Notice('Task Trellis: could not save the task. Your text has been kept; check the destination and try again.'); return false; }
       },
-      onAddSubtask: (parent, text, detailed) => void this.plugin.quickAdd.addSubtask(parent, text, detailed),
+      onAddSubtask: async (parent, text, detailed) => {
+        try { return await this.plugin.quickAdd.addSubtask(this.plugin.index.currentSnapshot(parent), text, detailed); }
+        catch (error) { console.error('[Task Trellis] subtask failed', error); new Notice('Task Trellis: could not save the subtask. Your text has been kept; try again.'); return false; }
+      },
       // A bottom sheet on phones.
       onMoveMenu: (task, choices, evt) => {
         const menu = new Menu();
@@ -267,7 +273,7 @@ export class BoardView extends FileView {
     if (!this.file || !this.board) return;
     const file = this.file;
     const { slug, labels } = this.board.config;
-    let current = task;
+    let current = this.plugin.index.currentSnapshot(task);
     new LabelPickerModal(this.app, labels, taskLabels(task.raw, slug), {
       showSearch: this.plugin.settings.showLabelSearch,
       previousScheme: this.board.config.previousLabelScheme,
@@ -324,8 +330,9 @@ export class BoardView extends FileView {
     this.undoAction = null;
     try {
       await entry.action.undo();
-      this.pending.clear();
-      await this.plugin.index.rebuild();
+      const paths = new Set(entry.action.paths);
+      for (const task of this.plugin.index.all()) if (paths.has(task.path)) this.pending.delete(task.id);
+      await this.plugin.index.refresh(entry.action.paths);
     } catch (error) {
       console.error('[Task Trellis] undo failed', error);
       new Notice('Task Trellis: could not undo the action.');
@@ -333,34 +340,45 @@ export class BoardView extends FileView {
     this.render();
   }
 
-  private async drop(taskId: string, target: DropTarget): Promise<void> {
-    if (!this.model || !this.board) return;
+  private drop(taskId: string, target: DropTarget): Promise<void> {
+    // Plan each move after the previous write/index refresh, including duplicate source snapshots.
+    const slug = this.board?.config.slug;
+    const move = this.moveQueue.then(() => this.board?.config.slug === slug ? this.performDrop(taskId, target) : undefined);
+    this.moveQueue = move.catch((error: unknown) => { console.error('[Task Trellis] move failed', error); });
+    return this.moveQueue;
+  }
+
+  private async performDrop(taskId: string, target: DropTarget): Promise<void> {
+    if (this.stopped || !this.model || !this.board) return;
     const edits = planDrop(this.model, taskId, target);
     if (edits.size === 0) return;
     // The lines the board shows, so a drop right after another one edits what that one wrote.
-    const tasks = this.plugin.index
-      .all()
+    const tasks = Object.values(this.model.cells).flatMap((columns) => Object.values(columns).flat())
       .filter((t) => edits.has(t.id))
-      .map((t) => this.withPending(t));
+      .map((t) => this.withPending(this.plugin.index.currentSnapshot(t)));
     const slug = this.board.config.slug;
     // Show the result right away; the index catches up once the files are written.
     for (const [id, raw] of this.plugin.writer.preview(tasks, edits, slug)) {
       const from = tasks.find((t) => t.id === id)?.raw;
       if (from !== undefined) this.pending.set(id, { raw, from });
     }
+    const owned = new Map([...edits.keys()].map((id) => [id, this.pending.get(id)]));
     this.render();
     try {
-      const action = await this.plugin.writer.applyEdits(tasks, edits, slug);
+      const result = await this.plugin.writer.applyEdits(tasks, edits, slug);
+      const action = result.action;
       if (action) {
         this.undoAction = { label: 'Task moved', action };
         this.highlightIds = new Set([taskId]); this.highlightUntil = Date.now() + 1000;
       }
-      if (!action) for (const id of edits.keys()) this.pending.delete(id);
+      for (const id of result.skippedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
+      await this.plugin.index.refresh(tasks.map((task) => task.path));
+      for (const id of result.appliedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
       this.render();
     } catch (err) {
       console.error('[Task Trellis] write failed', err);
       new Notice('Task Trellis: could not update the task. See the console for details.');
-      this.pending.clear();
+      for (const id of edits.keys()) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
       this.render();
     }
   }
