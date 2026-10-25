@@ -779,7 +779,11 @@
 
 /* Editor actions stay outside the scrolling fields and above the mobile keyboard. */
 .tt-editor-modal:not(dialog), dialog.tt-editor-modal[open] { display: flex; flex-direction: column; }
-.tt-editor-modal { max-height: min(85dvh, var(--tt-editor-height, 85dvh)); overflow: hidden; }
+.tt-editor-modal {
+  --tt-editor-safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --tt-editor-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  max-height: min(85dvh, var(--tt-editor-height, 85dvh)); overflow: hidden;
+}
 .tt-editor-modal > .modal-header, .tt-editor-modal > .modal-title, .tt-editor-modal .modal-close-button, .tt-editor-modal > .modal-header-button { display: none; }
 .tt-editor-header-slot { flex: none; }
 .tt-editor-header { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; align-items: center; padding: 0 0 12px; }
@@ -798,9 +802,9 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
 .tt-add-actions { align-items: center; margin-bottom: 8px; }
 .tt-add-actions .tt-add-cancel { margin-left: auto; }
 @media (pointer: coarse) {
-  .tt-editor-modal { position: fixed; top: var(--tt-editor-top, 12px); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: var(--tt-editor-height, 85dvh); }
+  .tt-editor-modal { position: fixed; top: calc(var(--tt-editor-top, 12px) + var(--tt-editor-safe-top)); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: calc(var(--tt-editor-height, 85dvh) - var(--tt-editor-safe-top) - var(--tt-editor-safe-bottom)); }
 }
-.is-mobile .tt-editor-modal { position: fixed; top: var(--tt-editor-top, 12px); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: var(--tt-editor-height, 85dvh); }
+.is-mobile .tt-editor-modal { position: fixed; top: calc(var(--tt-editor-top, 12px) + var(--tt-editor-safe-top)); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: calc(var(--tt-editor-height, 85dvh) - var(--tt-editor-safe-top) - var(--tt-editor-safe-bottom)); }
 
 /* Keep the save glyph legible in both built-in theme families. */
 .theme-dark, [data-theme="dark"] { --tt-save-color: #4ade80; }
