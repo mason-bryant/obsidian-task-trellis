@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-25T17:22:03.962Z",
+  "node": "v22.13.1",
+  "platform": "darwin arm64",
+  "cpu": "Apple M4 Max",
+  "results": [
+    {
+      "tasks": 10000,
+      "notes": 100,
+      "measuredRuns": 7,
+      "parseMedianMs": 37.3,
+      "modelMedianMs": 11.3,
+      "parseMaxMs": 40.8,
+      "modelMaxMs": 13.3
+    },
+    {
+      "tasks": 50000,
+      "notes": 500,
+      "measuredRuns": 7,
+      "parseMedianMs": 194.8,
+      "modelMedianMs": 64,
+      "parseMaxMs": 206.5,
+      "modelMaxMs": 98.8
+    }
+  ]
+}

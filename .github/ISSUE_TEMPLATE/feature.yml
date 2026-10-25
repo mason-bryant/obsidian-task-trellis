@@ -1,0 +1,16 @@
+name: Suggest a feature
+description: Explain a task you would like Task Trellis to make easier.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What are you trying to do?
+      description: Describe the problem, your proposed behavior and any current workaround.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Where would you use it?
+      description: Desktop, iPhone, iPad, Android, or several devices.

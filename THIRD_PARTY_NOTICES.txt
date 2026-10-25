@@ -1,9 +1,11 @@
-Task Trellis includes the following third-party code.
+Task Trellis retains the following dependency and historical attribution notices.
 These notices are also embedded in main.js so they accompany plugin installations.
 
 4D Eisenhower Matrix
 https://github.com/krcaljaroslav/4D-eisenhower-matrix
-Portions of src/core/sort.ts and src/core/filters.ts are adapted from this project.
+Versions through 0.1.9 included adaptations in src/core/sort.ts and
+src/core/filters.ts. Those implementations have since been replaced.
+This historical notice is retained; see docs/provenance.md.
 
 MIT License
 

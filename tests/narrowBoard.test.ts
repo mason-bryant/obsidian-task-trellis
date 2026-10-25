@@ -187,3 +187,26 @@ describe('card labels', () => {
     expect(root.querySelectorAll('.tt-card-label-button, .tt-card-label')).toHaveLength(0);
   });
 });
+
+it('offers actionable empty-board setup and keyboard movement without dragging', () => {
+  host.onSettings = vi.fn();
+  renderBoard(root, buildBoard([], parseBoardConfig('Empty', {}).config, today, () => undefined), host, { warnings: [], info: [] });
+  const actions = root.querySelectorAll<HTMLButtonElement>('.tt-empty-state button');
+  actions[0]!.click(); actions[1]!.click();
+  expect(host.onSettings).toHaveBeenNthCalledWith(1, 'destination');
+  expect(host.onSettings).toHaveBeenNthCalledWith(2, 'filters');
+  const another = task('- [ ] Another 📅 2026-10-24 #tt/house/doing/200', 3);
+  renderBoard(root, buildBoard([open, another], parseBoardConfig('House', { slug: 'house' }).config, today, () => undefined), host, { warnings: [], info: [] });
+  // Numbered Another sorts first; Alt+Down moves it after Paint.
+  card(another).dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true }));
+  expect(host.onDrop).toHaveBeenCalledWith(another.id, { rowId: 'now', columnId: 'doing', index: 1 });
+  card(another).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  expect(host.onEdit).toHaveBeenCalledWith(another);
+});
+
+
+it('keeps keyboard focus on a card through board redraws', () => {
+  draw(); card(open).focus();
+  draw();
+  expect(document.activeElement).toBe(card(open));
+});

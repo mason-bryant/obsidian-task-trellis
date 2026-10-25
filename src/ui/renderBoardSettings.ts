@@ -4,6 +4,8 @@ import { convertDueNow, filterError, filterWarnings, WEEKDAY_NAMES, type BoardDr
 
 export type SettingsFormHost = {
   header?: HTMLElement;
+  initialSection?: Section;
+  destinationAdvice?(draft: BoardDraft): string[];
   icon(el: HTMLElement, name: string): void;
   attachKeySuggest(input: HTMLInputElement): void | (() => void);
   attachValueSuggest(input: HTMLInputElement, key: () => string): void | (() => void);
@@ -16,11 +18,11 @@ export type SettingsFormHost = {
   onCopyShortcut?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
-type Section = 'columns' | 'dates' | 'filters' | 'destination';
+export type Section = 'columns' | 'dates' | 'filters' | 'destination';
 
 /** Shared by the Obsidian modal and harness. Drafts are written only by an explicit save. */
 export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, original: BoardConfig, host: SettingsFormHost): SettingsForm {
-  let section: Section = 'columns';
+  let section: Section = host.initialSection ?? 'columns';
   let errors: string[] = [];
   let validation = false;
   let saving = false;
@@ -98,6 +100,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     entry.onblur = commit;
     entry.onchange = commit;
     attach(suggest(entry)); update(); wrap.append(list, entry); return wrap;
+  }
+
+  function updateDestinationAdvice(): void {
+    root.querySelector('.tt-destination-advice')?.replaceChildren(...(host.destinationAdvice?.(draft) ?? []).map((text) => el('p', 'tt-help', text)));
   }
 
   function updateWarnings(): void {
@@ -234,8 +240,11 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     } else {
       heading(body, 'Give new tasks a home', 'Tasks added on this board go to this note and section.');
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));
-      if (draft.newTasks === 'note') body.append(field('Note path', input(draft.newTasksNote, 'Note path', (v) => draft.newTasksNote = v), 'The note is created if it does not exist.'));
+      if (draft.newTasks === 'note') body.append(field('Note path', input(draft.newTasksNote, 'Note path', (v) => { draft.newTasksNote = v; updateDestinationAdvice(); }), 'The note is created if it does not exist.'));
       if (draft.newTasks !== 'default') body.append(field('Under heading', input(draft.newTasksHeading, 'Under heading', (v) => draft.newTasksHeading = v), 'Leave empty to append to the note. Missing headings are created.'));
+      const advice = el('div', 'tt-destination-advice'); advice.setAttribute('role', 'status');
+      advice.append(...(host.destinationAdvice?.(draft) ?? []).map((text) => el('p', 'tt-help', text)));
+      body.append(advice);
       if (host.onCopyShortcut) {
         const copy = button('Copy shortcut URL', 'tt-button');
         copy.onclick = () => host.onCopyShortcut?.();

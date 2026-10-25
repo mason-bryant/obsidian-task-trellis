@@ -1,0 +1,36 @@
+name: Report a bug
+description: Something is not working as expected.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Please check docs/troubleshooting.md first. Use sample tasks; do not upload your vault, private notes, credentials, or personal shortcut URLs."
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Task Trellis version, Obsidian version, device and operating-system version.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include what you expected and what actually happened.
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Minimal example
+      description: A fictional task line and relevant board settings, with private information removed. Include a screenshot if useful.
+  - type: textarea
+    id: integrations
+    attributes:
+      label: Setup and integrations
+      description: Theme, Tasks / Daily notes / Templater versions, task destination, and whether it also happens in a disposable vault with the default theme.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant error message
+      description: Optional. Remove personal paths and note contents before pasting logs.

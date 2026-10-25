@@ -1,3 +1,4 @@
+import type { Section } from './renderBoardSettings.ts';
 import { labelDescription, taskLabels } from '../core/labels.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
 import type { BoardColumn } from '../core/boardConfig.ts';
@@ -26,7 +27,7 @@ export type RenderHost = {
   onAddSubtask(parent: BoardTask, text: string, detailed: boolean): void;
   /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
-  onSettings?(): void;
+  onSettings?(section?: Section): void;
   onLabels?(task: BoardTask): void;
   undo?: { label: string; run(): void };
   highlightIds?: Set<string>;
@@ -144,6 +145,16 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const filters = config.propertyFilters.length + config.excludedPropertyFilters.length +
     [config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders].filter((list) => list.length).length;
   if (filters) heading.append(el('span', 'tt-filter-count', `${filters} filter ${filters === 1 ? 'condition' : 'conditions'}`));
+  if (model.total === 0 && host.onSettings) {
+    const empty = el('section', 'tt-note tt-empty-state');
+    empty.setAttribute('aria-label', 'Get started with this board');
+    empty.append(el('p', '', filters ? 'No tasks match this board. Check its filters and where new tasks are saved.' : 'Your board is ready. Choose where tasks are saved, then use Add task in a column.'));
+    for (const [label, section] of [['Choose task destination', 'destination'], ['Review filters', 'filters']] as const) {
+      const action = el('button', 'tt-toolbar-button', label); action.type = 'button';
+      action.onclick = () => host.onSettings?.(section); empty.append(action);
+    }
+    root.insertBefore(empty, scrollEl);
+  }
   if (host.undo) {
     const undo = el('div', 'tt-undo'); undo.setAttribute('role', 'status');
     const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.onclick = () => host.undo?.run();
@@ -420,10 +431,25 @@ function moreToggle(collapsed: boolean, extra: number, onClick: () => void): HTM
 function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const c = el('div', 'tt-card');
   c.dataset.id = task.id;
+  c.dataset.boardFocus = `card:${task.id}`;
   c.draggable = true;
   c.tabIndex = 0; c.setAttribute('role', 'group'); c.setAttribute('aria-label', task.text);
   if (host.highlightIds?.has(task.id)) c.classList.add('tt-card--updated');
-  c.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === c) { e.preventDefault(); host.onEdit(task); } });
+  c.setAttribute('aria-description', 'Press Enter to edit or open the source. Use Alt and Up or Down to reorder open tasks.');
+  c.setAttribute('aria-keyshortcuts', task.closed ? 'Enter' : 'Enter Alt+ArrowUp Alt+ArrowDown');
+  c.addEventListener('keydown', (e) => {
+    if (e.target !== c) return;
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); host.onEdit(task); return; }
+    if (!e.altKey || task.closed || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    const rowId = model.rowOf[task.id];
+    const columnId = columnOf(task, model.config);
+    const cards = rowId ? model.cells[rowId]?.[columnId] : undefined;
+    const at = cards?.findIndex((card) => card.id === task.id) ?? -1;
+    if (!rowId || !cards || at < 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const index = Math.max(0, Math.min(cards.length - 1, at + (e.key === 'ArrowUp' ? -1 : 1)));
+    if (index !== at) host.onDrop(task.id, { rowId, columnId, index });
+  });
   if (task.closed) c.classList.add('is-closed');
   if (isOverdue(task, model.today)) c.classList.add('is-overdue');
 

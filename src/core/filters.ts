@@ -2,36 +2,47 @@ import type { BoardConfig, PropertyFilter } from './boardConfig.ts';
 
 export type Frontmatter = Record<string, unknown> | undefined;
 
+/** Compare complete path segments so a folder/tag does not match a sibling prefix. */
+function within(value: string, scope: string): boolean {
+  const segments = scope.split('/');
+  const candidate = value.split('/');
+  return segments.length <= candidate.length && segments.every((segment, i) => segment === candidate[i]);
+}
+
 export function inFolder(path: string, folder: string): boolean {
-  return folder === '' || path === folder || path.startsWith(folder + '/');
+  return folder.length === 0 || within(path, folder);
 }
 
-/** Flattens a front matter value into comparable strings (list items, scalars). */
+/** Only scalar properties are searchable; nested mappings and lists are not coerced. */
 export function propertyValueStrings(raw: unknown): string[] {
-  if (raw === undefined || raw === null) return [];
-  const items: unknown[] = Array.isArray(raw) ? raw : [raw];
-  return items
-    .filter((v) => v !== null && v !== undefined && typeof v !== 'object')
-    .map((v) => String(v).trim())
-    .filter((v) => v !== '');
+  const result: string[] = [];
+  for (const value of Array.isArray(raw) ? raw : [raw]) {
+    if (value == null || typeof value === 'object') continue;
+    const text = String(value).trim();
+    if (text.length > 0) result.push(text);
+  }
+  return result;
 }
 
-/** A present key counts as existing even when its value is null, empty text, or an empty list. */
+function owns(fm: Frontmatter, key: string): boolean {
+  return fm != null && Object.prototype.hasOwnProperty.call(fm, key);
+}
+
 export function matchesProperty(fm: Frontmatter, filter: PropertyFilter): boolean {
-  if (!fm || !(filter.key in fm)) return false;
-  if (filter.values.length === 0) return true;
-  const wanted = new Set(filter.values.map((v) => v.toLowerCase()));
-  return propertyValueStrings(fm[filter.key]).some((v) => wanted.has(v.toLowerCase()));
+  if (!owns(fm, filter.key)) return false;
+  if (!filter.values.length) return true;
+  const actual = propertyValueStrings(fm![filter.key]).map((value) => value.toLowerCase());
+  return filter.values.some((value) => actual.includes(value.toLowerCase()));
 }
 
-/** Every inclusion must pass; any matching exclusion rejects the note. */
 export function noteMatchesFilters(fm: Frontmatter, filters: PropertyFilter[], excluded: PropertyFilter[] = []): boolean {
-  return filters.every((f) => matchesProperty(fm, f)) && !excluded.some((f) => matchesProperty(fm, f));
+  for (const rule of excluded) if (matchesProperty(fm, rule)) return false;
+  for (const rule of filters) if (!matchesProperty(fm, rule)) return false;
+  return true;
 }
 
-/** `house` matches `#house` and nested tags such as `#house/kitchen`. */
 export function hasTag(tags: string[], tag: string): boolean {
-  return tags.some((t) => t === tag || t.startsWith(tag + '/'));
+  return tags.some((candidate) => within(candidate, tag));
 }
 
 export function taskMatchesBoard(
@@ -40,16 +51,19 @@ export function taskMatchesBoard(
   fm: Frontmatter,
   noteTags: string[] = [],
 ): boolean {
-  if (config.includeFolders.length > 0 && !config.includeFolders.some((f) => inFolder(task.path, f))) return false;
-  if (config.excludeFolders.some((f) => inFolder(task.path, f))) return false;
-  const tags = [...task.tags, ...noteTags];
-  if (config.includeTags.length > 0 && !config.includeTags.some((t) => hasTag(tags, t))) return false;
-  if (config.excludeTags.some((t) => hasTag(tags, t))) return false;
-  return noteMatchesFilters(fm, config.propertyFilters, config.excludedPropertyFilters);
+  const dimensions = [
+    { allow: config.includeFolders, deny: config.excludeFolders, matches: (folder: string) => inFolder(task.path, folder) },
+    { allow: config.includeTags, deny: config.excludeTags, matches: (tag: string) => hasTag(task.tags, tag) || hasTag(noteTags, tag) },
+  ];
+  return dimensions.every(({ allow, deny, matches }) =>
+    !deny.some(matches) && (allow.length === 0 || allow.some(matches)),
+  ) && noteMatchesFilters(fm, config.propertyFilters, config.excludedPropertyFilters);
 }
 
-/** Exclusion-only keys cannot explain an empty board: missing keys never match an exclusion. */
 export function missingRequiredPropertyKeys(config: BoardConfig, notes: Frontmatter[]): string[] {
-  return [...new Set(config.propertyFilters.map((filter) => filter.key))]
-    .filter((key) => !notes.some((fm) => fm && key in fm));
+  const missing = new Set<string>();
+  for (const { key } of config.propertyFilters) {
+    if (!notes.some((note) => owns(note, key))) missing.add(key);
+  }
+  return Array.from(missing);
 }

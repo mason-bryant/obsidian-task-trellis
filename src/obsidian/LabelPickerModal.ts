@@ -20,5 +20,5 @@ export class LabelPickerModal extends Modal {
     renderLabelPicker(this.contentEl, this.labels, this.selected, { ...this.host, header: this.chrome.header, onClose: () => this.close(), onBusyChange: (busy) => { this.saving = busy; } });
   }
 
-  onClose(): void { this.chrome?.destroy(); this.chrome = null; this.contentEl.empty(); }
+  onClose(): void { this.chrome?.destroy(); this.chrome = null; this.contentEl.empty(); this.host.onClose?.(); }
 }

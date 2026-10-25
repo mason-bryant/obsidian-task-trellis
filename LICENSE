@@ -19,11 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Portions of src/core/sort.ts and src/core/filters.ts are adapted from
-4D Eisenhower Matrix (https://github.com/krcaljaroslav/4D-eisenhower-matrix), used under the
-MIT License:
-
-Copyright (c) 2026 Jaroslav Krčál

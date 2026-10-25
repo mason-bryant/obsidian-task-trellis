@@ -1,9 +1,10 @@
+import { destinationAdvice } from '../core/setup.ts';
 import { prepareEditorModal } from '../ui/editorHeader.ts';
 import { AbstractInputSuggest, Modal, Notice, setIcon, type App, type TFile } from 'obsidian';
-import type { BoardConfig } from '../core/boardConfig.ts';
+import { parseBoardConfig, type BoardConfig } from '../core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } from '../core/boardDraft.ts';
 import { propertyValueStrings } from '../core/filters.ts';
-import { renderBoardSettings, type SettingsForm } from '../ui/renderBoardSettings.ts';
+import { renderBoardSettings, type SettingsForm, type Section } from '../ui/renderBoardSettings.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
 import { shortcutURL } from '../core/shortcut.ts';
@@ -24,6 +25,7 @@ export class BoardSettingsModal extends Modal {
     private plugin: TaskTrellisPlugin,
     private file: TFile,
     private config: BoardConfig,
+    private initialSection: Section = 'columns',
   ) {
     super(app);
     this.draft = draftFromConfig(config);
@@ -81,6 +83,15 @@ export class BoardSettingsModal extends Modal {
     };
     this.form = renderBoardSettings(this.contentEl, this.draft, this.config, {
       header: this.chrome.header,
+      initialSection: this.initialSection,
+      destinationAdvice: (draft) => {
+        const config = parseBoardConfig(this.config.name, { slug: this.config.slug, ...draftToFrontmatter(draft, this.config).frontmatter }).config;
+        return destinationAdvice(config, this.plugin.quickAdd.defaultDestination(), {
+          dailyAvailable: this.plugin.quickAdd.dailyNotesAvailable(),
+          excluded: (path) => this.plugin.isExcludedFromIndex(path),
+          metadata: (path) => { const cache = this.app.metadataCache.getCache(path); return { frontmatter: cache?.frontmatter, tags: noteTags(cache) }; },
+        });
+      },
       icon: (el, name) => setIcon(el, name),
       attachKeySuggest: (input) => suggest(input, () => [...properties.keys()]),
       attachValueSuggest: (input, key) => suggest(input, () => [...(properties.get(key()) ?? [])]),
