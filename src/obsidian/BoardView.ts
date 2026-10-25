@@ -248,6 +248,7 @@ export class BoardView extends FileView {
     const { slug, labels } = this.board.config;
     let current = task;
     new LabelPickerModal(this.app, labels, taskLabels(task.raw, slug), {
+      showSearch: this.plugin.settings.showLabelSearch,
       icon: (el, name) => setIcon(el, name),
       saveSelection: async (ids) => {
         const written = await this.plugin.writer.setLabels(current, slug, ids, (action) => {

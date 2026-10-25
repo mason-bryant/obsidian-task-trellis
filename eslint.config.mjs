@@ -20,7 +20,7 @@ export default [
     rules: { 'obsidianmd/settings-tab/prefer-setting-definitions': 'off' },
   },
   {
-    files: ['src/ui/renderBoard.ts', 'src/ui/renderBoardSettings.ts', 'src/ui/renderLabelPicker.ts'],
+    files: ['src/ui/renderBoard.ts', 'src/ui/renderBoardSettings.ts', 'src/ui/renderLabelPicker.ts', 'src/ui/editorHeader.ts'],
     // These renderers also run in the standalone browser harness without Obsidian helpers.
     rules: { 'obsidianmd/prefer-create-el': 'off' },
   },

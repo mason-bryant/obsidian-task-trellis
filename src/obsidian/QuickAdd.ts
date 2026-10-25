@@ -1,9 +1,10 @@
-import { Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type Events } from 'obsidian';
+import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
+import { setIcon, Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type Events } from 'obsidian';
 import type { BoardModel, BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
 import { taskMatchesBoard } from '../core/filters.ts';
-import { appendSort, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, type NewTaskFields } from '../core/newTask.ts';
+import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, type NewTaskFields } from '../core/newTask.ts';
 import { parseTaskLine, setDueDate } from '../core/taskLine.ts';
 import type { ShortcutTask } from '../core/shortcut.ts';
 import type TaskTrellisPlugin from '../../main.ts';
@@ -53,22 +54,19 @@ export class QuickAdd {
     return { kind: s.newTaskKind, note: s.newTaskNote, heading: s.newTaskHeading };
   }
 
-  /** From a board cell: the cell's column, the row's drop date, at the bottom of the cell. */
+  /** From a board cell: the cell's column, the row's drop date, at the top of the cell. */
   async addFromBoard(model: BoardModel, target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<void> {
     const { config } = model;
-    const cards = model.cells[target.rowId]?.[target.columnId] ?? [];
-    const last = cards[cards.length - 1];
     const fields: NewTaskFields = {
       due: model.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
       created: await this.createdDate(),
       placement: {
         slug: config.slug,
         column: target.columnId,
-        sort: appendSort(last?.placements[config.slug]?.sort, cards.length === 0),
       },
     };
     const line = detailed ? await this.compose(text, fields) : text.trim() ? buildNewTaskLine(text, fields) : null;
-    if (line) await this.add(line, destinationFor(config, this.defaultDestination()), config);
+    if (line) await this.add(line, destinationFor(config, this.defaultDestination()), config, model);
   }
 
   /** A subtask goes in the parent's note, under the parent, with no date or column of its own. */
@@ -140,11 +138,19 @@ export class QuickAdd {
     return finishNewTaskLine(first, fields);
   }
 
-  private async add(line: string, dest: NewTaskDestination, board: BoardConfig | null): Promise<void> {
+  private async add(line: string, dest: NewTaskDestination, board: BoardConfig | null, model?: BoardModel): Promise<void> {
     if (this.stopped) return;
     const target = await this.resolve(dest);
     if (!target || this.stopped) return;
     const { file, created } = target;
+    if (model) {
+      const plan = planNewTaskAtTop(line, model);
+      if (plan.edits.size) {
+        const cards = Object.values(model.cells).flatMap((columns) => Object.values(columns).flat());
+        await this.plugin.writer.applyEdits(cards, plan.edits, model.config.slug);
+      }
+      line = plan.line;
+    }
     await this.app.vault.process(file, (content) => insertUnderHeading(content, dest.heading, [line]));
     if (created) {
       void this.keepThroughTemplater(file, dest.heading, line).catch((error: unknown) => {
@@ -256,8 +262,9 @@ function promptForText(app: App): Promise<string> {
       });
       window.setTimeout(() => text.inputEl.focus(), 0);
     });
-    new Setting(modal.contentEl).addButton((b) => b.setButtonText('Add').setCta().onClick(submit));
-    modal.onClose = () => resolve(submitted ? value.trim() : '');
+    const chrome = prepareEditorModal(modal.modalEl);
+    renderEditorHeader(chrome.header, 'New task', setIcon, submit, () => modal.close(), 'Add task');
+    modal.onClose = () => { chrome.destroy(); resolve(submitted ? value.trim() : ''); };
     modal.open();
   });
 }

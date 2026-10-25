@@ -26,7 +26,7 @@ describe('board settings draft', () => {
       'undated-limit': 10,
       'due-now': 7,
       'due-now-unit': 'days',
-      'week-horizon': 6,
+      'week-horizon': 2,
       'week-start': 'monday',
       'filter-properties': ['context: renovation, house'],
       'exclude-properties': [],

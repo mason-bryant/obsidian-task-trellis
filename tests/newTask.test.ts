@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { appendSort, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
+import { buildNewTaskLine, finishNewTaskLine, insertUnderHeading, planNewTaskAtTop } from '../src/core/newTask.ts';
+
+import { applyEdit, buildBoard, type BoardTask } from '../src/core/board.ts';
+import { parseBoardConfig } from '../src/core/boardConfig.ts';
+import { parseTaskLine } from '../src/core/taskLine.ts';
 
 // The daily note template's layout, after Templater has run.
 const daily = [
@@ -102,9 +106,28 @@ describe('new task lines', () => {
     ).toBe('- [ ] Call ⏫ ➕ 2026-10-22 📅 2026-10-30 #tt/renovation/backlog');
   });
 
-  it('numbers a card added at the bottom of a cell', () => {
-    expect(appendSort(undefined, true)).toBe(100);
-    expect(appendSort(300, false)).toBe(400);
-    expect(appendSort(undefined, false)).toBeUndefined();
+
+});
+
+
+describe('new-task destination ordering', () => {
+  it.each([
+    { name: 'empty', lines: [], text: 'New', column: 'backlog', fm: {} },
+    { name: 'undated row', lines: ['- [ ] Existing #tt/house/backlog/1'], text: 'New', column: 'backlog', fm: {} },
+    { name: 'edited date', lines: ['- [ ] Existing 📅 2026-12-20 #tt/house/doing/1'], text: 'New 📅 2026-12-20', column: 'doing', fm: {} },
+    { name: 'undated column', lines: ['- [ ] Existing #tt/house/doing/1'], text: 'New', column: 'someday', fm: { columns: ['Backlog', 'Doing', 'Someday', 'Done'], 'undated-column': 'Someday' } },
+  ])('places first in the $name and preserves neighbours’ workflow columns', ({ lines, text, column, fm }) => {
+    const config = parseBoardConfig('House', fm).config;
+    const task = (raw: string, line: number): BoardTask => ({ ...parseTaskLine(raw)!, raw, path: 'Tasks.md', line, id: String(line) });
+    const tasks = lines.map(task);
+    const before = buildBoard(tasks, config, '2026-10-25', () => undefined);
+    const plan = planNewTaskAtTop(buildNewTaskLine(text, { placement: { slug: 'house', column } }), before);
+    const existing = tasks.map((t) => task(plan.edits.has(t.id) ? applyEdit(t.raw, plan.edits.get(t.id)!, 'house', (line) => [line])[0]! : t.raw, t.line));
+    const added = task(plan.line, tasks.length);
+    const after = buildBoard([...existing, added], config, '2026-10-25', () => undefined);
+    const cell = Object.values(after.cells).flatMap((columns) => Object.values(columns)).find((cards) => cards.some((t) => t.id === added.id))!;
+    expect(cell[0]!.id).toBe(added.id);
+    expect(cell.length).toBe(tasks.length + 1);
+    if (fm['undated-column']) expect(existing[0]!.placements.house!.column).toBe('doing');
   });
 });

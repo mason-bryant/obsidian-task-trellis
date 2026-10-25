@@ -376,21 +376,23 @@ function addBox(
   });
 
   const actions = el('div', 'tt-add-actions');
-  const add = el('button', 'mod-cta', 'Add');
+  const add = el('button', 'tt-editor-save');
+  add.title = 'Add task'; add.setAttribute('aria-label', 'Add task');
+  host.icon(add, 'check');
   add.type = 'button';
   add.addEventListener('click', () => submit(false));
   const details = el('button', '', 'Details…');
   details.type = 'button';
   details.title = 'Open the Tasks editor for priority, dates and recurrence';
   details.addEventListener('click', () => submit(true));
-  const cancel = el('button', 'clickable-icon tt-add-cancel');
+  const cancel = el('button', 'clickable-icon tt-add-cancel tt-editor-cancel');
   cancel.type = 'button';
   cancel.setAttribute('aria-label', 'Cancel');
   host.icon(cancel, 'x');
   cancel.addEventListener('click', close);
   actions.append(add, details, cancel);
 
-  box.append(input, actions);
+  box.append(actions, input);
   // Clicks inside the box shouldn't reach the cell or card.
   box.addEventListener('click', (e) => e.stopPropagation());
   // Right after the redraw that attaches it, before the next keystroke arrives.
@@ -443,7 +445,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   handle.title = 'Drag to move task';
   handle.setAttribute('aria-hidden', 'true');
   host.icon(handle, 'grip-vertical');
-  main.append(handle);
+  c.append(handle);
   const meta = el('div', 'tt-card-meta');
   const subtasks = model.subtasks[task.id] ?? [];
   if (task.closed && task.closedDate) {

@@ -1,5 +1,7 @@
 import type { ISODate } from './dates.ts';
-import { SORT_STEP } from './sort.ts';
+import { columnOf, workflowColumnOf, type BoardModel, type BoardTask, type TaskEdit } from './board.ts';
+import { rowForDue } from './rows.ts';
+import { planReorder } from './sort.ts';
 import { addField, dedupeFields, movePlacementsToEnd, parseTaskLine, setDueDate, setPlacement } from './taskLine.ts';
 
 export type NewTaskFields = {
@@ -27,13 +29,25 @@ export function finishNewTaskLine(line: string, fields: NewTaskFields): string {
   return movePlacementsToEnd(dedupeFields(out));
 }
 
-/**
- * Sort number for a card added at the bottom of a cell: after the last card when it is numbered,
- * none when the cell ends with unnumbered cards (it then sorts among them by due date).
- */
-export function appendSort(lastSort: number | undefined, cellIsEmpty: boolean): number | undefined {
-  if (cellIsEmpty) return SORT_STEP;
-  return lastSort === undefined ? undefined : lastSort + SORT_STEP;
+/** Places a composed task first in its actual cell, including a date changed in the editor. */
+export function planNewTaskAtTop(line: string, model: BoardModel): { line: string; edits: Map<string, TaskEdit> } {
+  const parsed = parseTaskLine(line);
+  const edits = new Map<string, TaskEdit>();
+  if (!parsed) return { line, edits };
+  const { config } = model;
+  const column = columnOf(parsed, config);
+  // Completed tasks retain the Done column's completion-date ordering.
+  if (column === config.doneColumn) return { line, edits };
+  const row = rowForDue(model.rows, parsed.dueDate);
+  const cards = model.cells[row.id]?.[column] ?? [];
+  const added: BoardTask = { ...parsed, raw: line, id: '', path: '', line: -1 };
+  const plan = planReorder(cards, added, 0, (task) => task.placements[config.slug]?.sort);
+  for (const [task, sort] of plan) {
+    const workflow = workflowColumnOf(task, config);
+    if (task === added) line = setPlacement(line, config.slug, workflow, sort);
+    else edits.set(task.id, { column: workflow, sort });
+  }
+  return { line, edits };
 }
 
 type HeadingSpec = { level?: number; text: string };

@@ -7,6 +7,8 @@ export type TaskTrellisSettings = {
   boardsFolder: string;
   /** Folders whose tasks never appear on any board. */
   excludedFolders: string[];
+  /** Show the search field in task label pickers. */
+  showLabelSearch: boolean;
   /** Board slug → row id → collapsed. View state, so it lives here rather than in the board note. */
   collapsed: Record<string, Record<string, boolean>>;
   /** Where new tasks go, unless a board says otherwise. */
@@ -19,6 +21,7 @@ export type TaskTrellisSettings = {
 export const DEFAULT_SETTINGS: TaskTrellisSettings = {
   boardsFolder: 'Task Trellis',
   excludedFolders: [],
+  showLabelSearch: false,
   collapsed: {},
   newTaskKind: 'daily',
   newTaskNote: '',
@@ -33,6 +36,7 @@ export function normalizeSettings(raw: unknown): TaskTrellisSettings {
     excludedFolders: Array.isArray(s.excludedFolders)
       ? s.excludedFolders.filter((f): f is string => typeof f === 'string' && f.trim() !== '')
       : [],
+    showLabelSearch: s.showLabelSearch === true,
     collapsed: s.collapsed && typeof s.collapsed === 'object' ? s.collapsed : {},
     newTaskKind: s.newTaskKind === 'note' ? 'note' : 'daily',
     newTaskNote: typeof s.newTaskNote === 'string' ? s.newTaskNote : DEFAULT_SETTINGS.newTaskNote,
@@ -84,6 +88,14 @@ export class TaskTrellisSettingTab extends PluginSettingTab {
             this.plugin.onConfigChanged();
           }),
       );
+
+    new Setting(containerEl)
+      .setName('Show label search')
+      .setDesc('Show a search box in the label picker. Hidden by default.')
+      .addToggle((toggle) => toggle.setValue(this.plugin.settings.showLabelSearch).onChange(async (value) => {
+        this.plugin.settings.showLabelSearch = value;
+        await this.plugin.saveSettings();
+      }));
 
     new Setting(containerEl).setName('New tasks').setHeading();
     new Setting(containerEl)

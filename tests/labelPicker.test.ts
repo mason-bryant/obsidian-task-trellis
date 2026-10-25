@@ -10,7 +10,7 @@ const flush = async () => { await new Promise((resolve) => setTimeout(resolve, 0
 const check = (id: string) => root.querySelector<HTMLInputElement>(`[data-label-id="${id}"]`)!;
 const input = (el: HTMLInputElement, value: string) => { el.value = value; el.dispatchEvent(new Event('input')); };
 const edit = () => root.querySelector<HTMLButtonElement>('.tt-label-edit')!.click();
-const submit = () => root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+const submit = () => root.querySelector<HTMLButtonElement>('.tt-editor-save')!.click();
 
 beforeEach(() => {
   root = document.createElement('div'); document.body.replaceChildren(root);
@@ -39,7 +39,7 @@ describe('label picker', () => {
 
   it('searches unnamed colors and names while preserving selections', async () => {
     labels[0]!.name = 'Financial planning';
-    renderLabelPicker(root, labels, ['red'], host);
+    renderLabelPicker(root, labels, ['red'], { ...host, showSearch: true });
     const search = root.querySelector<HTMLInputElement>('.tt-label-search')!;
     input(search, 'financial');
     expect(root.querySelectorAll('.tt-label-row')).toHaveLength(1);
@@ -62,7 +62,7 @@ describe('label picker', () => {
 
   it('cancels edits without changing definitions and can create an unnamed label', async () => {
     edit(); input(root.querySelector<HTMLInputElement>('input')!, 'Discard');
-    root.querySelector<HTMLButtonElement>('.tt-label-editor-actions button')!.click();
+    root.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.click();
     expect(host.saveLabel).not.toHaveBeenCalled();
     root.querySelector<HTMLButtonElement>('.tt-label-create')!.click();
     root.querySelector<HTMLButtonElement>('[aria-label="Red"]')!.click(); submit(); await flush();
@@ -97,4 +97,35 @@ describe('label picker', () => {
     expect(check('blue').disabled).toBe(true);
     finish(); await flush(); expect(check('blue').disabled).toBe(false);
   });
+});
+
+
+it('keeps header actions disabled during an external-header save, then allows retry', async () => {
+  const header = document.createElement('div'); document.body.prepend(header);
+  let reject!: (reason: Error) => void;
+  vi.mocked(host.saveLabel).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  renderLabelPicker(root, labels, [], { ...host, header });
+  edit(); input(root.querySelector<HTMLInputElement>('input')!, 'Keep my draft');
+  const save = header.querySelector<HTMLButtonElement>('.tt-editor-save')!;
+  const cancel = header.querySelector<HTMLButtonElement>('.tt-editor-cancel')!;
+  save.click(); save.click(); cancel.click();
+  expect(host.saveLabel).toHaveBeenCalledTimes(1);
+  expect(save.disabled).toBe(true); expect(cancel.disabled).toBe(true);
+  reject(new Error('Try again')); await flush();
+  expect(save.disabled).toBe(false); expect(cancel.disabled).toBe(false);
+  expect(root.querySelector<HTMLInputElement>('input')!.value).toBe('Keep my draft');
+  save.click(); await flush();
+  expect(labels[0]!.name).toBe('Keep my draft');
+  expect(header.querySelector('.tt-editor-save')).toBeNull();
+});
+
+
+it('hides search by default while keeping labels available, and restores the preference when reopened', () => {
+  expect(root.querySelector('.tt-label-search')).toBeNull();
+  expect(root.querySelectorAll('.tt-label-row')).toHaveLength(6);
+  renderLabelPicker(root, labels, [], { ...host, showSearch: true });
+  expect(root.querySelector('.tt-label-search')).not.toBeNull();
+  renderLabelPicker(root, labels, [], { ...host, showSearch: false });
+  expect(root.querySelector('.tt-label-search')).toBeNull();
+  expect(root.querySelectorAll('.tt-label-row')).toHaveLength(6);
 });
