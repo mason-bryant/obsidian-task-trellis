@@ -21,7 +21,7 @@ The plugin also runs on mobile. Install it in the vault you use on your phone be
 2. Name the board. It starts with **Backlog**, **Doing**, **Waiting** and **Done** columns.
 3. Open the board’s **Settings → Filters** to choose the tasks it should show. With no filters, it shows eligible tasks across your vault, except the boards folder and globally excluded folders.
 4. In **Settings → New tasks**, choose where new tasks should be saved. For a simple setup, choose a specific note such as `Tasks/Inbox.md`. You can also use today’s daily note; that requires Obsidian’s **Daily notes** core plugin.
-5. Choose **Save changes**, then use **+ Add task** in a column to add your first task.
+5. Choose the **green checkmark** to save, then use **+ Add task** in a column to add your first task.
 
 Boards are notes in the **Boards folder**, which defaults to `Task Trellis/`. Keep task notes outside that folder. Opening a board note shows the board; the note name on a task card takes you to that task’s source.
 

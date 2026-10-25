@@ -1,6 +1,11 @@
+import { renderEditorHeader, type EditorHeader } from './editorHeader.ts';
 import { LABEL_COLORS, newLabelId, labelDescription, labelTextColor, normalizeLabelColor, type BoardLabel } from '../core/labels.ts';
 
 export type LabelPickerHost = {
+  header?: HTMLElement;
+  showSearch?: boolean;
+  onClose?(): void;
+  onBusyChange?(busy: boolean): void;
   icon(el: HTMLElement, name: string): void;
   saveSelection(ids: string[]): Promise<void>;
   /** Returns the current board palette after saving just this definition. */
@@ -13,6 +18,8 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
   let selected = [...assigned];
   let query = '';
   let busy = false;
+  let header: EditorHeader;
+  const headerSlot = host.header ?? root.ownerDocument.createElement('div');
   root.classList.add('tt-label-picker');
   root.dataset.ignoreSwipe = 'true';
   const node = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
@@ -22,21 +29,26 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
   const error = node('p', 'tt-label-error'); error.setAttribute('role', 'alert'); error.hidden = true;
   async function save(action: () => Promise<void>): Promise<void> {
     if (busy) return;
-    busy = true; error.hidden = true;
+    busy = true; host.onBusyChange?.(true); header.setBusy(true); error.hidden = true;
     const controls = [...root.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button')];
     controls.forEach((c) => { c.disabled = true; }); root.setAttribute('aria-busy', 'true');
     try { await action(); }
     catch (e) { error.textContent = e instanceof Error ? e.message : 'Could not save labels. Please try again.'; error.hidden = false; }
-    finally { busy = false; controls.forEach((c) => { c.disabled = false; }); root.removeAttribute('aria-busy'); }
+    finally { busy = false; host.onBusyChange?.(false); header.setBusy(false); controls.forEach((c) => { c.disabled = false; }); root.removeAttribute('aria-busy'); }
   }
   function picker(focusId?: string): void {
-    root.replaceChildren(); error.hidden = true;
+    root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
+    header = renderEditorHeader(headerSlot, 'Labels', (el, name) => host.icon(el, name), null, () => host.onClose?.());
     const search = node('input', 'tt-label-search'); search.type = 'search'; search.placeholder = 'Search labels…';
     search.setAttribute('aria-label', 'Search labels'); search.value = query;
     const list = node('div', 'tt-label-list');
-    const create = button('Create a new label', 'tt-label-create');
+    const create = button('', 'tt-add-button tt-label-create');
+    const addIcon = node('span', 'tt-add-icon'); addIcon.setAttribute('aria-hidden', 'true');
+    host.icon(addIcon, 'plus');
+    create.append(addIcon, node('span', '', 'Add Label'));
     create.onclick = () => editor({ id: newLabelId(labels), name: '', color: LABEL_COLORS[0].color });
-    root.append(search, list, create, error);
+    if (host.showSearch) root.append(search);
+    root.append(list, create, error);
     function rows(): void {
       list.replaceChildren();
       for (const label of labels.filter((l) => labelDescription(l).toLowerCase().includes(query.toLowerCase()))) {
@@ -66,10 +78,10 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     search.oninput = () => { query = search.value; rows(); };
     rows();
     const check = [...list.querySelectorAll<HTMLInputElement>('input')].find((c) => c.dataset.labelId === focusId);
-    if (focusId) (check ?? search).focus();
+    if (focusId) (check ?? (host.showSearch ? search : create)).focus();
   }
   function editor(label: BoardLabel): void {
-    root.replaceChildren(); error.hidden = true;
+    root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
     const form = node('form', 'tt-label-editor');
     const nameField = node('label', 'tt-label-field', 'Label name');
     const name = node('input'); name.type = 'text'; name.value = label.name; name.placeholder = 'Optional';
@@ -98,13 +110,10 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
       hex.setCustomValidity(next ? '' : 'Enter a hex color such as #AABBCC or #ABC.');
       if (next) { color = next; update(); }
     };
-    const actions = node('div', 'tt-label-editor-actions');
-    const cancel = button('Cancel'); cancel.onclick = () => picker(label.id);
-    const submit = button('Save label', 'mod-cta'); submit.type = 'submit';
-    actions.append(cancel, submit);
+    header = renderEditorHeader(headerSlot, 'Edit label', (el, name) => host.icon(el, name), () => form.requestSubmit(), () => picker(label.id), 'Save label');
     form.append(preview, nameField, node('div', 'tt-label-field', 'Color'), swatches, hexField,
       node('p', 'tt-label-help', 'Changes apply to every task using this label on this board.'),
-      node('p', 'tt-label-help', `Permanent tag ID: ${label.id}`), actions);
+      node('p', 'tt-label-help', `Permanent tag ID: ${label.id}`));
     form.onsubmit = (e) => {
       e.preventDefault();
       const next = normalizeLabelColor(hex.value);

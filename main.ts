@@ -1,5 +1,7 @@
+import { prepareEditorModal, renderEditorHeader } from './src/ui/editorHeader.ts';
 import { around } from 'monkey-around';
 import {
+  setIcon,
   FuzzySuggestModal,
   Modal,
   Notice,
@@ -359,6 +361,7 @@ class BoardPicker extends FuzzySuggestModal<TFile> {
 }
 
 class NewBoardModal extends Modal {
+  private chrome: ReturnType<typeof prepareEditorModal> | null = null;
   private name = '';
 
   constructor(
@@ -383,10 +386,12 @@ class NewBoardModal extends Modal {
       });
       window.setTimeout(() => text.inputEl.focus(), 0);
     });
-    new Setting(this.contentEl).addButton((b) => b.setButtonText('Create').setCta().onClick(submit));
+    this.chrome = prepareEditorModal(this.modalEl);
+    renderEditorHeader(this.chrome.header, 'New board', setIcon, submit, () => this.close(), 'Create board');
   }
 
   onClose(): void {
+    this.chrome?.destroy(); this.chrome = null;
     this.contentEl.empty();
   }
 }

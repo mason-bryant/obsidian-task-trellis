@@ -2,7 +2,7 @@
 
 # Configure a board
 
-A board is a note in the boards folder (`Task Trellis/` by default, set in the plugin settings). Opening the note shows the board. **Settings** on the board opens a form with Columns, Dates, Filters and New tasks tabs. **Save changes** validates and writes the note's properties; **Cancel**, Escape and closing the dialog discard the draft. **Save & open note** saves first, then shows the note itself. Saving an unchanged draft does not rewrite the note. Renaming a column there retags its tasks. **Create board** in the command palette makes one with defaults.
+A board is a note in the boards folder (`Task Trellis/` by default, set in the plugin settings). Opening the note shows the board. **Settings** on the board opens a form with Columns, Dates, Filters and New tasks tabs. The **green checkmark** at the top validates and writes the note's properties; The **X**, Escape and closing the dialog discard the draft. **Save & open note** saves first, then shows the note itself. Saving an unchanged draft does not rewrite the note. Renaming a column there retags its tasks. **Create board** in the command palette makes one with defaults.
 
 Open the **Task Trellis boards** sidebar from the ribbon icon or the **Show boards sidebar** command. It lists your boards and offers **Create new board**. Selecting a board focuses its existing tab, including one in another window, or opens it if needed.
 
@@ -25,7 +25,7 @@ These properties are stored in the board note. The settings form handles the usu
 | `undated-limit` | 10 | How many show there before the rest go behind "more". |
 | `due-now` | 7 | Size of the Due now window, in `due-now-unit`s. Due now also holds overdue tasks. |
 | `due-now-unit` | days | `days`: through today + `due-now` days. `weeks`: through the last day of the `due-now`-th week, counting this week as 1 (Sunday, with Monday week starts). |
-| `week-horizon` | 6 | Number of week rows after Due now. Everything later goes in Later. |
+| `week-horizon` | 2 | Number of week rows after Due now. Everything later goes in Later. |
 | `week-start` | monday | First day of a week row. |
 | `filter-properties` | none | `key: value1, value2` per item. The task's note must match every item. |
 | `exclude-properties` | none | Same rule syntax as `filter-properties`. Any matching item excludes the note's tasks. |

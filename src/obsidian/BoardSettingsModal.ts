@@ -1,3 +1,4 @@
+import { prepareEditorModal } from '../ui/editorHeader.ts';
 import { AbstractInputSuggest, Modal, Notice, setIcon, type App, type TFile } from 'obsidian';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } from '../core/boardDraft.ts';
@@ -12,6 +13,7 @@ import { shortcutURL } from '../core/shortcut.ts';
  * Save validates and persists the draft; Cancel, Escape and the close button discard it.
  */
 export class BoardSettingsModal extends Modal {
+  private chrome: ReturnType<typeof prepareEditorModal> | null = null;
   private draft: BoardDraft;
   private form: SettingsForm | null = null;
   private saving = false;
@@ -57,6 +59,7 @@ export class BoardSettingsModal extends Modal {
   onOpen(): void {
     this.setTitle(`${this.file.basename} board settings`);
     this.modalEl.addClass('tt-settings-modal');
+    this.chrome = prepareEditorModal(this.modalEl);
     const properties = collectProperties(this.app);
     const slug = this.config.slug;
     const tagged = new Map<string, number>();
@@ -77,6 +80,7 @@ export class BoardSettingsModal extends Modal {
       return () => suggestion.close();
     };
     this.form = renderBoardSettings(this.contentEl, this.draft, this.config, {
+      header: this.chrome.header,
       icon: (el, name) => setIcon(el, name),
       attachKeySuggest: (input) => suggest(input, () => [...properties.keys()]),
       attachValueSuggest: (input, key) => suggest(input, () => [...(properties.get(key()) ?? [])]),
@@ -97,6 +101,7 @@ export class BoardSettingsModal extends Modal {
   }
 
   onClose(): void {
+    this.chrome?.destroy(); this.chrome = null;
     this.form?.destroy();
     this.form = null;
     this.contentEl.empty();

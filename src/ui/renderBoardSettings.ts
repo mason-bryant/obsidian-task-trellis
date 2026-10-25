@@ -1,7 +1,9 @@
+import { renderEditorHeader } from './editorHeader.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { convertDueNow, filterError, filterWarnings, WEEKDAY_NAMES, type BoardDraft, type DraftFilter } from '../core/boardDraft.ts';
 
 export type SettingsFormHost = {
+  header?: HTMLElement;
   icon(el: HTMLElement, name: string): void;
   attachKeySuggest(input: HTMLInputElement): void | (() => void);
   attachValueSuggest(input: HTMLInputElement, key: () => string): void | (() => void);
@@ -244,12 +246,15 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       const box = el('div', 'tt-settings-errors'); box.setAttribute('role', 'alert');
       errors.forEach((error) => box.append(el('div', '', error))); body.append(box);
     }
+    const headerSlot = host.header ?? el('div', 'tt-editor-header-slot');
+    const header = renderEditorHeader(headerSlot, 'Board settings', (el, name) => host.icon(el, name), () => host.onSave(), () => host.onDiscard());
+    header.setBusy(saving);
     const footer = el('div', 'tt-settings-footer');
     const open = button('Save & open note', 'tt-button tt-button--subtle'); open.onclick = () => host.onOpenNote();
-    const cancel = button('Cancel', 'tt-button'); cancel.onclick = () => host.onDiscard();
-    const save = button(saving ? 'Saving…' : 'Save changes', 'tt-button mod-cta'); save.onclick = () => host.onSave();
-    save.disabled = saving; cancel.disabled = saving; open.disabled = saving;
-    footer.append(open, cancel, save); root.append(nav, body, footer);
+    open.disabled = saving;
+    footer.append(open);
+    if (!host.header) root.append(headerSlot);
+    root.append(nav, body, footer);
     if (saving) root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input, select, button').forEach((control) => control.disabled = true);
     body.scrollTop = scroll;
     if (restoreKey) {

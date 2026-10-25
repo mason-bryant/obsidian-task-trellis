@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyEdit, buildBoard, columnOf, moveChoices, planDrop, quickMoveTarget, taskId, type BoardTask, type MoveChoice } from '../src/core/board.ts';
-import { destinationFor, parseBoardConfig, type BoardConfig } from '../src/core/boardConfig.ts';
+import { destinationFor, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from '../src/core/boardConfig.ts';
 import { startOfWeek } from '../src/core/dates.ts';
 import { computeRows, rowForDue } from '../src/core/rows.ts';
 import { planReorder } from '../src/core/sort.ts';
@@ -33,7 +33,7 @@ describe('parseBoardConfig', () => {
     expect(c).toMatchObject({
       dueNow: 7,
       dueNowUnit: 'days',
-      weekHorizon: 6,
+      weekHorizon: 2,
       weekStart: 1,
       showCompletedDays: 7,
       limitDone: true,
@@ -133,11 +133,7 @@ describe('computeRows', () => {
       ['now', undefined, '2026-10-28', '2026-10-28'],
       ['week-2026-10-26', '2026-10-29', '2026-11-01', '2026-10-29'],
       ['week-2026-11-02', '2026-11-02', '2026-11-08', '2026-11-02'],
-      ['week-2026-11-09', '2026-11-09', '2026-11-15', '2026-11-09'],
-      ['week-2026-11-16', '2026-11-16', '2026-11-22', '2026-11-16'],
-      ['week-2026-11-23', '2026-11-23', '2026-11-29', '2026-11-23'],
-      ['week-2026-11-30', '2026-11-30', '2026-12-06', '2026-11-30'],
-      ['later', '2026-12-07', undefined, '2026-12-07'],
+      ['later', '2026-11-09', undefined, '2026-11-09'],
     ]);
   });
 
@@ -146,7 +142,8 @@ describe('computeRows', () => {
     expect(rowForDue(rows, '2025-01-01').id).toBe('now');
     expect(rowForDue(rows, '2026-10-28').id).toBe('now');
     expect(rowForDue(rows, '2026-10-29').id).toBe('week-2026-10-26');
-    expect(rowForDue(rows, '2026-12-06').id).toBe('week-2026-11-30');
+    expect(rowForDue(rows, '2026-11-08').id).toBe('week-2026-11-02');
+    expect(rowForDue(rows, '2026-11-09').id).toBe('later');
     expect(rowForDue(rows, '2027-06-01').id).toBe('later');
   });
 
@@ -495,4 +492,12 @@ describe('No due date column', () => {
     expect(after.cells.none!.someday!.map((t) => t.text)).toEqual(['tile the floor']);
     expect(quickMoveTarget(after, moved)).toMatchObject({ rowId: 'now', columnId: 'doing' });
   });
+});
+
+
+it('starts new boards with two future weeks without changing explicit saved horizons', () => {
+  expect(newBoardFrontmatter('house')['week-horizon']).toBe(2);
+  expect(config().weekHorizon).toBe(2);
+  expect(config({ 'week-horizon': 6 }).weekHorizon).toBe(6);
+  expect(config({ 'week-horizon': 0 }).weekHorizon).toBe(0);
 });

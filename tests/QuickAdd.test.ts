@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuickAdd } from '../src/obsidian/QuickAdd.ts';
-import { buildBoard } from '../src/core/board.ts';
+import { buildBoard, type BoardTask } from '../src/core/board.ts';
+import { parseTaskLine } from '../src/core/taskLine.ts';
+import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { Events, notices, TFile } from './mocks/obsidian.ts';
 import type TaskTrellisPlugin from '../main.ts';
@@ -82,5 +84,48 @@ describe('new-task filter feedback', () => {
     await new QuickAdd(plugin).addFromBoard(buildBoard([], c, '2026-10-23', () => undefined), { rowId: 'now', columnId: 'backlog' }, 'Call supplier', false);
     expect(content).toContain('Call supplier');
     expect(notices.some((notice) => notice.includes('filters hide'))).toBe(hidden);
+  });
+});
+
+
+describe('new cards appear first', () => {
+  it.each([undefined, 0, 1, 100])('prepends repeatedly ahead of a first sort of %s, preserving other task fields', async (sort) => {
+    const existing = `- [ ] Existing ⏫ 📅 2026-10-25 #tt/house/label/l123abc #tt/other/doing/9${sort === undefined ? '' : ` #tt/house/backlog/${sort}`} ^keep`;
+    const files = new Map([['Existing.md', existing], ['Inbox.md', '## Tasks']]);
+    const refs = new Map([...files.keys()].map((path) => [path, new TFile(path)]));
+    const plugin = {
+      register: () => undefined,
+      app: {
+        vault: { configDir: '.obsidian', getFileByPath: (path: string) => refs.get(path),
+          getAbstractFileByPath: (path: string) => refs.get(path),
+          adapter: { read: async () => '{}' },
+          process: async (file: TFile, transform: (text: string) => string) => { files.set(file.path, transform(files.get(file.path)!)); } },
+        metadataCache: { getFileCache: () => ({}) },
+      },
+      settings: { newTaskKind: 'note', newTaskNote: 'Inbox.md', newTaskHeading: '## Tasks' },
+    } as unknown as TaskTrellisPlugin;
+    plugin.writer = new TaskWriter(plugin.app);
+    const config = parseBoardConfig('House', {}).config;
+    const model = () => {
+      const tasks: BoardTask[] = [];
+      for (const [path, content] of files) content.split('\n').forEach((raw, line) => {
+        const parsed = parseTaskLine(raw);
+        if (parsed) tasks.push({ ...parsed, raw, path, line, id: `${path}:${line}` });
+      });
+      return buildBoard(tasks, config, '2026-10-25', () => undefined);
+    };
+    const quick = new QuickAdd(plugin);
+    for (let n = 0; n < 20; n++) {
+      await quick.addFromBoard(model(), { rowId: 'now', columnId: 'backlog' }, `New ${n}`, false);
+      expect(model().cells.now!.backlog!.map((task) => task.text)).toEqual([
+        ...Array.from({ length: n + 1 }, (_, i) => `New ${n - i}`), 'Existing',
+      ]);
+    }
+    const after = parseTaskLine(files.get('Existing.md')!)!;
+    expect(after.dueDate).toBe('2026-10-25');
+    expect(after.priority).toBe(parseTaskLine(existing)!.priority);
+    expect(after.tags).toContain('tt/house/label/l123abc');
+    expect(after.placements.other).toEqual({ column: 'doing', sort: 9 });
+    expect(files.get('Existing.md')).toContain('^keep');
   });
 });

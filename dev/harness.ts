@@ -1,3 +1,4 @@
+import { prepareEditorModal } from '../src/ui/editorHeader.ts';
 import { setTaskLabels, taskLabels } from '../src/core/labels.ts';
 import { renderLabelPicker } from '../src/ui/renderLabelPicker.ts';
 import { setSubtaskCollapse } from '../src/core/collapse.ts';
@@ -7,7 +8,7 @@ import { applyEdit, buildBoard, planDrop, taskId, type BoardTask, type TaskEdit 
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { propertyValueStrings } from '../src/core/filters.ts';
-import { appendSort, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
+import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
 import { renderBoardSettings } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
@@ -103,14 +104,14 @@ const host: RenderHost = {
   onSettings: () => openSettings(),
   onLabels: (task) => {
     const dialog = document.createElement('dialog'); dialog.className = 'tt-label-modal';
-    const title = document.createElement('h2'); title.textContent = 'Labels';
-    const close = document.createElement('button'); close.textContent = 'Close'; close.className = 'tt-label-close';
-    close.onclick = () => dialog.close();
-    const body = document.createElement('div');
-    dialog.append(title, close, body); document.body.append(dialog);
-    dialog.onclose = () => { dialog.remove(); document.querySelector<HTMLButtonElement>(`[data-board-focus="labels:${task.id}"]`)?.focus(); };
+    const body = document.createElement('div'); body.className = 'modal-content';
+    dialog.append(body); document.body.append(dialog);
+    const chrome = prepareEditorModal(dialog);
+    dialog.onclose = () => { chrome.destroy(); dialog.remove(); document.querySelector<HTMLButtonElement>(`[data-board-focus="labels:${task.id}"]`)?.focus(); };
     dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
     renderLabelPicker(body, config.labels, taskLabels(task.raw, config.slug), {
+      header: chrome.header, onClose: () => dialog.close(),
+      showSearch: new URLSearchParams(location.search).has('label-search'),
       icon: previewIcon,
       saveSelection: async (ids) => {
         const before = JSON.stringify(files);
@@ -163,11 +164,10 @@ const host: RenderHost = {
   // Mirrors QuickAdd: today's note (here Daily/Today.md) under its "## Tasks" heading.
   onAddTask: (target, text, detailed) => {
     const m = model();
-    const cards = m.cells[target.rowId]?.[target.columnId] ?? [];
     const fields = {
       due: m.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
       created: today,
-      placement: { slug: config.slug, column: target.columnId, sort: appendSort(cards[cards.length - 1]?.placements[config.slug]?.sort, cards.length === 0) },
+      placement: { slug: config.slug, column: target.columnId },
     };
     let line: string | null = buildNewTaskLine(text, fields);
     if (detailed) {
@@ -175,6 +175,12 @@ const host: RenderHost = {
       line = edited ? finishNewTaskLine(edited, fields) : null;
     }
     if (!line || !parseTaskLine(line)?.text) return;
+    const plan = planNewTaskAtTop(line, m);
+    for (const task of Object.values(m.cells).flatMap((columns) => Object.values(columns).flat())) {
+      const edit = plan.edits.get(task.id);
+      if (edit) files[task.path]![task.line] = setPlacement(task.raw, config.slug, edit.column!, edit.sort);
+    }
+    line = plan.line;
     const path = 'Daily/Today.md';
     files[path] = insertUnderHeading(files[path]!.join('\n'), '## Tasks', [line]).split('\n');
     render();
@@ -253,6 +259,7 @@ function render(): void {
 function openSettings(): void {
   const dialog = document.getElementById('settings') as HTMLDialogElement;
   const body = dialog.querySelector<HTMLElement>('.modal-content')!;
+  const chrome = prepareEditorModal(dialog);
   const keys = document.getElementById('property-keys')!;
   keys.replaceChildren(
     ...[...new Set(Object.values(frontmatter).flatMap((fm) => Object.keys(fm)))].map((k) => {
@@ -283,7 +290,7 @@ function openSettings(): void {
       }
     }
     if (save) saves++;
-    form.destroy();
+    form.destroy(); chrome.destroy();
     dialog.close();
     render();
   };
@@ -297,6 +304,7 @@ function openSettings(): void {
     return () => list.remove();
   };
   const form = renderBoardSettings(body, draft, original, {
+    header: chrome.header,
     icon: previewIcon,
     attachKeySuggest: (input) => suggest(input, () => [...new Set(Object.values(frontmatter).flatMap(Object.keys))]),
     attachValueSuggest: (input, key) => suggest(input, () => [...new Set(Object.values(frontmatter).flatMap((fm) => {
