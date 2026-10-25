@@ -1,9 +1,12 @@
+import { applyLabelScheme, LABEL_SCHEMES, type LabelSchemeState, type PreviousScheme } from '../core/labelSchemes.ts';
 import { renderEditorHeader, type EditorHeader } from './editorHeader.ts';
 import { LABEL_COLORS, newLabelId, labelDescription, labelTextColor, normalizeLabelColor, type BoardLabel } from '../core/labels.ts';
 
 export type LabelPickerHost = {
   header?: HTMLElement;
   showSearch?: boolean;
+  previousScheme?: PreviousScheme;
+  saveScheme?(id: string): Promise<LabelSchemeState>;
   onClose?(): void;
   onBusyChange?(busy: boolean): void;
   icon(el: HTMLElement, name: string): void;
@@ -16,6 +19,7 @@ export type LabelPickerHost = {
 export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assigned: string[], host: LabelPickerHost): void {
   let labels = initial.map((l) => ({ ...l }));
   let selected = [...assigned];
+  let previous = { ...host.previousScheme };
   let query = '';
   let busy = false;
   let header: EditorHeader;
@@ -29,12 +33,14 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
   const error = node('p', 'tt-label-error'); error.setAttribute('role', 'alert'); error.hidden = true;
   async function save(action: () => Promise<void>): Promise<void> {
     if (busy) return;
-    busy = true; host.onBusyChange?.(true); header.setBusy(true); error.hidden = true;
+    busy = true; host.onBusyChange?.(true); error.hidden = true;
     const controls = [...root.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button')];
+    const disabled = controls.map((c) => c.disabled);
+    header.setBusy(true);
     controls.forEach((c) => { c.disabled = true; }); root.setAttribute('aria-busy', 'true');
     try { await action(); }
     catch (e) { error.textContent = e instanceof Error ? e.message : 'Could not save labels. Please try again.'; error.hidden = false; }
-    finally { busy = false; host.onBusyChange?.(false); header.setBusy(false); controls.forEach((c) => { c.disabled = false; }); root.removeAttribute('aria-busy'); }
+    finally { busy = false; host.onBusyChange?.(false); header.setBusy(false); controls.forEach((c, i) => { c.disabled = disabled[i]!; }); root.removeAttribute('aria-busy'); }
   }
   function picker(focusId?: string): void {
     root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
@@ -48,7 +54,12 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     create.append(addIcon, node('span', '', 'Add Label'));
     create.onclick = () => editor({ id: newLabelId(labels), name: '', color: LABEL_COLORS[0].color });
     if (host.showSearch) root.append(search);
-    root.append(list, create, error);
+    root.append(list, create);
+    if (host.saveScheme) {
+      const schemes = button('Color scheme', 'tt-label-schemes-button');
+      schemes.onclick = () => schemePicker(); root.append(schemes);
+    }
+    root.append(error);
     function rows(): void {
       list.replaceChildren();
       for (const label of labels.filter((l) => labelDescription(l).toLowerCase().includes(query.toLowerCase()))) {
@@ -79,6 +90,51 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     rows();
     const check = [...list.querySelectorAll<HTMLInputElement>('input')].find((c) => c.dataset.labelId === focusId);
     if (focusId) (check ?? (host.showSearch ? search : create)).focus();
+  }
+  function schemePicker(): void {
+    root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
+    let chosen: string | null = null;
+    const options = node('div', 'tt-scheme-options');
+    options.setAttribute('role', 'group'); options.setAttribute('aria-label', 'Available color schemes');
+    const preview = node('div', 'tt-scheme-preview'); preview.setAttribute('aria-live', 'polite');
+    const drawPreview = (palette: BoardLabel[]) => {
+      preview.replaceChildren();
+      for (const label of palette) {
+        const swatch = node('div', 'tt-label-swatch', label.name || labelDescription(label));
+        swatch.style.backgroundColor = label.color; swatch.style.color = labelTextColor(label.color);
+        preview.append(swatch);
+      }
+    };
+    header = renderEditorHeader(headerSlot, 'Color scheme', (el, name) => host.icon(el, name), () => {
+      if (!chosen) return;
+      const id = chosen;
+      void save(async () => {
+        const result = await host.saveScheme!(id);
+        labels = result.labels; previous = result.previous;
+        picker(); root.querySelector<HTMLButtonElement>('.tt-label-schemes-button')?.focus();
+      });
+    }, () => { picker(); root.querySelector<HTMLButtonElement>('.tt-label-schemes-button')?.focus(); }, 'Apply color scheme');
+    const confirm = headerSlot.querySelector<HTMLButtonElement>('.tt-editor-save')!;
+    confirm.disabled = true;
+    const choices = [{ id: 'previous', name: 'Previous scheme', colors: labels.map((l) => Object.prototype.hasOwnProperty.call(previous, l.id) ? previous[l.id]! : l.color) }, ...LABEL_SCHEMES];
+    for (const scheme of choices) {
+      const choice = button('', 'tt-scheme-choice');
+      choice.setAttribute('aria-pressed', 'false'); choice.setAttribute('aria-label', scheme.name);
+      choice.disabled = !labels.length || (scheme.id === 'previous' && !labels.some((l) => Object.prototype.hasOwnProperty.call(previous, l.id)));
+      const strip = node('span', 'tt-scheme-swatches'); strip.setAttribute('aria-hidden', 'true');
+      for (const color of scheme.colors) { const swatch = node('span'); swatch.style.backgroundColor = color; strip.append(swatch); }
+      choice.append(node('span', '', scheme.name), strip);
+      choice.onclick = () => {
+        chosen = scheme.id; confirm.disabled = false;
+        options.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === choice)));
+        drawPreview(applyLabelScheme({ labels, previous }, chosen).labels);
+      };
+      options.append(choice);
+    }
+    root.append(options, node('p', 'tt-label-help', 'Preview your labels below. Apply with the green checkmark. Names and task assignments stay the same.'));
+    if (labels.length > 6) root.append(node('p', 'tt-label-help', 'Scheme colors repeat after every six labels.'));
+    root.append(preview, error); drawPreview(labels);
+    options.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
   }
   function editor(label: BoardLabel): void {
     root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;

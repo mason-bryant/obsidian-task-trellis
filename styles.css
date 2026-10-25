@@ -37,7 +37,7 @@
 
 .tt-grid {
   display: grid;
-  grid-template-columns: repeat(var(--tt-columns), minmax(240px, 1fr));
+  grid-template-columns: var(--tt-column-tracks, repeat(var(--tt-columns), minmax(240px, 1fr)));
   gap: 0 var(--size-4-2);
   padding: 0 var(--size-4-3) var(--size-4-6);
   min-width: min-content;
@@ -818,3 +818,23 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
   .tt-editor-modal :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: max(16px, var(--font-ui-small, 16px)); }
 }
 .is-mobile .tt-editor-modal :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: max(16px, var(--font-ui-small, 16px)); }
+
+/* Spreadsheet-style column boundaries, limited to multi-column views. */
+.tt-col-header:has(.tt-column-resize) { padding-right: 20px; }
+.tt-col-title { min-width: 0; overflow-wrap: anywhere; }
+.tt-column-resize { position: absolute; top: 0; right: -6px; bottom: 0; width: 16px; z-index: 4; cursor: col-resize; touch-action: none; }
+.tt-column-resize::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 7px; width: 2px; background: var(--background-modifier-border); }
+.tt-column-resize:hover::after, .tt-column-resize:focus-visible::after, .tt-column-resize.is-resizing::after { background: var(--interactive-accent); }
+.tt-column-resize:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.tt-column-resize.is-resizing::after { height: 100vh; pointer-events: none; }
+.tt-grid--resizing { user-select: none; -webkit-user-select: none; cursor: col-resize; }
+@media (pointer: coarse) { .tt-column-resize { width: 24px; right: -8px; } .tt-column-resize::after { left: 11px; } }
+@container trellis (max-width: 600px) { .tt-column-resize { display: none; } }
+
+.tt-label-schemes-button { width: 100%; margin-top: 8px; }
+.tt-scheme-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+button.tt-scheme-choice { display: flex; flex-direction: column; height: auto; min-height: 64px; gap: 8px; padding: 10px; white-space: normal; }
+button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.tt-scheme-swatches { display: flex; width: 100%; gap: 3px; }
+.tt-scheme-swatches > span { flex: 1; min-width: 0; height: 16px; border-radius: 3px; }
+.tt-scheme-preview { display: flex; flex-direction: column; gap: 6px; }

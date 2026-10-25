@@ -129,3 +129,39 @@ it('hides search by default while keeping labels available, and restores the pre
   expect(root.querySelector('.tt-label-search')).toBeNull();
   expect(root.querySelectorAll('.tt-label-row')).toHaveLength(6);
 });
+
+it('previews schemes, cancels without saving, and preserves assignments when applying/restoring', async () => {
+  const { applyLabelScheme } = await import('../src/core/labelSchemes.ts');
+  let state = { labels, previous: {} };
+  host.saveScheme = vi.fn(async id => { state = applyLabelScheme(state,id); return state; });
+  renderLabelPicker(root,labels,['red'],host);
+  const open = () => root.querySelector<HTMLButtonElement>('.tt-label-schemes-button')!.click();
+  open();
+  expect(root.querySelector<HTMLButtonElement>('[aria-label="Previous scheme"]')!.disabled).toBe(true);
+  root.querySelector<HTMLButtonElement>('[aria-label="Botanical"]')!.click();
+  expect(host.saveScheme).not.toHaveBeenCalled();
+  root.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.click();
+  expect(host.saveScheme).not.toHaveBeenCalled();
+  open(); root.querySelector<HTMLButtonElement>('[aria-label="Botanical"]')!.click(); submit(); await flush();
+  expect(check('red').checked).toBe(true);
+  expect(host.saveSelection).not.toHaveBeenCalled();
+  expect(state.labels[0]!.color).toBe('#47785e');
+  open(); root.querySelector<HTMLButtonElement>('[aria-label="Previous scheme"]')!.click(); submit(); await flush();
+  expect(state.labels).toEqual(defaultLabels());
+});
+
+it('retains the scheme preview after a failed write and prevents overlapping writes', async () => {
+  const { applyLabelScheme } = await import('../src/core/labelSchemes.ts');
+  let reject!: (reason: Error) => void;
+  host.saveScheme = vi.fn().mockImplementationOnce(()=>new Promise((_r,fail)=>{reject=fail})).mockImplementation(async id=>applyLabelScheme({labels,previous:{}},id));
+  renderLabelPicker(root,labels,[],host);
+  root.querySelector<HTMLButtonElement>('.tt-label-schemes-button')!.click();
+  root.querySelector<HTMLButtonElement>('[aria-label="Velvet"]')!.click(); submit(); submit();
+  expect(host.saveScheme).toHaveBeenCalledTimes(1);
+  reject(new Error('Disk unavailable')); await flush();
+  expect(root.querySelector('[role="alert"]')!.textContent).toBe('Disk unavailable');
+  expect(root.querySelector('[aria-label="Velvet"]')!.getAttribute('aria-pressed')).toBe('true');
+  expect(root.querySelector<HTMLButtonElement>('[aria-label="Previous scheme"]')!.disabled).toBe(true);
+  submit(); await flush();
+  expect(root.querySelector('.tt-label-schemes-button')).not.toBeNull();
+});

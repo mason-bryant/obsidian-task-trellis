@@ -1,3 +1,4 @@
+import { installColumnResize } from './columnResize.ts';
 import type { Section } from './renderBoardSettings.ts';
 import { labelDescription, taskLabels } from '../core/labels.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
@@ -28,6 +29,7 @@ export type RenderHost = {
   /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
   onSettings?(section?: Section): void;
+  onColumnWidthsChange?(widths: Record<string, number>): Promise<void> | void;
   onLabels?(task: BoardTask): void;
   undo?: { label: string; run(): void };
   highlightIds?: Set<string>;
@@ -241,6 +243,13 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     }
   }
 
+  if (visibleColumns.length > 1 && host.onColumnWidthsChange) {
+    installColumnResize(grid, config.columnWidths, {
+      enabled: () => !swipesColumns(scrollEl),
+      save: (widths) => host.onColumnWidthsChange!(widths),
+      end: () => host.onDragEnd(),
+    });
+  }
   const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length) : null;
   if (pages) root.insertBefore(pages.bar, scrollEl);
   if (scroll) {
