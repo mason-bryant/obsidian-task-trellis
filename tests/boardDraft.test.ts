@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import { convertDueNow, draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
+import { changedFrontmatter, convertDueNow, draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 
 const original = parseBoardConfig('Renovation', {
   slug: 'renovation',
@@ -110,6 +110,15 @@ describe('board settings draft', () => {
     expect(draftChanged(draft, original)).toBe(false);
     draft.dueNow = '10';
     expect(draftChanged(draft, original)).toBe(true);
+  });
+
+  it('saves only the settings edited in the form', () => {
+    const draft = draftFromConfig(original);
+    draft.dueNow = '10';
+    draft.sortCompletedSubtasks = true;
+    expect(changedFrontmatter(draft, original)).toEqual({ 'due-now': 10, 'sort-completed-subtasks': true });
+    draft.quickFilters[0]!.name = 'Urgent';
+    expect(Object.keys(changedFrontmatter(draft, original))).toEqual(['due-now', 'quick-filters', 'sort-completed-subtasks']);
   });
 
   it('reports bad input instead of saving it', () => {
