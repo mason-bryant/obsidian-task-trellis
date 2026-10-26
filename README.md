@@ -43,6 +43,10 @@ When you're ready to review, swipe between full-width columns, check off tasks, 
 
 Choose from eleven label color schemes or create your own colors. Switch back with **Previous scheme** if you prefer the old palette. Resize columns on desktop and tablet, use compact spacing when you want more on screen, and collapse subtasks to keep the board easy to scan.
 
+Narrow the board in one click with **quick filters** in the toolbar. Every board starts with **High priority**, **Overdue** and its first label, and you can add your own for priorities, labels, due dates, tags, folders or note properties. Turn on several at once to focus further, and each board remembers which ones you left on.
+
+In **Appearance**, choose whether completed subtasks move to the end of their list or are hidden, and whether overdue cards get a red edge.
+
 Theme-aware styling, keyboard controls and save buttons above the mobile keyboard make everyday interactions easier. **Undo** is available for task moves, completion changes and label assignments.
 
 ## Quick start
@@ -61,6 +65,7 @@ The **Tasks** plugin is optional; it adds a task editor and recurring tasks. [Se
 |---|---|
 | Customize columns and due-date groups | [Board settings](docs/boards.md) |
 | Show the right tasks on each board | [Filters](docs/filters.md) |
+| Add one-click quick filters to the toolbar | [Quick filters](docs/filters.md#quick-filters) |
 | Add tasks, move cards or manage subtasks | [Tasks and cards](docs/tasks.md) |
 | Create and assign colored labels | [Labels](docs/labels.md) |
 | Capture tasks from an iPhone shortcut | [iOS Shortcuts](docs/ios-shortcuts.md) |

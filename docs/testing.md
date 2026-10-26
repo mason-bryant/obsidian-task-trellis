@@ -2,7 +2,7 @@
 
 # Community readiness test report
 
-Updated October 25, 2026 for released version **0.1.12**. The original readiness review covered 0.1.10; version-specific follow-ups and maintainer confirmations are recorded below. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
+Updated October 26, 2026 for version **0.1.15**. The original readiness review covered 0.1.10; version-specific follow-ups and maintainer confirmations are recorded below. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
 
 ## Changes made during this review
 
@@ -156,7 +156,7 @@ Browser checks at desktop and 390 × 844 verified the shared Field/Condition/Val
 
 The packaged build was installed in Mason Remote with `data.json` preserved and the previous artifacts backed up at `/private/tmp/task-trellis-before-filter-ui-20261025-213510`. Native reload/visual verification is pending because macOS was locked during the installation.
 
-## Quick filters and Appearance (unreleased, October 26)
+## Quick filters and Appearance (0.1.15, October 26)
 
 All **418 tests across 34 files** pass, along with lint, type checking, `check:release` and `npm run package`. The packaged build ran natively on macOS Obsidian 1.14.4 in a disposable vault of fictional tasks, using a separate Obsidian profile driven through its developer-tools port.
 
