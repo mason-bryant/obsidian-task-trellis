@@ -131,3 +131,27 @@ Native checks used **macOS Obsidian 1.13.7 and Tasks 8.5.0** in the existing dis
 - The shared browser preview rendered its SVG icons, opened the replacement in-page details editor, retained the draft on Cancel, and added a card on successful submission.
 
 The native test build was installed only in the disposable readiness vault. Mason Remote was returned to the foreground without replacing its plugin build. The final small stale-card guard and message wording changes are covered by automated tests; those scenarios were not separately repeated natively. Native IME composition, iOS/Android behavior for this branch, and published artifact attestations remain unverified. Existing iOS gesture code was not changed. The desktop `display: contents` wrapper is intentionally retained; its scanner compatibility warning targets an older Obsidian version than this plugin supports.
+
+## Board title rename (unreleased, October 25)
+
+The 368-test suite, lint, type checking, production packaging and preview build pass. Seven new tests cover filename collisions/validation, stale files, preserving the board slug and labels, legacy slug pinning, failed-save retry, duplicate submissions, IME Enter, cancellation and the accessible title button.
+
+Native Obsidian 1.13.7 in the disposable Task Trellis Readiness Test vault confirmed click-to-edit, saving a new filename, immediate heading/tab/breadcrumb updates, reopening with the saved name and cancelling. The fixture was renamed back afterward. Its task note's SHA-256 remained identical and its board slug remained `review-checks`. This check also caught and fixed the existing missing base FileView rename handler. The final handler change passed the focused BoardView/rename tests and lint. The build was installed only in the disposable test vault; no new iPhone or iPad run was performed.
+
+## Optional board-tag rename (unreleased, October 25)
+
+All **391 tests across 31 files** pass, along with lint, type checking, production packaging and the preview build. New coverage exercises read-only previews, preview invalidation, namespace and filename collisions, excluded/completed/nested tasks, dependent board filters, mixed line endings, code examples, stale previews, backup failure, task/board/settings write failures, interrupted cleanup, restoration after restart, interrupted restoration and protection of later edits or newly created tasks. These are simulated failures, not physical disk or sync-provider fault tests.
+
+Native Obsidian 1.13.7 testing used only the disposable readiness vault. The editor defaulted to title-only rename; opting in previewed four task-tag changes in two notes. Applying renamed the board, placement and label tags while retaining the two main cards, subtask, Urgent label and column positions. Obsidian's own link-update prompt was exercised using **Just once**.
+
+The first native restoration safely rejected Obsidian's shortening of a full-path wiki link as a snapshot mismatch. The correction accepts equivalent wiki-link targets resolving to the restored board while still requiring aliases, headings and all other content to match; a regression test also verifies that a changed alias blocks restoration. After loading the corrected build, the saved recovery entry survived reload and restored both fixture notes **byte-for-byte**, including the original full-path link. The recovery journal reported `restored`, and the temporary renamed file no longer existed.
+
+The tested build remains installed only in the disposable vault. Mason Remote was returned to the foreground without changing its plugin build or migrating personal boards. No new iOS, Android, concurrent-device sync or large-vault migration benchmark is claimed. Ordinary Markdown-link reformatting beyond equivalent wiki links can still require manual recovery; changed notes are protected rather than overwritten.
+
+## Unified filter editor (unreleased, October 25)
+
+All **397 tests across 32 files** pass, along with lint, type checking, production packaging and the preview build. Five new editor tests cover existing-filter round trips, adding/removing every rule type, inclusion/exclusion behavior against the actual matcher, property validation, literal commas, IME input, autocomplete lifecycle, focus, tab-switch persistence and saving state. The native adapter uses documented `TextComponent`, `DropdownComponent` and `AbstractInputSuggest` APIs; the task filter engine and stored filter format are unchanged.
+
+Browser checks at desktop and 390 × 844 verified the shared Field/Condition/Value layout, adding tag/folder/property rules, property exclusions, chip entry, removing rules, retaining values across tabs and Save & open board. Narrow rules had no horizontal overflow and the browser reported no errors. These are responsive-browser checks, not a new native iOS run.
+
+The packaged build was installed in Mason Remote with `data.json` preserved and the previous artifacts backed up at `/private/tmp/task-trellis-before-filter-ui-20261025-213510`. Native reload/visual verification is pending because macOS was locked during the installation.

@@ -1,6 +1,7 @@
 import './browserDOM.ts';
 import { uiElement } from '../src/ui/dom.ts';
 import { promptText } from './promptText.ts';
+import { renderBoardNameEditor } from '../src/ui/renderBoardNameEditor.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
@@ -107,6 +108,16 @@ const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
   icon: previewIcon,
   onSettings: (section) => openSettings(section),
+  onRename: () => {
+    const dialog = uiElement(document, 'dialog');
+    const body = uiElement(document, 'div'); body.className = 'modal-content';
+    dialog.append(body); document.body.append(dialog);
+    const chrome = prepareEditorModal(dialog);
+    const close = () => { chrome.destroy(); dialog.close(); dialog.remove(); };
+    dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+    dialog.showModal();
+    renderBoardNameEditor(body, chrome.header, config.name, previewIcon, async (name) => { config.name = name; render(); }, close);
+  },
   onColumnWidthsChange: (widths) => { config.columnWidths = widths; },
   onLabels: (task) => {
     const dialog = uiElement(document, 'dialog'); dialog.className = 'tt-label-modal';
@@ -338,7 +349,7 @@ function openSettings(initialSection: Section = 'columns'): void {
       tryClose();
     },
     onSave: () => tryClose(true),
-    onOpenNote: () => tryClose(true),
+    onOpenBoard: () => tryClose(true),
   });
   dialog.oncancel = (e) => {
     e.preventDefault();

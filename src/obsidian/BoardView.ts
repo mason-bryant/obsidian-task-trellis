@@ -12,6 +12,7 @@ import { parseTaskLine } from '../core/taskLine.ts';
 import { isDragging, renderBoard, type RenderHost } from '../ui/renderBoard.ts';
 import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
+import { RenameBoardModal } from './RenameBoardModal.ts';
 import { noteTags } from './noteTags.ts';
 import type { UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
@@ -115,7 +116,8 @@ export class BoardView extends FileView {
     this.pending.clear();
   }
 
-  async onRename(): Promise<void> {
+  async onRename(file: TFile): Promise<void> {
+    await super.onRename(file);
     this.render();
   }
 
@@ -192,6 +194,7 @@ export class BoardView extends FileView {
         }
       },
       onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section).open(); },
+      onRename: () => { if (this.file) new RenameBoardModal(this.app, this.file, this.plugin.boardRenames).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
       undo: this.undoAction ? { label: this.undoAction.label, run: () => void this.undo() } : undefined,
       renderText: (el, task) => {

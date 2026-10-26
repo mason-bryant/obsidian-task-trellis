@@ -41,16 +41,20 @@ describe('board settings header', () => {
     const root = document.createElement('div'), header = document.createElement('div');
     document.body.replaceChildren(header, root);
     const original = parseBoardConfig('House', {}).config;
-    const save = vi.fn(), discard = vi.fn();
+    const save = vi.fn(), discard = vi.fn(), openBoard = vi.fn();
     const form = renderBoardSettings(root, draftFromConfig(original), original, {
       header, icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
-      countTagged: () => 0, onSave: save, onDiscard: discard, onOpenNote: vi.fn(),
+      countTagged: () => 0, onSave: save, onDiscard: discard, onOpenBoard: openBoard,
     });
     header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(1);
     form.setSaving(true);
+    root.querySelector<HTMLButtonElement>('.tt-settings-footer button')!.click(); expect(openBoard).not.toHaveBeenCalled();
     header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(1);
     expect(header.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.disabled).toBe(true);
     form.setSaving(false);
+    const open = root.querySelector<HTMLButtonElement>('.tt-settings-footer button')!;
+    expect(open.textContent).toBe('Save & open board');
+    open.click(); expect(openBoard).toHaveBeenCalledTimes(1);
     form.showErrors(['Could not save.']);
     expect(root.querySelector('[role="alert"]')!.textContent).toContain('Could not save.');
     header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(2);

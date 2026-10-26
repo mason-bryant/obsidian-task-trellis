@@ -2,7 +2,9 @@
 
 # Choose which tasks appear
 
-The Filters tab keeps **Must include** and **Must not include** visible together, with Tags, Note folders and Note properties in the same order. Each Tags box combines task and page tags. Type a value and press Enter to make a chip, or choose a suggestion. New values are allowed. Remove a chip with its × button; Backspace in an empty entry brings the last chip back for editing. Tags can also be entered as a comma-separated list. A comma inside a property-value chip stays part of that one value.
+The Filters tab groups rules under **Must include — Match all rules** and **Must not include — Match any rule**. Choose **Tags**, **Note folder** or **Note property**, then select **Add filter**. Every rule uses the same **Field → Condition → Value** layout. For a property, enter its name and choose **Exists** or **Matches any value**. Use the trash button to remove a whole rule.
+
+Each Tags box combines task and page tags. Type a value and press Enter to make a chip, or choose a suggestion. New values are allowed. Remove a chip with its × button; Backspace in an empty entry brings the last chip back for editing. Tags can also be entered as a comma-separated list. A comma inside a property-value chip stays part of that one value. Tags and folders each have one rule per group; add alternatives as more values in that rule. Property rules can be added repeatedly.
 
 - Included tags match **any** listed tag; included folders match **any** listed folder; included property rules must **all** match. All configured inclusion categories must pass. Empty categories add no restriction.
 - **Any exclusion wins**, whether it matches a task tag, source-note folder or property rule. A missing property fails an inclusion rule and passes an exclusion rule.

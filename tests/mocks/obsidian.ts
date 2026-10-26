@@ -55,3 +55,7 @@ export class Plugin {}
 export class FuzzySuggestModal {}
 export class WorkspaceLeaf {}
 export class PluginSettingTab {}
+
+// JSON is a YAML subset; migration fixtures use it to isolate the vault transaction tests.
+export const parseYaml = (value: string): unknown => JSON.parse(value);
+export const stringifyYaml = (value: unknown): string => JSON.stringify(value) + '\n';

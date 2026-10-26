@@ -2,11 +2,25 @@
 
 # Configure a board
 
-A board is a note in the boards folder (`Task Trellis/` by default, set in the plugin settings). Opening the note shows the board. **Settings** on the board opens a form with Columns, Dates, Filters and New tasks tabs. The **green checkmark** at the top validates and writes the note's properties; The **X**, Escape and closing the dialog discard the draft. **Save & open note** saves first, then shows the note itself. Saving an unchanged draft does not rewrite the note. Renaming a column there retags its tasks. **Create board** in the command palette makes one with defaults.
+A board is a note in the boards folder (`Task Trellis/` by default, set in the plugin settings). Opening the note shows the board. **Settings** on the board opens a form with Columns, Dates, Filters and New tasks tabs. The **green checkmark** at the top validates and writes the note's properties; The **X**, Escape and closing the dialog discard the draft. **Save & open board** saves first, then opens the regular Task Trellis board view, focusing its existing tab if it is already open. Saving an unchanged draft does not rewrite the note. Renaming a column there retags its tasks. **Create board** in the command palette makes one with defaults.
 
 Open the **Task Trellis boards** sidebar from the ribbon icon or the **Show boards sidebar** command. It lists your boards and offers **Create new board**. Selecting a board focuses its existing tab, including one in another window, or opens it if needed.
 
 Use **Settings → Columns** to name your workflow stages, **Dates** to choose the planning window, **Filters** to decide which tasks appear, and **New tasks** to choose where captured tasks are saved. For filter examples, see [Choose which tasks appear](filters.md).
+
+## Rename a board
+
+Click or tap the board title in the upper left. Edit its name and select the **green checkmark** to save, or **X** to cancel. Enter also saves, except while confirming an input-method conversion. Invalid or already-used filenames are rejected; a failed save keeps your draft available to retry.
+
+By default, this renames only the board note in its existing folder. Obsidian updates links according to your link-update preferences. Task tags, label assignments and the board's internal `slug` stay unchanged. If an iOS shortcut identifies the board by its old name or file path, update that shortcut; shortcuts using the stable slug keep working.
+
+To change the tags too, select **Also rename board tags**, then **Preview tag changes**. Review the old and new prefixes, the tag count and the affected notes. The green checkmark applies the reviewed changes. Editing the name requires a new preview; closing the editor cancels without changing notes.
+
+For example, renaming House to Home changes `#tt/house/doing/100` to `#tt/home/doing/100` and `#tt/house/label/red` to `#tt/home/label/red`. Column positions, label IDs, names and colors are preserved. The migration includes completed tasks and subtasks, even in folders excluded from the board, and updates other boards' include/exclude tag filters. It rejects a prefix already used by another board, tag or reference.
+
+Saved searches, queries, prose and ordinary note properties are not rewritten. The preview lists notes containing those references for you to check. Also update shortcuts and custom board hotkeys that use the old name or prefix. Keep other devices idle during the rename and allow sync to finish afterward: several note writes cannot be one atomic operation across devices.
+
+Before writing, Task Trellis saves full snapshots of affected notes in **Task Trellis recovery/** inside the vault. Use **Task Trellis: Restore board rename** from the command palette to review and restore a rename, including one interrupted by an error or restart. Restoration refuses to overwrite later edits or ignore new tasks using the new prefix; those cases require reconciling the notes with the saved snapshots. Recovery files remain until you remove them. They contain full note content; see [Privacy and integrations](privacy.md).
 
 ## Property reference
 
@@ -16,7 +30,7 @@ These properties are stored in the board note. The settings form handles the usu
 
 | Property | Default | Meaning |
 |---|---|---|
-| `slug` | from the note name | Used in placement tags and the board's command id. Set once; keep it stable. |
+| `slug` | from the note name | Used in placement tags and the board's command id. Keep it stable, or change it through the reviewed tag-rename flow above. |
 | `labels` | Six unnamed colors | Board-specific label definitions, managed through a card’s tag icon. |
 | `previous-label-scheme` | none | Exact previous colors keyed by label ID, managed by the color scheme picker. |
 | `columns` | Backlog, Doing, Waiting, Done | Columns, left to right. |

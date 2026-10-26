@@ -30,6 +30,7 @@ export type RenderHost = {
   /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
   onSettings?(section?: Section): void;
+  onRename?(): void;
   onColumnWidthsChange?(widths: Record<string, number>): Promise<void> | void;
   onLabels?(task: BoardTask): void;
   undo?: { label: string; run(): void };
@@ -108,7 +109,13 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   root.classList.toggle('tt-board--compact', display.compact);
   const toolbar = el('div', 'tt-board-toolbar');
   const heading = el('div', 'tt-board-heading');
-  heading.append(el('span', 'tt-board-name', config.name), el('span', 'tt-board-total', `${model.total} ${model.total === 1 ? 'card' : 'cards'}`));
+  if (host.onRename) {
+    const name = el('button', 'tt-board-name tt-board-rename', config.name);
+    name.type = 'button'; name.title = 'Rename board'; name.setAttribute('aria-label', `Rename board: ${config.name}`);
+    name.dataset.boardFocus = 'rename'; name.onclick = () => host.onRename?.();
+    heading.append(name);
+  } else heading.append(el('span', 'tt-board-name', config.name));
+  heading.append(el('span', 'tt-board-total', `${model.total} ${model.total === 1 ? 'card' : 'cards'}`));
   const tools = el('div', 'tt-board-tools');
   const compact = el('button', 'tt-toolbar-button'); compact.type = 'button';
   compact.dataset.boardFocus = 'compact';
