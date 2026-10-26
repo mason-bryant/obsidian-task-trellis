@@ -1,8 +1,49 @@
 # Task Trellis
 
-**A configurable kanban board for managing your tasks in Obsidian.**
+**Turn tasks scattered across your vault into a clear plan.**
 
-Turn tasks scattered across your notes into a clear plan. See what’s in progress alongside what’s due, and build separate boards for work, home or any project. Task Trellis is designed to make adding and viewing tasks easy on your phone, with room to see the whole picture on desktop.
+Task Trellis is a configurable kanban board for Obsidian. Bring tasks from daily notes, meeting notes and project pages into one view, while keeping each task in its original note. See what you're working on now, what needs to get done this week, and what should come next from your backlog.
+
+Build boards around the way you work, use color to distinguish projects and categories, and capture ideas from your phone while they're fresh.
+
+[Quick start](#quick-start) · [iPhone capture](docs/ios-shortcuts.md) · [Guides](#guides)
+
+![Task Trellis showing a home project board with workflow columns, due-date rows and colored labels](docs/images/board-desktop.png)
+
+*See progress and timing together: columns show where work stands, and date rows show when it needs attention. Screenshots use sample tasks in the browser preview.*
+
+## See what matters and decide what comes next
+
+- **Know what you're working on.** Give work a clear place in columns such as Backlog, Doing, Waiting and Done—or name your own stages.
+- **Plan the week ahead.** See overdue tasks, upcoming deadlines and undated ideas together. Choose the planning window and drag cards between date rows to reschedule them.
+- **Give your backlog a useful order.** Reorder cards, bring the next task into focus, and leave ideas without a due date until you're ready to schedule them.
+- **Recognize projects and categories at a glance.** Assign multiple colored labels to a card: Urgent, Financial planning, Paint kitchen, or whatever matters to you. Each board has its own label names and colors.
+- **Choose the right scope.** Build separate views for work, home or a specific project. Include or exclude tasks using tags, folders and note properties.
+- **Keep the context close.** Expand subtasks when you need the detail, collapse them for an overview, and jump from any card to its original note.
+
+## Keep working with the tasks you already have
+
+Your tasks stay as Markdown checkboxes in your notes. Board actions update those tasks directly, and board placement and label assignments are stored as ordinary tags. Your notes remain available to Obsidian search, task queries and workflows built around your Markdown.
+
+The same task can appear on several boards without being copied. Each board can give it a different column, order and set of labels; completion and due dates belong to the shared task. For example, **Review the budget** can appear on both a Work board and a Financial planning board, and completing it updates both.
+
+The optional **Tasks** plugin adds its task editor and recurring-task behavior. New tasks can go into a specific note or today's daily note, with an optional heading. You can keep capturing work where it already belongs. [Integration details →](docs/privacy.md)
+
+## Capture an idea from your phone
+
+Add a task as soon as it occurs to you, with a due date or without one. **+ Add task** sits at the top of each mobile task list. The ready-made **iOS shortcut** sends a task to your chosen vault and board, opens Obsidian, and saves it to the board's configured note.
+
+When you're ready to review, swipe between full-width columns, check off tasks, assign labels, and move cards using the drag handle or **Move to…** menu. You can capture on your phone and plan on a larger screen using your existing vault sync.
+
+<img src="docs/images/board-mobile.png" alt="Phone-sized Task Trellis board with an Add task button above the list and labels on task cards" width="360">
+
+[Set up the iOS shortcut →](docs/ios-shortcuts.md)
+
+## Make it pleasant to come back to
+
+Choose from eleven label color schemes or create your own colors. Switch back with **Previous scheme** if you prefer the old palette. Resize columns on desktop and tablet, use compact spacing when you want more on screen, and collapse subtasks to keep the board easy to scan.
+
+Theme-aware styling, keyboard controls and save buttons above the mobile keyboard make everyday interactions easier. **Undo** is available for task moves, completion changes and label assignments.
 
 ## Quick start
 
@@ -13,27 +54,6 @@ Turn tasks scattered across your notes into a clear plan. See what’s in progre
 5. Save with the **green checkmark**, then select **+ Add task** at the top of a column on your phone. Use the tag icon to assign colored labels.
 
 The **Tasks** plugin is optional; it adds a task editor and recurring tasks. [Set up the ready-made iOS shortcut](docs/ios-shortcuts.md) for faster capture.
-
-![Task Trellis showing a home project board with workflow columns, due-date rows and colored labels](docs/images/board-desktop.png)
-
-*Workflow columns show progress; date rows show what needs your attention next. Screenshots use sample tasks in the browser preview.*
-
-## A board that fits the way you work
-
-- **Bring your tasks together.** View tasks from across your vault, filtered by tags, folders or note properties. Each card links back to its source note.
-- **Plan by progress and date.** Customize workflow columns, group tasks by due date, and drag cards to reschedule or move them forward.
-- **Make priorities visible.** Use colored labels with names and colors unique to each board. Keep subtasks close, and collapse them when you want a simpler view.
-- **Keep your notes as the source.** Tasks stay in Markdown. The same task can appear on several boards, with its own column and labels on each one.
-
-## Made for your phone, too
-
-Capture a task while it’s on your mind. **Add task** sits at the top of each mobile list, and the ready-made iOS shortcut lets you enter a task and optional due date for a chosen board.
-
-View one column at a time, swipe between columns, and scroll through your tasks. Use the card’s **⋯** menu to move it, or its drag handle to reorder it. Compact view and collapsible subtasks help keep a busy board readable on a small screen.
-
-<img src="docs/images/board-mobile.png" alt="Phone-sized Task Trellis board with an Add task button above the list and labels on task cards" width="360">
-
-[Set up the iOS shortcut →](docs/ios-shortcuts.md)
 
 ## Guides
 

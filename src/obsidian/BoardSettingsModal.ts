@@ -1,6 +1,7 @@
+import { uiElement } from '../ui/dom.ts';
 import { destinationAdvice } from '../core/setup.ts';
 import { prepareEditorModal } from '../ui/editorHeader.ts';
-import { AbstractInputSuggest, Modal, Notice, setIcon, type App, type TFile } from 'obsidian';
+import { AbstractInputSuggest, Modal, Notice, setIcon, TextComponent, DropdownComponent, type App, type TFile } from 'obsidian';
 import { parseBoardConfig, type BoardConfig } from '../core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } from '../core/boardDraft.ts';
 import { propertyValueStrings } from '../core/filters.ts';
@@ -35,7 +36,7 @@ export class BoardSettingsModal extends Modal {
     if (!this.saving) super.close();
   }
 
-  private async save(openNote = false): Promise<void> {
+  private async save(openBoard = false): Promise<void> {
     if (this.saving) return;
     const { errors } = draftToFrontmatter(this.draft, this.config);
     if (errors.length) { this.form?.showErrors(errors); return; }
@@ -46,7 +47,12 @@ export class BoardSettingsModal extends Modal {
         const failed = await this.plugin.saveBoardSettings(this.file, this.config, this.draft);
         if (failed.length) { this.form?.showErrors(failed); return; }
       }
-      if (openNote) this.afterClose = () => void this.plugin.openNoteBesideBoard(this.file);
+      if (openBoard) this.afterClose = () => {
+        void this.plugin.openBoard(this.file).catch((error: unknown) => {
+          console.error('[Task Trellis] opening saved board failed', error);
+          new Notice('Task Trellis: settings saved, but the board could not be opened. Open it from the boards sidebar to try again.');
+        });
+      };
       this.saving = false;
       this.close();
     } catch (error) {
@@ -83,6 +89,8 @@ export class BoardSettingsModal extends Modal {
     };
     this.form = renderBoardSettings(this.contentEl, this.draft, this.config, {
       header: this.chrome.header,
+      createTextInput: () => new TextComponent(uiElement(this.contentEl.ownerDocument, 'div')).inputEl,
+      createDropdown: () => new DropdownComponent(uiElement(this.contentEl.ownerDocument, 'div')).selectEl,
       initialSection: this.initialSection,
       destinationAdvice: (draft) => {
         const config = parseBoardConfig(this.config.name, { slug: this.config.slug, ...draftToFrontmatter(draft, this.config).frontmatter }).config;
@@ -100,7 +108,7 @@ export class BoardSettingsModal extends Modal {
       countTagged: (columnId) => tagged.get(columnId) ?? 0,
       onDiscard: () => this.close(),
       onSave: () => void this.save(),
-      onOpenNote: () => void this.save(true),
+      onOpenBoard: () => void this.save(true),
       onCopyShortcut: () => {
         const matches = this.plugin.boards.boards().filter((b) => b.config.slug === this.config.slug);
         const board = matches.length === 1 ? this.config.slug : this.file.path;
@@ -116,7 +124,8 @@ export class BoardSettingsModal extends Modal {
     this.form?.destroy();
     this.form = null;
     this.contentEl.empty();
-    this.afterClose?.();
+    const afterClose = this.afterClose; this.afterClose = null;
+    afterClose?.();
   }
 }
 

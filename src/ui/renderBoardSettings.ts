@@ -6,6 +6,8 @@ import { convertDueNow, filterError, filterWarnings, WEEKDAY_NAMES, type BoardDr
 export type SettingsFormHost = {
   header?: HTMLElement;
   initialSection?: Section;
+  createTextInput?(): HTMLInputElement;
+  createDropdown?(): HTMLSelectElement;
   destinationAdvice?(draft: BoardDraft): string[];
   icon(el: HTMLElement, name: string): void;
   attachKeySuggest(input: HTMLInputElement): void | (() => void);
@@ -15,7 +17,7 @@ export type SettingsFormHost = {
   countTagged(columnId: string): number;
   onDiscard(): void;
   onSave(): void;
-  onOpenNote(): void;
+  onOpenBoard(): void;
   onCopyShortcut?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
@@ -47,12 +49,12 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     return wrap;
   };
   const input = (value: string, label: string, change: (v: string) => void, type = 'text') => {
-    const node = el('input', 'tt-input'); node.type = type; node.value = value;
+    const node = host.createTextInput?.() ?? el('input', ''); node.classList.add('tt-input'); node.type = type; node.value = value;
     node.dataset.focus = label;
     node.setAttribute('aria-label', label); node.oninput = () => change(node.value); return node;
   };
   const select = (label: string, values: [string, string][], value: string, change: (v: string) => void) => {
-    const node = el('select', 'tt-input'); node.setAttribute('aria-label', label);
+    const node = host.createDropdown?.() ?? el('select', ''); node.classList.add('tt-input'); node.setAttribute('aria-label', label);
     node.dataset.focus = label;
     for (const [v, text] of values) { const opt = el('option', '', text); opt.value = v; node.append(opt); }
     node.value = value; node.onchange = () => change(node.value); return node;
@@ -116,20 +118,30 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     root.querySelector('.tt-filter-warnings')?.replaceChildren(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text)));
   }
 
+  // Empty tag/folder rows are UI drafts only; existing serialized filters keep their semantics.
+  const visibleRules = {
+    includeTags: !!draft.includeTags.trim(), excludeTags: !!draft.excludeTags.trim(),
+    includeFolders: !!draft.includeFolders.trim(), excludeFolders: !!draft.excludeFolders.trim(),
+  };
+  const literal = (text: string) => el('div', 'tt-filter-literal', text);
+  function ruleRow(name: string, fieldControl: HTMLElement, condition: HTMLElement, values: HTMLElement,
+    remove: () => void): HTMLElement {
+    const row = el('div', 'tt-filter-rule'); row.setAttribute('role', 'group'); row.setAttribute('aria-label', name);
+    row.append(field('Field', fieldControl), field('Condition', condition), field('Value', values),
+      iconButton('trash-2', `Remove ${name}`, remove));
+    return row;
+  }
+
   function propertyRow(rule: DraftFilter, index: number, excluded: boolean): HTMLElement {
     const group = excluded ? 'Must not include' : 'Must include';
     const rules = excluded ? draft.excludedFilters : draft.filters;
     const id = `${excluded ? 'exclude' : 'include'}-property-${index}`;
-    const row = el('div', 'tt-property-rule');
     const key = input(rule.key, `${group}: Property ${index + 1}`, (v) => { rule.key = v; refreshError(); updateWarnings(); });
     key.dataset.focus = id; attach(host.attachKeySuggest(key));
     const condition = select(`${group}: Condition ${index + 1}`, [['exists', 'Exists'], ['matches', 'Matches any value']], rule.condition, (v) => {
       rule.condition = v as DraftFilter['condition']; redraw(`${id}-condition`);
     });
     condition.dataset.focus = `${id}-condition`;
-    row.append(field('Property', key), field('Condition', condition), iconButton('trash-2', `Remove ${group.toLowerCase()} property ${index + 1}`, () => {
-      rules.splice(index, 1); redraw(rules.length ? `${excluded ? 'exclude' : 'include'}-property-${Math.min(index, rules.length - 1)}` : `${excluded ? 'exclude' : 'include'}-add`);
-    }));
     const error = el('div', 'tt-field-error'); error.id = `${id}-error`; error.setAttribute('role', 'status');
     let valueControl: HTMLElement | undefined;
     const refreshError = () => {
@@ -141,31 +153,64 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     };
     if (rule.condition === 'matches') {
       valueControl = chips(rule.values, `${group}: Values ${index + 1}`, (values) => { rule.values = values; refreshError(); }, (node) => host.attachValueSuggest(node, () => rule.key.trim()));
-      const valueField = field('Values', valueControl, 'Match any value. Press Enter to add; a comma stays inside its value.');
-      valueField.classList.add('tt-property-values'); row.append(valueField);
       valueControl.querySelector('input')?.setAttribute('aria-describedby', error.id);
     }
+    const property = el('div', 'tt-filter-property'); property.append(key, el('span', 'tt-help', 'Note property'));
+    const row = ruleRow(`${group.toLowerCase()} property ${index + 1}`, property, condition,
+      valueControl ?? literal('Any value, including empty'), () => {
+        rules.splice(index, 1); redraw(rules.length ? `${excluded ? 'exclude' : 'include'}-property-${Math.min(index, rules.length - 1)}` : `${excluded ? 'exclude' : 'include'}-add`);
+      });
     refreshError(); row.append(error); return row;
   }
 
   function filterGroup(excluded: boolean): HTMLElement {
     const name = excluded ? 'Must not include' : 'Must include';
+    const prefix = excluded ? 'exclude' : 'include';
     const group = el('section', `tt-filter-group${excluded ? ' tt-filter-group--exclude' : ''}`);
     group.setAttribute('aria-label', name);
     const title = el('h4', 'tt-filter-title'); title.append(icon(excluded ? 'circle-minus' : 'circle-plus'), el('span', '', name));
-    group.append(title, el('p', 'tt-help', excluded ? 'Any matching exclusion keeps a card off the board.' : 'All configured categories must pass. Empty categories add no restriction.'));
+    title.append(el('span', 'tt-filter-logic', excluded ? 'Match any rule' : 'Match all rules'));
+    group.append(title, el('p', 'tt-help', excluded
+      ? 'Hide a task if any rule below matches. Within a rule, any listed value can match.'
+      : 'A task must match every rule below. Within a rule, any listed value can match. Empty tag or folder rules add no restriction.'));
     const tagKey = excluded ? 'excludeTags' : 'includeTags';
     const folderKey = excluded ? 'excludeFolders' : 'includeFolders';
-    group.append(field('Tags', chips(draft[tagKey].split(',').map((v) => v.trim()).filter(Boolean), `${name}: Tags`, (values) => draft[tagKey] = values.join(', '), (input) => host.attachTagSuggest(input), true), 'Page tags (properties and non-task text) apply to all tasks. Task tags apply only to that task. Nested tags count; placement tags are ignored.'));
-    group.append(field('Note folders', chips(draft[folderKey].split('\n').filter(Boolean), `${name}: Note folders`, (values) => draft[folderKey] = values.join('\n'), (input) => host.attachFolderSuggest(input)), 'Match any source-note folder, including its descendants.'));
-    group.append(el('div', 'tt-field-label', 'Note properties'), el('p', 'tt-help', excluded ? 'Any matching property rule excludes the note. A missing property does not match.' : 'Every property rule must match the source note. “Exists” includes empty or null values.'));
     const rules = excluded ? draft.excludedFilters : draft.filters;
+    const listRow = (kind: 'tags' | 'folders') => {
+      const tags = kind === 'tags', key = tags ? tagKey : folderKey, separator = tags ? ',' : '\n';
+      const label = `${name}: ${tags ? 'Tags' : 'Note folders'}`;
+      const values = chips(draft[key].split(separator).map((v) => v.trim()).filter(Boolean), label,
+        (values) => { draft[key] = values.join(tags ? ', ' : '\n'); },
+        (node) => tags ? host.attachTagSuggest(node) : host.attachFolderSuggest(node), tags);
+      return ruleRow(`${name.toLowerCase()} ${kind}`, literal(tags ? 'Tags' : 'Note folder'),
+        literal(tags ? 'Matches any tag' : 'Is in any folder'), values, () => {
+          draft[key] = ''; visibleRules[key] = false; redraw(`${prefix}-add`);
+        });
+    };
+    if (visibleRules[tagKey]) group.append(listRow('tags'));
+    if (visibleRules[folderKey]) group.append(listRow('folders'));
     rules.forEach((rule, i) => group.append(propertyRow(rule, i, excluded)));
-    if (!rules.length) group.append(el('div', 'tt-filter-empty', 'No property rules'));
-    const add = button('Add property rule', 'tt-button tt-button--subtle'); add.prepend(icon('plus'));
-    add.dataset.focus = `${excluded ? 'exclude' : 'include'}-add`;
-    add.onclick = () => { rules.push({ key: '', condition: 'exists', values: [] }); redraw(`${excluded ? 'exclude' : 'include'}-property-${rules.length - 1}`); };
-    group.append(add); return group;
+    if (!visibleRules[tagKey] && !visibleRules[folderKey] && !rules.length) {
+      group.append(el('p', 'tt-filter-empty', excluded ? 'No exclusions.' : 'No inclusion restrictions.'));
+    }
+    const choices: [string, string][] = [];
+    if (!visibleRules[tagKey]) choices.push(['tags', 'Tags']);
+    if (!visibleRules[folderKey]) choices.push(['folders', 'Note folder']);
+    choices.push(['property', 'Note property']);
+    let kind = choices[0]![0];
+    const picker = select(`${name}: New filter field`, choices, kind, (value) => { kind = value; });
+    picker.dataset.focus = `${prefix}-add`;
+    const add = button('Add filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus'));
+    add.setAttribute('aria-label', `${name}: Add filter`);
+    add.onclick = () => {
+      if (kind === 'property') {
+        rules.push({ key: '', condition: 'exists', values: [] }); redraw(`${prefix}-property-${rules.length - 1}`);
+      } else {
+        visibleRules[kind === 'tags' ? tagKey : folderKey] = true;
+        redraw(`${name}: ${kind === 'tags' ? 'Tags' : 'Note folders'}`);
+      }
+    };
+    const actions = el('div', 'tt-filter-add'); actions.append(picker, add); group.append(actions); return group;
   }
 
   function draw(): void {
@@ -238,11 +283,11 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(field('Weeks start on', select('Weeks start on', WEEKDAY_NAMES.map((name, i) => [String(i), name]), String(draft.weekStart), (v) => draft.weekStart = Number(v))));
       body.append(field('Show completed tasks for', input(draft.showCompletedDays, 'Show completed tasks for', (v) => draft.showCompletedDays = v, 'number'), 'Days after completion. Set to 0 to hide completed cards.'));
     } else if (section === 'filters') {
-      heading(body, 'Choose what belongs here', 'Cards must satisfy the inclusion conditions. Any matching exclusion keeps a card off this board.');
+      heading(body, 'Choose what belongs here', 'Choose a field, a condition and its values. A matching exclusion always wins.');
       const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(false), filterGroup(true)); body.append(groups);
       const warnings = el('div', 'tt-filter-warnings'); warnings.setAttribute('role', 'status');
       warnings.append(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text))); body.append(warnings);
-      body.append(el('p', 'tt-scope-note', 'Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
+      body.append(el('p', 'tt-scope-note', 'Tags match the task or its page, including nested tags. Folders include their descendants. Properties belong to the source note. Press Enter or choose a suggestion to add a value. Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
     } else {
       heading(body, 'Give new tasks a home', 'Tasks added on this board go to this note and section.');
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));
@@ -265,7 +310,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const header = renderEditorHeader(headerSlot, 'Board settings', (el, name) => host.icon(el, name), () => host.onSave(), () => host.onDiscard());
     header.setBusy(saving);
     const footer = el('div', 'tt-settings-footer');
-    const open = button('Save & open note', 'tt-button tt-button--subtle'); open.onclick = () => host.onOpenNote();
+    const open = button('Save & open board', 'tt-button tt-button--subtle'); open.onclick = () => host.onOpenBoard();
     open.disabled = saving;
     footer.append(open);
     if (!host.header) root.append(headerSlot);

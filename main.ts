@@ -1,3 +1,5 @@
+import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
+import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
 import { boardNameError } from './src/core/boardName.ts';
 import { isComposing } from './src/ui/dom.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
@@ -52,11 +54,11 @@ export default class TaskTrellisPlugin extends Plugin {
   index!: TaskIndex;
   writer!: TaskWriter;
   boards!: BoardRegistry;
+  boardRenames!: BoardTagRename;
   quickAdd!: QuickAdd;
   private boardNavigation!: BoardNavigation;
   private openingBoardList: Promise<void> | null = null;
   /** Leaves showing a board note as markdown on purpose, with the path they were switched for. */
-  private markdownLeaves = new WeakMap<WorkspaceLeaf, string>();
   private syncTimer: number | null = null;
   private configTimer: number | null = null;
   private stopped = false;
@@ -73,6 +75,11 @@ export default class TaskTrellisPlugin extends Plugin {
     this.index = new TaskIndex(this.app, (path) => this.isExcludedFromIndex(path));
     this.writer = new TaskWriter(this.app);
     this.boards = new BoardRegistry(this);
+    this.boardRenames = new BoardTagRename(this.app, {
+      boardsFolder: () => this.settings.boardsFolder,
+      collapsed: () => this.settings.collapsed,
+      saveSettings: () => this.saveSettings(),
+    });
     this.quickAdd = new QuickAdd(this);
     const shortcuts = new ShortcutActions(this);
     this.registerObsidianProtocolHandler('task-trellis-create', (params) => {
@@ -86,6 +93,7 @@ export default class TaskTrellisPlugin extends Plugin {
     this.addRibbonIcon('kanban', 'Show Task Trellis boards', () => void this.showBoardList());
     this.addCommand({ id: 'show-board-list', name: 'Show boards sidebar', callback: () => void this.showBoardList() });
     this.addCommand({ id: 'open-board', name: 'Open board…', callback: () => this.pickBoard() });
+    this.addCommand({ id: 'restore-board-rename', name: 'Restore board rename', callback: () => new RestoreBoardRenameModal(this.app, this.boardRenames).open() });
     this.addCommand({ id: 'create-board', name: 'Create board', callback: () => this.promptNewBoard() });
     this.addCommand({ id: 'add-task', name: 'Add task', callback: () => void this.quickAdd.addFromCommand() });
     this.addCommand({
@@ -122,6 +130,10 @@ export default class TaskTrellisPlugin extends Plugin {
       if (!this.stopped) {
         this.boards.syncCommands();
         await this.ensureBoardList();
+        try {
+          const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
+          if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Use the “restore board rename” command to review it.', 12000);
+        } catch { new Notice('Task Trellis: a board rename recovery record could not be read. Check the Task Trellis recovery folder.'); }
       }
     });
   }
@@ -195,13 +207,6 @@ export default class TaskTrellisPlugin extends Plugin {
     if (leaf) await this.app.workspace.revealLeaf(leaf);
   }
 
-  /** Opens the board note itself in a new tab, leaving the board where it is. */
-  async openNoteBesideBoard(file: TFile): Promise<void> {
-    const leaf = this.app.workspace.getLeaf('tab');
-    this.markdownLeaves.set(leaf, file.path);
-    await leaf.setViewState({ type: 'markdown', state: { file: file.path }, active: true });
-  }
-
   /** Writes the settings form to the board note and retags tasks in renamed columns. Returns validation errors. */
   async saveBoardSettings(file: TFile, config: BoardConfig, draft: BoardDraft): Promise<string[]> {
     const { frontmatter, errors, renames, removed } = draftToFrontmatter(draft, config);
@@ -239,7 +244,6 @@ export default class TaskTrellisPlugin extends Plugin {
   }
 
   async openAsBoard(leaf: WorkspaceLeaf, file: TFile): Promise<void> {
-    this.markdownLeaves.delete(leaf);
     await leaf.setViewState({ type: VIEW_TYPE_BOARD, state: { file: file.path }, active: true });
   }
 
@@ -268,7 +272,7 @@ export default class TaskTrellisPlugin extends Plugin {
     this.register(() => registry.unregisterView(type));
   }
 
-  /** Board notes open as boards wherever Obsidian would open them as markdown, unless switched back on purpose. */
+  /** Board notes open as boards wherever Obsidian would open them as markdown. */
   private patchBoardNoteOpening(): void {
     // The wrapper's `this` is a WorkspaceLeaf; capture the separate plugin instance.
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- The wrapper binds this to a leaf, not the plugin.
@@ -281,8 +285,7 @@ export default class TaskTrellisPlugin extends Plugin {
             if (
               state.type === 'markdown' &&
               typeof file === 'string' &&
-              plugin.boards.isBoardPath(file) &&
-              plugin.markdownLeaves.get(this) !== file
+              plugin.boards.isBoardPath(file)
             ) {
               return next.call(this, { ...state, type: VIEW_TYPE_BOARD }, ...rest);
             }
