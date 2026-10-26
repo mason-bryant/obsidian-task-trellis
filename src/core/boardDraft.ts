@@ -175,8 +175,17 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
 
 /** True when saving the draft would change the board note (opening and closing the form writes nothing). */
 export function draftChanged(draft: BoardDraft, original: BoardConfig): boolean {
+  return Object.keys(changedFrontmatter(draft, original)).length > 0;
+}
+
+/**
+ * Only the settings edited in the form, so a save doesn't overwrite what changed in the note while
+ * it was open, such as a toolbar toggle or a Properties edit.
+ */
+export function changedFrontmatter(draft: BoardDraft, original: BoardConfig): Record<string, unknown> {
   const before = draftToFrontmatter(draftFromConfig(original), original).frontmatter;
-  return JSON.stringify(draftToFrontmatter(draft, original).frontmatter) !== JSON.stringify(before);
+  return Object.fromEntries(Object.entries(draftToFrontmatter(draft, original).frontmatter)
+    .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(before[key])));
 }
 
 /** Keeps roughly the same window when the unit changes: 7 days ↔ 1 week. */
