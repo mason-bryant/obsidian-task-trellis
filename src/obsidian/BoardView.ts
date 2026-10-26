@@ -146,7 +146,8 @@ export class BoardView extends FileView {
     const tasks = this.plugin.index.all().map((t) => this.withPending(t));
     this.model = buildBoard(tasks, this.board.config, this.today,
       (path) => this.app.metadataCache.getCache(path)?.frontmatter,
-      (path) => noteTags(this.app.metadataCache.getCache(path)));
+      (path) => noteTags(this.app.metadataCache.getCache(path)),
+      this.plugin.activeQuickFilters(this.board.config.slug));
 
     const info: string[] = [];
     if (!this.plugin.writer.tasksApi()) {
@@ -226,6 +227,23 @@ export class BoardView extends FileView {
       onSetSubtasksCollapsed: (keys, collapsed) => {
         if (!this.board) return;
         void this.plugin.setSubtasksCollapsed(this.board.config.slug, keys, collapsed);
+        this.render();
+      },
+      isViewOn: (option) => this.plugin.isViewOn(this.board?.config.slug ?? '', option),
+      onToggleView: (option) => {
+        if (!this.board) return;
+        void this.plugin.toggleView(this.board.config.slug, option);
+        this.render();
+      },
+      onSetHideCompletedSubtasks: (hide) => {
+        const file = this.file;
+        if (!file) return;
+        void this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[FM.hideCompletedSubtasks] = hide; })
+          .catch((error: unknown) => { console.error('[Task Trellis] saving board setting failed', error); new Notice('Task Trellis: could not save the board setting.'); });
+      },
+      onSetQuickFilters: (ids) => {
+        if (!this.board) return;
+        void this.plugin.setActiveQuickFilters(this.board.config.slug, ids);
         this.render();
       },
       onDrop: (taskId, target) => void this.drop(taskId, target),

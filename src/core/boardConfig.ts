@@ -1,7 +1,9 @@
 import { parsePreviousScheme, type PreviousScheme } from './labelSchemes.ts';
 import { parseColumnWidths, type ColumnWidths } from './columnWidths.ts';
 import { defaultLabels, parseLabels, type BoardLabel } from './labels.ts';
+import { defaultQuickFilters, parseQuickFilters, quickFilterFrontmatter, type QuickFilter } from './quickFilters.ts';
 import { slugify } from './taskLine.ts';
+import { normalizeFolder, normalizeTag, propertyFilters, scalarText, stringList } from './frontmatterValues.ts';
 
 export type BoardColumn = { id: string; label: string };
 
@@ -14,6 +16,7 @@ export type BoardConfig = {
   columns: BoardColumn[];
   columnWidths: ColumnWidths;
   labels: BoardLabel[];
+  quickFilters: QuickFilter[];
   previousLabelScheme: PreviousScheme;
   doneColumn: string | null;
   /** Show at most `doneLimit` cards per Done cell, the rest behind a "more" toggle. */
@@ -38,6 +41,11 @@ export type BoardConfig = {
   excludeFolders: string[];
   /** 0 hides completed tasks. */
   showCompletedDays: number;
+  /** List completed subtasks after open ones, otherwise in note order. */
+  sortCompletedSubtasks: boolean;
+  hideCompletedSubtasks: boolean;
+  /** The red edge on overdue cards. */
+  overdueBar: boolean;
   /** Where tasks added on this board go; `default` uses the plugin setting. */
   newTasks: 'default' | NewTaskKind;
   newTasksNote: string;
@@ -62,6 +70,7 @@ export type DueNowUnit = 'days' | 'weeks';
 export const FM = {
   slug: 'slug',
   labels: 'labels',
+  quickFilters: 'quick-filters',
   previousLabelScheme: 'previous-label-scheme',
   columns: 'columns',
   columnWidths: 'column-widths',
@@ -82,6 +91,9 @@ export const FM = {
   includeFolders: 'include-folders',
   excludeFolders: 'exclude-folders',
   showCompletedDays: 'show-completed-days',
+  sortCompletedSubtasks: 'sort-completed-subtasks',
+  hideCompletedSubtasks: 'hide-completed-subtasks',
+  overdueBar: 'overdue-bar',
   newTasks: 'new-tasks',
   newTasksNote: 'new-tasks-note',
   newTasksHeading: 'new-tasks-heading',
@@ -99,6 +111,7 @@ export function newBoardFrontmatter(slug: string): Record<string, unknown> {
   return {
     [FM.slug]: slug,
     [FM.labels]: defaultLabels(),
+    [FM.quickFilters]: defaultQuickFilters(defaultLabels()).map(quickFilterFrontmatter),
     [FM.columns]: [...DEFAULT_COLUMNS],
     [FM.doneColumn]: 'Done',
     [FM.limitDone]: true,
@@ -117,6 +130,9 @@ export function newBoardFrontmatter(slug: string): Record<string, unknown> {
     [FM.includeFolders]: [],
     [FM.excludeFolders]: [],
     [FM.showCompletedDays]: 7,
+    [FM.sortCompletedSubtasks]: false,
+    [FM.hideCompletedSubtasks]: false,
+    [FM.overdueBar]: true,
     [FM.newTasks]: 'default',
   };
 }
@@ -165,13 +181,15 @@ export function parseBoardConfig(
     undatedColumn = null;
   }
 
+  const labels = parseLabels(f[FM.labels], warnings);
   return {
     config: {
       name,
       slug,
       columns,
       columnWidths: parseColumnWidths(f[FM.columnWidths], columns.map((c) => c.id)),
-      labels: parseLabels(f[FM.labels], warnings),
+      labels,
+      quickFilters: parseQuickFilters(f[FM.quickFilters], labels, warnings),
       previousLabelScheme: parsePreviousScheme(f[FM.previousLabelScheme]),
       doneColumn,
       limitDone: boolSetting(f[FM.limitDone], true),
@@ -189,6 +207,9 @@ export function parseBoardConfig(
       includeFolders: stringList(f[FM.includeFolders]).map(normalizeFolder).filter(Boolean),
       excludeFolders: stringList(f[FM.excludeFolders]).map(normalizeFolder).filter(Boolean),
       showCompletedDays: intSetting(f[FM.showCompletedDays], 7, 0, 3650),
+      sortCompletedSubtasks: boolSetting(f[FM.sortCompletedSubtasks], false),
+      hideCompletedSubtasks: boolSetting(f[FM.hideCompletedSubtasks], false),
+      overdueBar: boolSetting(f[FM.overdueBar], true),
       newTasks: newTasksSetting(f[FM.newTasks], warnings),
       newTasksNote: typeof f[FM.newTasksNote] === 'string' ? (f[FM.newTasksNote] as string).trim() : '',
       newTasksHeading: typeof f[FM.newTasksHeading] === 'string' ? (f[FM.newTasksHeading] as string).trim() : '',
@@ -196,22 +217,6 @@ export function parseBoardConfig(
     warnings,
     slugMissing: !rawSlug,
   };
-}
-
-/** List values arrive as YAML lists, or as one comma-separated string from the Properties editor. */
-function stringList(raw: unknown): string[] {
-  if (raw === undefined || raw === null) return [];
-  if (typeof raw === 'object' && !Array.isArray(raw)) return [];
-  const items = Array.isArray(raw) ? raw : scalarText(raw).split(',');
-  return items
-    .filter((v) => v !== null && v !== undefined && typeof v !== 'object')
-    .map((v) => String(v).trim())
-    .filter((v) => v !== '');
-}
-
-/** YAML objects are not valid scalar settings; avoid interpreting them as "[object Object]". */
-function scalarText(raw: unknown): string {
-  return typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean' ? String(raw) : '<non-scalar value>';
 }
 
 function newTasksSetting(raw: unknown, warnings: string[]): BoardConfig['newTasks'] {
@@ -253,43 +258,4 @@ function weekStartSetting(raw: unknown, warnings: string[]): number {
   if (i >= 0) return i;
   warnings.push(`week-start "${scalarText(raw)}" is not a weekday; using Monday.`);
   return 1;
-}
-
-/** Accepts `["context: house, garden"]` or a YAML mapping `{ context: [house, garden] }`. */
-function propertyFilters(raw: unknown): PropertyFilter[] {
-  const filters: PropertyFilter[] = [];
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    for (const [key, values] of Object.entries(raw as Record<string, unknown>)) {
-      if (key.trim()) filters.push({ key: key.trim(), values: stringList(values) });
-    }
-    return filters;
-  }
-  const items = Array.isArray(raw) ? raw : raw === undefined || raw === null ? [] : [raw];
-  for (const item of items) {
-    // Unquoted `- context: house` in YAML arrives as a one-key mapping.
-    if (item && typeof item === 'object' && !Array.isArray(item)) {
-      filters.push(...propertyFilters(item));
-      continue;
-    }
-    if (typeof item !== 'string') continue;
-    const text = unquote(item);
-    const colon = text.indexOf(':');
-    const key = unquote(colon >= 0 ? text.slice(0, colon) : text);
-    const values = colon >= 0 ? stringList(text.slice(colon + 1)).map(unquote).filter(Boolean) : [];
-    if (key) filters.push({ key, values });
-  }
-  return filters;
-}
-
-/** The Properties editor stores typed quotes literally, so `"context: house"` keeps its quotes. */
-function unquote(text: string): string {
-  return text.trim().replace(/^(["'])(.*)\1$/, '$2').trim();
-}
-
-function normalizeTag(tag: string): string {
-  return tag.replace(/^#/, '').replace(/\/+$/, '').toLowerCase();
-}
-
-function normalizeFolder(folder: string): string {
-  return folder.replace(/^\/+|\/+$/g, '');
 }

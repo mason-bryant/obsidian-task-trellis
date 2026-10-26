@@ -1,12 +1,33 @@
 import { FM, type BoardConfig, type DueNowUnit } from './boardConfig.ts';
+import type { FilterSet } from './filters.ts';
+import { quickFilterFrontmatter, type QuickDue, type QuickPriority } from './quickFilters.ts';
 import { slugify } from './taskLine.ts';
 
 /** A column being edited; `originalId` ties it to the column it was, so a rename can retag its tasks. */
 export type DraftColumn = { label: string; originalId?: string };
 export type DraftFilter = { key: string; condition: 'exists' | 'matches'; values: string[] };
 
+/** Tag, folder and property rules as typed, for the board or one quick filter. */
+export type DraftFilterSet = {
+  filters: DraftFilter[];
+  excludedFilters: DraftFilter[];
+  includeTags: string;
+  excludeTags: string;
+  includeFolders: string;
+  excludeFolders: string;
+};
+
+export type DraftQuickFilter = DraftFilterSet & {
+  id: string;
+  name: string;
+  show: boolean;
+  priorities: QuickPriority[];
+  labels: string[];
+  due: QuickDue[];
+};
+
 /** The board settings form's state: what the user typed, before validation. */
-export type BoardDraft = {
+export type BoardDraft = DraftFilterSet & {
   columns: DraftColumn[];
   /** Index into `columns`, or -1 for no Done column. */
   doneIndex: number;
@@ -21,12 +42,10 @@ export type BoardDraft = {
   weekHorizon: string;
   weekStart: number;
   showCompletedDays: string;
-  filters: DraftFilter[];
-  excludedFilters: DraftFilter[];
-  includeTags: string;
-  excludeTags: string;
-  includeFolders: string;
-  excludeFolders: string;
+  sortCompletedSubtasks: boolean;
+  hideCompletedSubtasks: boolean;
+  overdueBar: boolean;
+  quickFilters: DraftQuickFilter[];
   newTasks: BoardConfig['newTasks'];
   newTasksNote: string;
   newTasksHeading: string;
@@ -57,12 +76,13 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     weekHorizon: String(config.weekHorizon),
     weekStart: config.weekStart,
     showCompletedDays: String(config.showCompletedDays),
-    filters: config.propertyFilters.map(filterDraft),
-    excludedFilters: config.excludedPropertyFilters.map(filterDraft),
-    includeTags: config.includeTags.join(', '),
-    excludeTags: config.excludeTags.join(', '),
-    includeFolders: config.includeFolders.join('\n'),
-    excludeFolders: config.excludeFolders.join('\n'),
+    sortCompletedSubtasks: config.sortCompletedSubtasks,
+    hideCompletedSubtasks: config.hideCompletedSubtasks,
+    overdueBar: config.overdueBar,
+    ...filterSetDraft(config),
+    quickFilters: config.quickFilters.map((f) => ({
+      id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], due: [...f.due], ...filterSetDraft(f),
+    })),
     newTasks: config.newTasks,
     newTasksNote: config.newTasksNote,
     newTasksHeading: config.newTasksHeading,
@@ -102,6 +122,17 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
   });
   const filters = serialize(draft.filters, 'Must include');
   const excluded = serialize(draft.excludedFilters, 'Must not include');
+  const boardSet = filterSetFrontmatter(draft);
+  const quickFilters = draft.quickFilters.map((q, i) => {
+    const name = q.name.trim();
+    if (!name) errors.push(`Quick filter ${i + 1} needs a name.`);
+    return quickFilterFrontmatter({
+      id: q.id, name, show: q.show, priorities: q.priorities, labels: q.labels, due: q.due,
+      ...filterSetFrontmatter(q),
+      propertyFilters: serialize(q.filters, `Quick filter ${i + 1}, must include`),
+      excludedPropertyFilters: serialize(q.excludedFilters, `Quick filter ${i + 1}, must not include`),
+    });
+  });
 
   if (draft.newTasks === 'note' && !draft.newTasksNote.trim()) errors.push('Choose the note new tasks go to.');
 
@@ -126,11 +157,15 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.weekStart]: (WEEKDAY_NAMES[draft.weekStart] ?? 'Monday').toLowerCase(),
     [FM.filterProperties]: filters,
     [FM.excludeProperties]: excluded,
-    [FM.includeTags]: splitList(draft.includeTags, ',').map(cleanTag).filter(Boolean),
-    [FM.excludeTags]: splitList(draft.excludeTags, ',').map(cleanTag).filter(Boolean),
-    [FM.includeFolders]: splitList(draft.includeFolders, '\n').map(cleanFolder).filter(Boolean),
-    [FM.excludeFolders]: splitList(draft.excludeFolders, '\n').map(cleanFolder).filter(Boolean),
+    [FM.includeTags]: boardSet.includeTags,
+    [FM.excludeTags]: boardSet.excludeTags,
+    [FM.includeFolders]: boardSet.includeFolders,
+    [FM.excludeFolders]: boardSet.excludeFolders,
+    [FM.quickFilters]: quickFilters,
     [FM.showCompletedDays]: intField('Show completed', draft.showCompletedDays, 0, 3650, errors),
+    [FM.sortCompletedSubtasks]: draft.sortCompletedSubtasks,
+    [FM.hideCompletedSubtasks]: draft.hideCompletedSubtasks,
+    [FM.overdueBar]: draft.overdueBar,
     [FM.newTasks]: draft.newTasks,
     [FM.newTasksNote]: draft.newTasks === 'note' ? draft.newTasksNote.trim() : '',
     [FM.newTasksHeading]: draft.newTasks === 'default' ? '' : draft.newTasksHeading.trim(),
@@ -175,6 +210,26 @@ function cleanFolder(folder: string): string {
   return folder.replace(/^\/+|\/+$/g, '');
 }
 
+function filterSetDraft(set: FilterSet): DraftFilterSet {
+  return {
+    filters: set.propertyFilters.map(filterDraft),
+    excludedFilters: set.excludedPropertyFilters.map(filterDraft),
+    includeTags: set.includeTags.join(', '),
+    excludeTags: set.excludeTags.join(', '),
+    includeFolders: set.includeFolders.join('\n'),
+    excludeFolders: set.excludeFolders.join('\n'),
+  };
+}
+
+function filterSetFrontmatter(set: DraftFilterSet): Pick<FilterSet, 'includeTags' | 'excludeTags' | 'includeFolders' | 'excludeFolders'> {
+  return {
+    includeTags: splitList(set.includeTags, ',').map(cleanTag).filter(Boolean),
+    excludeTags: splitList(set.excludeTags, ',').map(cleanTag).filter(Boolean),
+    includeFolders: splitList(set.includeFolders, '\n').map(cleanFolder).filter(Boolean),
+    excludeFolders: splitList(set.excludeFolders, '\n').map(cleanFolder).filter(Boolean),
+  };
+}
+
 function filterDraft(f: { key: string; values: string[] }): DraftFilter {
   return { key: f.key, condition: f.values.length ? 'matches' : 'exists', values: [...f.values] };
 }
@@ -186,7 +241,7 @@ export function filterError(rule: DraftFilter): string | null {
 }
 
 /** Conflicts are warnings; repeated and partially overlapping rules remain valid. */
-export function filterWarnings(draft: BoardDraft): string[] {
+export function filterWarnings(draft: DraftFilterSet): string[] {
   const excludesExistence = new Set(draft.excludedFilters.filter((f) => f.condition === 'exists').map((f) => f.key.trim()));
   return [...new Set(draft.filters.map((f) => f.key.trim()).filter((key) => key && excludesExistence.has(key)))]
     .map((key) => `“${key}” is required and its existence is excluded. No note can satisfy both rules.`);

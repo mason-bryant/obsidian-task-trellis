@@ -180,6 +180,7 @@
   border-left: 3px solid var(--color-red);
   box-shadow: var(--shadow-s);
 }
+.tt-board--no-overdue-bar .tt-card.is-overdue { border-left: 1px solid var(--background-modifier-border); }
 
 .tt-card.is-dragging {
   opacity: 0.4;
@@ -538,7 +539,7 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-field { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; min-width: 0; }
 .tt-field-label { font-size: var(--font-ui-small); font-weight: 600; }
 .tt-field .tt-help { margin: 0; }
-.tt-input { box-sizing: border-box; min-height: 36px; width: 100%; border: 1px solid var(--background-modifier-border); border-radius: 7px; padding: 7px 10px; background: var(--background-primary); color: var(--text-normal); font: inherit; }
+.tt-input { box-sizing: border-box; min-height: 36px; width: 100%; border: 1px solid var(--background-modifier-border); border-radius: 7px; padding: 7px 10px; background-color: var(--background-primary); color: var(--text-normal); font: inherit; }
 .tt-settings input[type='number'] { width: 100%; max-width: 160px; }
 .tt-settings-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
 .tt-settings-row > input { flex: 1; min-width: 0; }
@@ -595,6 +596,17 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   .tt-filter-title { flex-wrap: wrap; }
   .tt-filter-logic { margin-left: 0; flex-basis: 100%; }
 }
+
+.tt-quick-filter { margin: 10px 0; padding: 8px 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
+.tt-quick-filter-header { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.tt-quick-filter-header .tt-check-field { margin: 0 8px; }
+.tt-quick-filter-toggle { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-normal); font-weight: 600; text-align: left; cursor: pointer; }
+.tt-quick-filter-toggle > span:last-child { overflow-wrap: anywhere; }
+.tt-quick-filter-toggle:hover { background: var(--background-modifier-hover); }
+.tt-quick-choices { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 14px 0; padding: 0; border: 0; }
+.tt-quick-choices > legend { margin-bottom: 4px; padding: 0; }
+.tt-quick-choices .tt-check-field { margin: 4px 0; }
+.tt-quick-swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
 
 /* Subtask visibility is an explicit action, independent of card density. */
 .tt-subtask-controls {

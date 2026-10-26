@@ -8,7 +8,7 @@ export function renderEditorHeader(root: HTMLElement, title: string, icon: (el: 
   const header = uiElement(doc, 'div'); header.className = 'tt-editor-header';
   const button = (name: string, label: string, action: () => void) => {
     const b = uiElement(doc, 'button'); b.type = 'button'; b.className = `tt-editor-${name}`;
-    b.title = label; b.setAttribute('aria-label', label); icon(b, name === 'save' ? 'check' : 'x');
+    b.setAttribute('aria-label', label); icon(b, name === 'save' ? 'check' : 'x');
     b.onclick = action; return b;
   };
   const confirm = save ? button('save', saveLabel, save) : uiElement(doc, 'span');

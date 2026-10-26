@@ -28,3 +28,35 @@ exclude-properties:
 ```
 
 Both property lists accept a single string, a list of rules, or a mapping. Use a mapping with a YAML list for literal commas: `- status: ["cancelled, deferred"]` matches that complete value. Repeated rules remain separate; the editor preserves them when saving other settings. It warns when a required property's existence is also excluded, but allows deliberate overlapping rules. Empty-board diagnostics report missing required keys only.
+
+## Quick filters
+
+Quick filters are buttons at the top of the board that narrow it further while they're pressed. They never widen the board: a task must pass the board's filters and every quick filter that is on. Each board remembers which of its quick filters are on.
+
+Manage them in **Settings → Quick filters**. Select a filter's name to expand it. **Show on board** puts its button in the toolbar. A hidden filter is kept but never applied. Use the arrows to reorder the buttons, the copy button to clone a filter, and the trash button to remove one.
+
+A quick filter can match on:
+
+- **Priority**: any checked level. **No priority** matches tasks without one.
+- **Labels**: tasks with any checked board label.
+- **Due**: **Overdue**, **Due today**, **Due now** (the board's Due now window, overdue included) or **No due date**. Any checked choice can match.
+- **Must include** and **Must not include** rules for tags, note folders and note properties. These work exactly like the board's own filters above.
+
+Within Priority, Labels or Due, any checked choice can match. Every part you fill in must match. A quick filter with nothing chosen matches every task.
+
+Boards come with three quick filters: **High priority** (high or highest), **Overdue**, and one for the board's first label, named after it with a 🏷️ in front (for example **🏷️ Critical**). Boards created before quick filters existed show the same three until their settings are saved with changes. They're stored in the board note:
+
+```yaml
+quick-filters:
+  - id: high-priority
+    name: High priority
+    show: true
+    priority: [highest, high]
+  - id: late-work
+    name: Late work
+    show: true
+    due: [overdue]
+    include-tags: [work]
+```
+
+`id` keeps a filter's on/off state when it's renamed. Set `quick-filters: []` for a board with none.

@@ -212,7 +212,7 @@ describe('card labels', () => {
     host.onLabels = vi.fn();
     renderBoard(root, buildBoard([labeled], parseBoardConfig('House', { slug: 'house' }).config, today, () => undefined), host, { warnings: [], info: [] });
     expect(root.querySelectorAll('.tt-card-label')).toHaveLength(1);
-    expect(root.querySelector('.tt-card-label')!.getAttribute('title')).toBe('Red');
+    expect(root.querySelector('.tt-card-label')!.getAttribute('aria-label')).toBe('Red');
     root.querySelector<HTMLButtonElement>('.tt-card-label-button')!.click();
     expect(host.onLabels).toHaveBeenCalledWith(labeled);
     expect(host.onEdit).not.toHaveBeenCalled();

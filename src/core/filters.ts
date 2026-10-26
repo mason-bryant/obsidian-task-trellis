@@ -2,6 +2,9 @@ import type { BoardConfig, PropertyFilter } from './boardConfig.ts';
 
 export type Frontmatter = Record<string, unknown> | undefined;
 
+/** The tag, folder and property rules a board and each of its quick filters have. */
+export type FilterSet = Pick<BoardConfig, 'includeTags' | 'excludeTags' | 'includeFolders' | 'excludeFolders' | 'propertyFilters' | 'excludedPropertyFilters'>;
+
 /** Compare complete path segments so a folder/tag does not match a sibling prefix. */
 function within(value: string, scope: string): boolean {
   const segments = scope.split('/');
@@ -47,7 +50,7 @@ export function hasTag(tags: string[], tag: string): boolean {
 
 export function taskMatchesBoard(
   task: { path: string; tags: string[] },
-  config: BoardConfig,
+  config: FilterSet,
   fm: Frontmatter,
   noteTags: string[] = [],
 ): boolean {

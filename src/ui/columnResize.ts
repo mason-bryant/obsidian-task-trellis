@@ -64,10 +64,9 @@ export function installColumnResize(grid: HTMLElement, initial: ColumnWidths, ho
     handle.dataset.boardFocus = `resize:${column}`;
     handle.setAttribute('role', 'separator');
     handle.setAttribute('aria-orientation', 'vertical');
-    handle.setAttribute('aria-label', `Resize ${header.querySelector('.tt-col-title')?.textContent ?? column} column`);
+    handle.setAttribute('aria-label', `Resize ${header.querySelector('.tt-col-title')?.textContent ?? column} column. Drag to resize. Double-click or press Home to reset all column widths. Arrow keys adjust width.`);
     handle.setAttribute('aria-valuemin', String(MIN_COLUMN_WIDTH));
     handle.setAttribute('aria-valuemax', String(MAX_COLUMN_WIDTH));
-    handle.title = 'Drag to resize. Double-click or press Home to reset all column widths. Arrow keys adjust width.';
     header.classList.add('tt-col-header--resizable');
     header.append(handle);
     handle.addEventListener('pointerdown', (event) => {

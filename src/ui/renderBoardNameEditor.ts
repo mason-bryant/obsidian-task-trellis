@@ -34,7 +34,6 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
       ? 'Preview all affected notes before applying. Shortcuts, saved searches and custom board hotkeys using the old name or tag prefix need updating. Keep other devices idle until sync finishes.'
       : 'Task tags and label assignments stay unchanged. Shortcuts using the old board name need to be updated.';
     saveButton.setAttribute('aria-label', migrate.checked ? 'Preview tag changes' : 'Save board name');
-    saveButton.title = saveButton.getAttribute('aria-label')!;
   };
   input.addEventListener('input', invalidate); migrate.addEventListener('change', invalidate);
   let busy = false;
@@ -49,7 +48,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
     progress.hidden = false; progress.textContent = message;
     saveButton.classList.add('tt-rename-saving');
     const idleLabel = saveButton.getAttribute('aria-label')!;
-    saveButton.setAttribute('aria-label', message); saveButton.title = message;
+    saveButton.setAttribute('aria-label', message);
     if (previewing) previewButton.textContent = message;
     try {
       if (migration && migrate.checked && !reviewed) {
@@ -64,7 +63,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
           const warning = uiElement(doc, 'p'); warning.textContent = `Other references to check manually (queries, prose or note properties): ${preview.referencePaths.join(', ')}`;
           previewBox.append(warning);
         }
-        reviewed = true; saveButton.setAttribute('aria-label', 'Rename board and tags'); saveButton.title = 'Rename board and tags';
+        reviewed = true; saveButton.setAttribute('aria-label', 'Rename board and tags');
         const confirm = uiElement(doc, 'p'); confirm.textContent = 'Review the list, then choose the green checkmark to rename the board and its tags.'; previewBox.append(confirm);
       } else {
         if (migration && migrate.checked) await migration.apply();
@@ -81,7 +80,6 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
       progress.hidden = true; progress.textContent = ''; saveButton.classList.remove('tt-rename-saving');
       previewButton.textContent = 'Preview tag changes';
       if (saveButton.getAttribute('aria-label') === message) saveButton.setAttribute('aria-label', idleLabel);
-      saveButton.title = saveButton.getAttribute('aria-label')!;
     }
   };
   const header = renderEditorHeader(headerRoot, 'Rename board', icon, () => void submit(), close, 'Save board name');
