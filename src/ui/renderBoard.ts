@@ -17,6 +17,13 @@ export type RenderHost = {
   onToggleRow(rowId: string): void;
   /** Sets every supplied subtask list in one persisted update. */
   onSetSubtasksCollapsed(keys: string[], collapsed: boolean): void;
+  /** Persists which quick filters are switched on. Without it the board shows no quick filter buttons. */
+  onSetQuickFilters?(ids: string[]): void;
+  /** Remembers a board's display choices. Without these they last only for this view. */
+  isViewOn?(option: ViewOption): boolean;
+  onToggleView?(option: ViewOption): void;
+  /** Saves the board's Hide completed subtasks setting. Without it the toolbar has no button for it. */
+  onSetHideCompletedSubtasks?(hide: boolean): void;
   onDrop(taskId: string, target: DropTarget): void;
   onToggle(task: BoardTask): void;
   onEdit(task: BoardTask): void;
@@ -39,7 +46,10 @@ export type RenderHost = {
 
 export type RenderNotes = { warnings: string[]; info: string[] };
 
-type DisplayState = { slug: string; compact: boolean; column: string };
+/** Per-board display choices from the toolbar. */
+export type ViewOption = 'compact';
+
+type DisplayState = { slug: string; column: string } & Record<ViewOption, boolean>;
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 
 const DRAG_TYPE = 'application/x-task-trellis';
@@ -106,12 +116,19 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     displayStates.set(root, display);
   }
   if (!model.columns.some((c) => c.id === display.column)) display.column = '';
-  root.classList.toggle('tt-board--compact', display.compact);
+  const local = display;
+  const viewOn = (option: ViewOption) => baseHost.isViewOn ? baseHost.isViewOn(option) : local[option];
+  const toggleView = (option: ViewOption) => {
+    if (baseHost.onToggleView) { baseHost.onToggleView(option); return; }
+    local[option] = !local[option]; renderBoard(root, model, baseHost, notes);
+  };
+  root.classList.toggle('tt-board--compact', viewOn('compact'));
+  root.classList.toggle('tt-board--no-overdue-bar', !config.overdueBar);
   const toolbar = el('div', 'tt-board-toolbar');
   const heading = el('div', 'tt-board-heading');
   if (host.onRename) {
     const name = el('button', 'tt-board-name tt-board-rename', config.name);
-    name.type = 'button'; name.title = 'Rename board'; name.setAttribute('aria-label', `Rename board: ${config.name}`);
+    name.type = 'button'; name.setAttribute('aria-label', `Rename board: ${config.name}`);
     name.dataset.boardFocus = 'rename'; name.onclick = () => host.onRename?.();
     heading.append(name);
   } else heading.append(el('span', 'tt-board-name', config.name));
@@ -120,9 +137,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const compact = el('button', 'tt-toolbar-button'); compact.type = 'button';
   compact.dataset.boardFocus = 'compact';
   compact.append(hostIcon(host, 'rows-3'), el('span', '', 'Compact'));
-  compact.setAttribute('aria-pressed', String(display.compact));
+  compact.setAttribute('aria-pressed', String(viewOn('compact')));
   compact.title = 'Use compact card spacing';
-  compact.onclick = () => { display.compact = !display.compact; renderBoard(root, model, baseHost, notes); };
+  compact.onclick = () => toggleView('compact');
   const picker = el('select', 'tt-column-picker'); picker.setAttribute('aria-label', 'Visible board column');
   picker.dataset.boardFocus = 'column';
   for (const [id, label] of [['', 'All columns'], ...model.columns.map((c) => [c.id, c.label])]) {
@@ -141,6 +158,24 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       action.onclick = () => host.onSetSubtasksCollapsed(subtaskKeys, collapsed);
       tools.append(action);
     }
+    if (host.onSetHideCompletedSubtasks) {
+      const hideDone = el('button', 'tt-toolbar-button', 'Hide completed subtasks'); hideDone.type = 'button';
+      hideDone.dataset.boardFocus = 'hide-completed-subtasks';
+      hideDone.setAttribute('aria-pressed', String(config.hideCompletedSubtasks));
+      hideDone.onclick = () => host.onSetHideCompletedSubtasks?.(!config.hideCompletedSubtasks);
+      tools.append(hideDone);
+    }
+  }
+  if (host.onSetQuickFilters) {
+    for (const filter of config.quickFilters.filter((f) => f.show)) {
+      const on = model.activeQuickFilters.includes(filter.id);
+      const toggle = el('button', 'tt-toolbar-button tt-quick-filter'); toggle.type = 'button';
+      toggle.dataset.boardFocus = `quick:${filter.id}`;
+      toggle.append(hostIcon(host, 'filter'), el('span', '', filter.name));
+      toggle.setAttribute('aria-pressed', String(on));
+      toggle.onclick = () => host.onSetQuickFilters?.(on ? model.activeQuickFilters.filter((id) => id !== filter.id) : [...model.activeQuickFilters, filter.id]);
+      tools.append(toggle);
+    }
   }
   if (host.onSettings) {
     const settings = el('button', 'tt-toolbar-button'); settings.type = 'button';
@@ -155,7 +190,13 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const filters = config.propertyFilters.length + config.excludedPropertyFilters.length +
     [config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders].filter((list) => list.length).length;
   if (filters) heading.append(el('span', 'tt-filter-count', `${filters} filter ${filters === 1 ? 'condition' : 'conditions'}`));
-  if (model.total === 0 && host.onSettings) {
+  if (model.total === 0 && model.activeQuickFilters.length && host.onSetQuickFilters) {
+    const empty = el('section', 'tt-note tt-empty-state');
+    empty.append(el('p', '', 'No tasks match the quick filters that are on.'));
+    const clear = el('button', 'tt-toolbar-button', 'Turn off quick filters'); clear.type = 'button';
+    clear.dataset.boardFocus = 'quick-clear'; clear.onclick = () => host.onSetQuickFilters?.([]);
+    empty.append(clear); root.insertBefore(empty, scrollEl);
+  } else if (model.total === 0 && host.onSettings) {
     const empty = el('section', 'tt-note tt-empty-state');
     empty.setAttribute('aria-label', 'Get started with this board');
     empty.append(el('p', '', filters ? 'No tasks match this board. Check its filters and where new tasks are saved.' : 'Your board is ready. Choose where tasks are saved, then use Add task in a column.'));
@@ -422,7 +463,7 @@ function addBox(
 
   const actions = el('div', 'tt-add-actions');
   const add = el('button', 'tt-editor-save');
-  add.title = 'Add task'; add.setAttribute('aria-label', 'Add task');
+  add.setAttribute('aria-label', 'Add task');
   host.icon(add, 'check');
   add.type = 'button';
   add.addEventListener('click', () => void submit(false));
@@ -495,7 +536,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     for (const label of labels) {
       const bar = el('span', 'tt-card-label');
       bar.style.backgroundColor = label.color;
-      bar.title = labelDescription(label); bar.setAttribute('aria-label', bar.title);
+      bar.setAttribute('aria-label', labelDescription(label));
       bar.setAttribute('role', 'img');
       bars.append(bar);
     }
@@ -517,7 +558,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   const actions = el('span', 'tt-card-actions');
   if (host.onLabels && !task.parentId) {
     const labelsButton = el('button', 'clickable-icon tt-card-icon tt-card-label-button');
-    labelsButton.type = 'button'; labelsButton.title = 'Labels'; labelsButton.setAttribute('aria-label', 'Labels');
+    labelsButton.type = 'button'; labelsButton.setAttribute('aria-label', 'Labels');
     labelsButton.dataset.boardFocus = `labels:${task.id}`;
     host.icon(labelsButton, 'tag');
     labelsButton.onclick = (event) => { event.stopPropagation(); host.onLabels?.(task); };
@@ -657,10 +698,17 @@ function subtaskSection(task: BoardTask, model: BoardModel, host: RenderHost): H
   const subtasks = model.subtasks[task.id] ?? [];
   const composing = composer?.key === subtaskBoxKey(task, model.config.slug);
   if (subtasks.length > 0 ? host.isCollapsed(subtasksKey(task)) : !composing) return null;
+  const shown = model.config.hideCompletedSubtasks ? subtasks.filter((sub) => hasOpenWork(sub, model)) : subtasks;
+  if (!shown.length && !composing) return null;
   const section = el('div', 'tt-subtasks');
-  for (const sub of subtasks) section.append(subtaskRow(sub, model, host));
+  for (const sub of shown) section.append(subtaskRow(sub, model, host));
   if (composing) section.append(subtaskBox(task, model.config.slug, section, host));
   return section;
+}
+
+/** An open task, or a completed one with open subtasks, which stays so they aren't hidden with it. */
+function hasOpenWork(task: BoardTask, model: BoardModel): boolean {
+  return !task.closed || (model.subtasks[task.id] ?? []).some((sub) => hasOpenWork(sub, model));
 }
 
 function subtaskBoxKey(task: BoardTask, slug: string): string {
@@ -695,7 +743,6 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], host: RenderHost)
   const label = `${action} (${done} of ${subtasks.length} done)`;
   b.dataset.boardFocus = `subtasks-${task.id}`;
   b.setAttribute('aria-label', label);
-  b.title = action;
   b.append(chevron(), el('span', '', `${done}/${subtasks.length}`));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -709,7 +756,6 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
   const b = el('button', 'clickable-icon tt-card-icon tt-add-subtask');
   b.type = 'button';
   b.setAttribute('aria-label', 'Add subtask');
-  b.title = 'Add subtask';
   host.icon(b, 'list-plus');
   b.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -745,7 +791,6 @@ function moveButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   const destination = model.rows[rowIndex(target.rowId)]!;
   const label = `${destination.kind === 'now' ? 'Move into Due now' : 'Defer'}${destination.dropDate ? ` · due ${shortLabel(destination.dropDate)}` : ''}`;
   b.setAttribute('aria-label', label);
-  b.title = label;
   // Out of the No due date column it's a sideways move.
   const icon =
     model.config.undatedColumn && model.rowOf[task.id] === 'none'
@@ -765,7 +810,6 @@ function moveMenuButton(task: BoardTask, model: BoardModel, host: RenderHost): H
   b.type = 'button';
   b.setAttribute('aria-label', 'Move to…');
   b.setAttribute('aria-haspopup', 'menu');
-  b.title = 'Move to…';
   host.icon(b, 'more-horizontal');
   b.addEventListener('click', (e) => {
     e.stopPropagation();

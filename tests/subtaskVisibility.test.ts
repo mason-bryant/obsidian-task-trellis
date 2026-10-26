@@ -50,6 +50,11 @@ beforeEach(() => {
     }),
     onDrop: vi.fn(), onToggle: vi.fn(), onEdit: vi.fn(), onOpenSource: vi.fn(),
     onDragEnd: vi.fn(), onAddTask: vi.fn(), onAddSubtask: vi.fn(),
+    isViewOn: (option) => collapsed[`view:${option}`] === true,
+    onToggleView: vi.fn((option) => {
+      collapsed[`view:${option}`] = !collapsed[`view:${option}`];
+      persisted = JSON.stringify(collapsed); draw();
+    }),
   };
   draw();
 });
@@ -61,13 +66,12 @@ afterEach(() => {
 describe('subtask visibility controls', () => {
   it('labels the action and progress, hides only descendants, and restores keyboard focus', () => {
     expect(toggle(parent).textContent).toBe('1/2');
-    expect(toggle(parent).title).toBe('Hide subtasks');
     expect(toggle(parent).getAttribute('aria-label')).toBe('Hide subtasks (1 of 2 done)');
     expect(toggle(parent).parentElement?.nextElementSibling?.className).toBe('tt-subtasks');
     expect(toggle(parent).parentElement?.querySelector('.tt-add-subtask')).not.toBeNull();
     click(toggle(parent));
     expect(toggle(parent).textContent).toBe('1/2');
-    expect(toggle(parent).title).toBe('Show subtasks');
+    expect(toggle(parent).getAttribute('aria-label')).toBe('Show subtasks (1 of 2 done)');
     expect(toggle(parent).getAttribute('aria-expanded')).toBe('false');
     expect(owner(parent)).toBeDefined(); expect(owner(child)).toBeUndefined();
     expect(document.activeElement).toBe(toggle(parent));
@@ -148,6 +152,56 @@ describe('subtask visibility controls', () => {
     host.onToggleRow = (key) => { collapsed[key] = !host.isCollapsed(key); renderBoard(root, m, host, { warnings: [], info: [] }); };
     renderBoard(root, m, host, { warnings: [], info: [] });
     click(toggle(quoted)); expect(document.activeElement).toBe(toggle(quoted));
+  });
+
+  it('hides completed subtasks across the board from the toolbar', () => {
+    let board = config;
+    const redraw = () => renderBoard(root, buildBoard(tasks, board, today, () => undefined), host, { warnings: [], info: [] });
+    host.onSetHideCompletedSubtasks = vi.fn((hide) => { board = { ...board, hideCompletedSubtasks: hide }; redraw(); });
+    redraw();
+    const hide = () => button('Hide completed subtasks');
+    expect(hide().getAttribute('aria-pressed')).toBe('false');
+    expect(owner(completed)).toBeDefined();
+    click(hide());
+    expect(host.onSetHideCompletedSubtasks).toHaveBeenCalledWith(true);
+    expect(owner(completed)).toBeUndefined();
+    expect(owner(child)).toBeDefined();
+    expect(toggle(parent).textContent).toBe('1/2');
+    expect(hide().getAttribute('aria-pressed')).toBe('true');
+    expect(document.activeElement).toBe(hide());
+    click(hide());
+    expect(owner(completed)).toBeDefined();
+  });
+
+  it('keeps a completed subtask that still has open subtasks', () => {
+    const done = task('- [ ] Paint #tt/house/doing', 10), doneChild = task('  - [x] Prime ✅ 2026-10-22', 11, 10),
+      open = task('    - [ ] Touch up', 12, 11);
+    renderBoard(root, buildBoard([done, doneChild, open], { ...config, hideCompletedSubtasks: true }, today, () => undefined), host, { warnings: [], info: [] });
+    expect(owner(doneChild)).toBeDefined();
+    expect(owner(open)).toBeDefined();
+  });
+
+  it('sorts completed subtasks last when the board asks', () => {
+    const first = task('- [ ] Paint #tt/house/doing', 20), a = task('  - [x] Prime ✅ 2026-10-22', 21, 20),
+      b = task('  - [ ] Roll', 22, 20), c = task('  - [ ] Edge', 23, 20);
+    const order = (sortCompletedSubtasks: boolean) =>
+      buildBoard([first, a, b, c], { ...config, sortCompletedSubtasks }, today, () => undefined).subtasks[first.id]!.map((t) => t.text);
+    expect(order(false)).toEqual(['Prime', 'Roll', 'Edge']);
+    expect(order(true)).toEqual(['Roll', 'Edge', 'Prime']);
+  });
+
+  it('drops the overdue bar when the board turns it off', () => {
+    const late = task('- [ ] Fix gutter 📅 2026-10-01 #tt/house/doing', 30);
+    renderBoard(root, buildBoard([late], { ...config, overdueBar: false }, today, () => undefined), host, { warnings: [], info: [] });
+    expect(root.classList.contains('tt-board--no-overdue-bar')).toBe(true);
+    renderBoard(root, buildBoard([late], config, today, () => undefined), host, { warnings: [], info: [] });
+    expect(root.classList.contains('tt-board--no-overdue-bar')).toBe(false);
+  });
+
+  it('remembers Compact per board', () => {
+    click(button('Compact'));
+    expect(root.classList.contains('tt-board--compact')).toBe(true);
+    expect(JSON.parse(persisted)).toMatchObject({ 'view:compact': true });
   });
 });
 

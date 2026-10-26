@@ -2,6 +2,7 @@ import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
 import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
 import { boardNameError } from './src/core/boardName.ts';
 import { isComposing } from './src/ui/dom.ts';
+import type { ViewOption } from './src/ui/renderBoard.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
 import { prepareEditorModal, renderEditorHeader } from './src/ui/editorHeader.ts';
@@ -23,7 +24,7 @@ import {
 import { FM, LEGACY_FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
 import { draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
-import { setSubtaskCollapse } from './src/core/collapse.ts';
+import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
 import { inFolder } from './src/core/filters.ts';
 import { slugify } from './src/core/taskLine.ts';
 import { BoardRegistry } from './src/obsidian/BoardRegistry.ts';
@@ -183,6 +184,28 @@ export default class TaskTrellisPlugin extends Plugin {
   /** Persist a board-wide subtask action once, instead of toggling and saving every card. */
   async setSubtasksCollapsed(slug: string, keys: string[], collapsed: boolean): Promise<void> {
     this.settings.collapsed[slug] = setSubtaskCollapse(this.settings.collapsed[slug] ?? {}, keys, collapsed);
+    await this.saveSettings();
+  }
+
+  /** Toolbar display choices such as Compact, kept per board as `view:<option>`. */
+  isViewOn(slug: string, option: ViewOption): boolean {
+    return this.settings.collapsed[slug]?.[`view:${option}`] === true;
+  }
+
+  async toggleView(slug: string, option: ViewOption): Promise<void> {
+    const state = { ...(this.settings.collapsed[slug] ?? {}) };
+    if (state[`view:${option}`]) delete state[`view:${option}`];
+    else state[`view:${option}`] = true;
+    this.settings.collapsed[slug] = state;
+    await this.saveSettings();
+  }
+
+  activeQuickFilters(slug: string): string[] {
+    return activeQuickFilterIds(this.settings.collapsed[slug] ?? {});
+  }
+
+  async setActiveQuickFilters(slug: string, ids: string[]): Promise<void> {
+    this.settings.collapsed[slug] = setActiveQuickFilterIds(this.settings.collapsed[slug] ?? {}, ids);
     await this.saveSettings();
   }
 

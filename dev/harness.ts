@@ -7,7 +7,7 @@ import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
 import { setTaskLabels, taskLabels } from '../src/core/labels.ts';
 import { renderLabelPicker } from '../src/ui/renderLabelPicker.ts';
-import { setSubtaskCollapse } from '../src/core/collapse.ts';
+import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from '../src/core/collapse.ts';
 import { previewIcon } from './icons.ts';
 // Runs the real board model and renderer against an in-memory vault, for checking the UI in a browser.
 import { applyEdit, buildBoard, planDrop, taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
@@ -159,6 +159,16 @@ const host: RenderHost = {
     collapsed = setSubtaskCollapse(collapsed, keys, value);
     render();
   },
+  isViewOn: (option) => collapsed[`view:${option}`] === true,
+  onToggleView: (option) => {
+    collapsed = { ...collapsed, [`view:${option}`]: !collapsed[`view:${option}`] };
+    render();
+  },
+  onSetHideCompletedSubtasks: (hide) => { config.hideCompletedSubtasks = hide; render(); },
+  onSetQuickFilters: (ids) => {
+    collapsed = setActiveQuickFilterIds(collapsed, ids);
+    render();
+  },
   onDrop: (id, target) => {
     const before = JSON.stringify(files);
     const edits = planDrop(model(), id, target);
@@ -260,7 +270,7 @@ function offerUndo(before: string, label: string): void {
 }
 
 function model() {
-  return buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags);
+  return buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags, activeQuickFilterIds(collapsed));
 }
 
 function render(): void {

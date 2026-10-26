@@ -9,7 +9,7 @@ export type TaskTrellisSettings = {
   excludedFolders: string[];
   /** Show the search field in task label pickers. */
   showLabelSearch: boolean;
-  /** Board slug → row id → collapsed. View state, so it lives here rather than in the board note. */
+  /** Board slug → row id → collapsed, `quick:<id>` and `view:<option>` → on. View state, so it lives here rather than in the board note. */
   collapsed: Record<string, Record<string, boolean>>;
   /** Where new tasks go, unless a board says otherwise. */
   newTaskKind: NewTaskKind;

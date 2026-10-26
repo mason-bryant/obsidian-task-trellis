@@ -1,6 +1,7 @@
 import { diffDays, shortLabel, type ISODate } from './dates.ts';
 import type { BoardColumn, BoardConfig } from './boardConfig.ts';
 import { taskMatchesBoard, type Frontmatter } from './filters.ts';
+import { activeQuickFilters, taskMatchesQuickFilter } from './quickFilters.ts';
 import { computeRows, rowForDue, type RowDef } from './rows.ts';
 import { planReorder } from './sort.ts';
 import { parseTaskLine, priorityRank, setDueDate, setPlacement, type ParsedTask } from './taskLine.ts';
@@ -33,6 +34,8 @@ export type BoardModel = {
   /** taskId → its subtasks in note order. Subtasks show inside their parent's card, not in cells. */
   subtasks: Record<string, BoardTask[]>;
   total: number;
+  /** Ids of the quick filters applied to the cards. */
+  activeQuickFilters: string[];
 };
 
 export type DropTarget = { rowId: string; columnId: string; index: number };
@@ -90,6 +93,7 @@ export function buildBoard(
   today: ISODate,
   frontmatterOf: (path: string) => Frontmatter,
   noteTagsOf: (path: string) => string[] = () => [],
+  activeQuickFilterIds: string[] = [],
 ): BoardModel {
   const rows = computeRows(config, today);
   const cells: BoardModel['cells'] = {};
@@ -100,9 +104,11 @@ export function buildBoard(
   // A task under a parent that is on the board goes with the parent, whatever its own date, column
   // or done date; otherwise it's a card of its own if it passes the board's filters.
   const byId = new Map(tasks.map((t) => [t.id, t]));
+  const quick = activeQuickFilters(config, activeQuickFilterIds);
+  const usesNoteTags = [config, ...quick].some((set) => set.includeTags.length || set.excludeTags.length);
   const noteTags = new Map<string, string[]>();
   const tagsFor = (path: string) => {
-    if (!config.includeTags.length && !config.excludeTags.length) return [];
+    if (!usesNoteTags) return [];
     if (!noteTags.has(path)) noteTags.set(path, noteTagsOf(path));
     return noteTags.get(path)!;
   };
@@ -115,7 +121,8 @@ export function buildBoard(
     const parent = task.parentId === undefined ? undefined : byId.get(task.parentId);
     let result: 'card' | 'subtask' | 'off' = 'off';
     if (parent && place(parent) !== 'off') result = 'subtask';
-    else if (isShown(task, config, today) && taskMatchesBoard(task, config, frontmatterOf(task.path), tagsFor(task.path))) result = 'card';
+    else if (isShown(task, config, today) && taskMatchesBoard(task, config, frontmatterOf(task.path), tagsFor(task.path)) &&
+      quick.every((filter) => taskMatchesQuickFilter(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)))) result = 'card';
     placement.set(task.id, result);
     return result;
   };
@@ -138,7 +145,9 @@ export function buildBoard(
       total++;
     }
   }
-  for (const list of Object.values(subtasks)) list.sort((a, b) => a.line - b.line);
+  for (const list of Object.values(subtasks)) {
+    list.sort((a, b) => (config.sortCompletedSubtasks ? Number(a.closed) - Number(b.closed) : 0) || a.line - b.line);
+  }
 
   const compare = cardComparator(config.slug);
   const compareDone = doneComparator(compare);
@@ -148,7 +157,7 @@ export function buildBoard(
     }
   }
 
-  return { config, today, rows, columns: config.columns, cells, rowOf, subtasks, total };
+  return { config, today, rows, columns: config.columns, cells, rowOf, subtasks, total, activeQuickFilters: quick.map((f) => f.id) };
 }
 
 /** Sort-numbered cards first, then by due date, priority and location. */

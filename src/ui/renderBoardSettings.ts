@@ -1,7 +1,9 @@
 import { uiElement, isComposing } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
-import { convertDueNow, filterError, filterWarnings, WEEKDAY_NAMES, type BoardDraft, type DraftFilter } from '../core/boardDraft.ts';
+import { labelDescription } from '../core/labels.ts';
+import { newQuickFilterId, QUICK_DUES, QUICK_PRIORITIES } from '../core/quickFilters.ts';
+import { convertDueNow, filterError, filterWarnings, WEEKDAY_NAMES, type BoardDraft, type DraftFilter, type DraftFilterSet, type DraftQuickFilter } from '../core/boardDraft.ts';
 
 export type SettingsFormHost = {
   header?: HTMLElement;
@@ -21,7 +23,7 @@ export type SettingsFormHost = {
   onCopyShortcut?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
-export type Section = 'columns' | 'dates' | 'filters' | 'destination';
+export type Section = 'columns' | 'dates' | 'filters' | 'quick' | 'appearance' | 'destination';
 
 /** Shared by the Obsidian modal and harness. Drafts are written only by an explicit save. */
 export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, original: BoardConfig, host: SettingsFormHost): SettingsForm {
@@ -32,13 +34,15 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   let focusNext: string | null = null;
   let drawnSection: Section = section;
   const scrollPositions = new Map<Section, number>();
+  /** Ids of the quick filters whose editors are expanded. */
+  const openQuick = new Set<string>();
   let disposers: Array<() => void> = [];
   const attach = (dispose: void | (() => void)) => { if (dispose) disposers.push(dispose); };
   const dispose = () => { disposers.forEach((fn) => fn()); disposers = []; };
   const icon = (name: string) => { const span = el('span', 'tt-icon'); host.icon(span, name); return span; };
   const iconButton = (name: string, label: string, run: () => void, disabled = false) => {
     const b = button('', 'tt-icon-button');
-    b.title = label; b.setAttribute('aria-label', label); b.disabled = disabled;
+    b.setAttribute('aria-label', label); b.disabled = disabled;
     b.append(icon(name)); b.onclick = run; return b;
   };
   const field = (label: string, control: HTMLElement, help = '') => {
@@ -119,10 +123,19 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   }
 
   // Empty tag/folder rows are UI drafts only; existing serialized filters keep their semantics.
-  const visibleRules = {
-    includeTags: !!draft.includeTags.trim(), excludeTags: !!draft.excludeTags.trim(),
-    includeFolders: !!draft.includeFolders.trim(), excludeFolders: !!draft.excludeFolders.trim(),
+  type ListKey = 'includeTags' | 'excludeTags' | 'includeFolders' | 'excludeFolders';
+  const shownRules = new WeakMap<DraftFilterSet, Record<ListKey, boolean>>();
+  const visibleRulesOf = (set: DraftFilterSet) => {
+    let shown = shownRules.get(set);
+    if (!shown) {
+      shown = { includeTags: !!set.includeTags.trim(), excludeTags: !!set.excludeTags.trim(), includeFolders: !!set.includeFolders.trim(), excludeFolders: !!set.excludeFolders.trim() };
+      shownRules.set(set, shown);
+    }
+    return shown;
   };
+  /** Keeps focus keys and labels distinct between the board's rules and each quick filter's. */
+  type Scope = { key: string; label: string };
+  const boardScope: Scope = { key: '', label: '' };
   const literal = (text: string) => el('div', 'tt-filter-literal', text);
   function ruleRow(name: string, fieldControl: HTMLElement, condition: HTMLElement, values: HTMLElement,
     remove: () => void): HTMLElement {
@@ -132,11 +145,12 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     return row;
   }
 
-  function propertyRow(rule: DraftFilter, index: number, excluded: boolean): HTMLElement {
-    const group = excluded ? 'Must not include' : 'Must include';
-    const rules = excluded ? draft.excludedFilters : draft.filters;
-    const id = `${excluded ? 'exclude' : 'include'}-property-${index}`;
-    const key = input(rule.key, `${group}: Property ${index + 1}`, (v) => { rule.key = v; refreshError(); updateWarnings(); });
+  function propertyRow(set: DraftFilterSet, scope: Scope, rule: DraftFilter, index: number, excluded: boolean): HTMLElement {
+    const group = `${scope.label}${excluded ? 'Must not include' : 'Must include'}`;
+    const rules = excluded ? set.excludedFilters : set.filters;
+    const prefix = `${scope.key}${excluded ? 'exclude' : 'include'}`;
+    const id = `${prefix}-property-${index}`;
+    const key = input(rule.key, `${group}: Property ${index + 1}`, (v) => { rule.key = v; refreshError(); if (set === draft) updateWarnings(); });
     key.dataset.focus = id; attach(host.attachKeySuggest(key));
     const condition = select(`${group}: Condition ${index + 1}`, [['exists', 'Exists'], ['matches', 'Matches any value']], rule.condition, (v) => {
       rule.condition = v as DraftFilter['condition']; redraw(`${id}-condition`);
@@ -158,38 +172,40 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const property = el('div', 'tt-filter-property'); property.append(key, el('span', 'tt-help', 'Note property'));
     const row = ruleRow(`${group.toLowerCase()} property ${index + 1}`, property, condition,
       valueControl ?? literal('Any value, including empty'), () => {
-        rules.splice(index, 1); redraw(rules.length ? `${excluded ? 'exclude' : 'include'}-property-${Math.min(index, rules.length - 1)}` : `${excluded ? 'exclude' : 'include'}-add`);
+        rules.splice(index, 1); redraw(rules.length ? `${prefix}-property-${Math.min(index, rules.length - 1)}` : `${prefix}-add`);
       });
     refreshError(); row.append(error); return row;
   }
 
-  function filterGroup(excluded: boolean): HTMLElement {
-    const name = excluded ? 'Must not include' : 'Must include';
-    const prefix = excluded ? 'exclude' : 'include';
+  function filterGroup(set: DraftFilterSet, excluded: boolean, scope = boardScope): HTMLElement {
+    const title = excluded ? 'Must not include' : 'Must include';
+    const name = `${scope.label}${title}`;
+    const prefix = `${scope.key}${excluded ? 'exclude' : 'include'}`;
+    const visibleRules = visibleRulesOf(set);
     const group = el('section', `tt-filter-group${excluded ? ' tt-filter-group--exclude' : ''}`);
     group.setAttribute('aria-label', name);
-    const title = el('h4', 'tt-filter-title'); title.append(icon(excluded ? 'circle-minus' : 'circle-plus'), el('span', '', name));
-    title.append(el('span', 'tt-filter-logic', excluded ? 'Match any rule' : 'Match all rules'));
-    group.append(title, el('p', 'tt-help', excluded
+    const heading = el('h4', 'tt-filter-title'); heading.append(icon(excluded ? 'circle-minus' : 'circle-plus'), el('span', '', title));
+    heading.append(el('span', 'tt-filter-logic', excluded ? 'Match any rule' : 'Match all rules'));
+    group.append(heading, el('p', 'tt-help', excluded
       ? 'Hide a task if any rule below matches. Within a rule, any listed value can match.'
       : 'A task must match every rule below. Within a rule, any listed value can match. Empty tag or folder rules add no restriction.'));
     const tagKey = excluded ? 'excludeTags' : 'includeTags';
     const folderKey = excluded ? 'excludeFolders' : 'includeFolders';
-    const rules = excluded ? draft.excludedFilters : draft.filters;
+    const rules = excluded ? set.excludedFilters : set.filters;
     const listRow = (kind: 'tags' | 'folders') => {
       const tags = kind === 'tags', key = tags ? tagKey : folderKey, separator = tags ? ',' : '\n';
       const label = `${name}: ${tags ? 'Tags' : 'Note folders'}`;
-      const values = chips(draft[key].split(separator).map((v) => v.trim()).filter(Boolean), label,
-        (values) => { draft[key] = values.join(tags ? ', ' : '\n'); },
+      const values = chips(set[key].split(separator).map((v) => v.trim()).filter(Boolean), label,
+        (values) => { set[key] = values.join(tags ? ', ' : '\n'); },
         (node) => tags ? host.attachTagSuggest(node) : host.attachFolderSuggest(node), tags);
       return ruleRow(`${name.toLowerCase()} ${kind}`, literal(tags ? 'Tags' : 'Note folder'),
         literal(tags ? 'Matches any tag' : 'Is in any folder'), values, () => {
-          draft[key] = ''; visibleRules[key] = false; redraw(`${prefix}-add`);
+          set[key] = ''; visibleRules[key] = false; redraw(`${prefix}-add`);
         });
     };
     if (visibleRules[tagKey]) group.append(listRow('tags'));
     if (visibleRules[folderKey]) group.append(listRow('folders'));
-    rules.forEach((rule, i) => group.append(propertyRow(rule, i, excluded)));
+    rules.forEach((rule, i) => group.append(propertyRow(set, scope, rule, i, excluded)));
     if (!visibleRules[tagKey] && !visibleRules[folderKey] && !rules.length) {
       group.append(el('p', 'tt-filter-empty', excluded ? 'No exclusions.' : 'No inclusion restrictions.'));
     }
@@ -213,6 +229,72 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const actions = el('div', 'tt-filter-add'); actions.append(picker, add); group.append(actions); return group;
   }
 
+  function quickFilterEditor(body: HTMLElement): void {
+    heading(body, 'Quick filters', 'Turn these on and off with buttons at the top of the board. Each one that is on narrows the board further, on top of its filters.');
+    const list = draft.quickFilters;
+    const quickCheck = (label: string, focus: string, checked: boolean, change: (v: boolean) => void) => {
+      const wrap = check(label, checked, change); wrap.querySelector('input')!.dataset.focus = focus; return wrap;
+    };
+    const choices = <T extends string>(legend: string, focus: string, options: [T, string, string?][], selected: T[]) => {
+      const group = el('fieldset', 'tt-quick-choices'); group.append(el('legend', 'tt-field-label', legend));
+      for (const [value, label, color] of options) {
+        const item = quickCheck(label, `${focus}-${value}`, selected.includes(value), (on) => {
+          const at = selected.indexOf(value);
+          if (on && at < 0) selected.push(value); else if (!on && at >= 0) selected.splice(at, 1);
+        });
+        if (color) { const swatch = el('span', 'tt-quick-swatch'); swatch.style.backgroundColor = color; item.insertBefore(swatch, item.lastChild); }
+        group.append(item);
+      }
+      return group;
+    };
+    list.forEach((quick, i) => {
+      const key = `quick-${i}`;
+      const open = openQuick.has(quick.id);
+      const item = el('section', 'tt-quick-filter'); item.setAttribute('aria-label', `Quick filter ${i + 1}`);
+      const top = el('div', 'tt-quick-filter-header');
+      const toggle = button('', 'tt-quick-filter-toggle'); toggle.dataset.focus = `${key}-toggle`;
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.append(icon(open ? 'chevron-down' : 'chevron-right'), el('span', '', quick.name.trim() || '(unnamed)'));
+      toggle.onclick = () => { if (open) openQuick.delete(quick.id); else openQuick.add(quick.id); redraw(`${key}-toggle`); };
+      const show = quickCheck('Show on board', `${key}-show`, quick.show, (v) => { quick.show = v; });
+      const move = (to: number) => { [list[i], list[to]] = [list[to]!, list[i]!]; redraw(`quick-${to}-toggle`); };
+      const name = quick.name.trim() || `quick filter ${i + 1}`;
+      top.append(toggle, show,
+        iconButton('arrow-up', `Move ${name} up`, () => move(i - 1), i === 0),
+        iconButton('arrow-down', `Move ${name} down`, () => move(i + 1), i === list.length - 1),
+        iconButton('copy', `Clone ${name}`, () => {
+          const copy: DraftQuickFilter = structuredClone(quick);
+          copy.id = newQuickFilterId(list); copy.name = `${quick.name.trim()} copy`;
+          list.splice(i + 1, 0, copy); openQuick.add(copy.id); redraw(`quick-${i + 1}-name`);
+        }),
+        iconButton('trash-2', `Remove ${name}`, () => {
+          list.splice(i, 1); openQuick.delete(quick.id); redraw(list.length ? `quick-${Math.min(i, list.length - 1)}-toggle` : 'quick-add');
+        }));
+      item.append(top);
+      if (open) {
+        const nameInput = input(quick.name, `Quick filter ${i + 1} name`, (v) => { quick.name = v; toggle.lastElementChild!.textContent = v.trim() || '(unnamed)'; });
+        nameInput.dataset.focus = `${key}-name`;
+        nameInput.setAttribute('aria-invalid', String(validation && !quick.name.trim()));
+        item.append(field('Name', nameInput));
+        item.append(choices('Priority', `${key}-priority`, QUICK_PRIORITIES, quick.priorities));
+        if (original.labels.length) item.append(choices('Labels', `${key}-label`, original.labels.map((l) => [l.id, labelDescription(l), l.color] as [string, string, string]), quick.labels));
+        item.append(choices('Due', `${key}-due`, QUICK_DUES, quick.due));
+        const scope = { key: `${key}-`, label: `Quick filter ${i + 1}, ` };
+        const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(quick, false, scope), filterGroup(quick, true, scope)); item.append(groups);
+        item.append(el('p', 'tt-help', 'Within Priority, Labels or Due, any checked choice can match. Every part you fill in must match. With nothing chosen, the filter matches every task.'));
+      }
+      body.append(item);
+    });
+    if (!list.length) body.append(el('p', 'tt-filter-empty', 'No quick filters.'));
+    const add = button('Add quick filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.dataset.focus = 'quick-add';
+    add.onclick = () => {
+      const id = newQuickFilterId(list);
+      list.push({ id, name: '', show: true, priorities: [], labels: [], due: [], filters: [], excludedFilters: [], includeTags: '', excludeTags: '', includeFolders: '', excludeFolders: '' });
+      openQuick.add(id); redraw(`quick-${list.length - 1}-name`);
+    };
+    body.append(add);
+  }
+
   function draw(): void {
     const bodyBefore = root.querySelector<HTMLElement>('.tt-settings-body');
     if (bodyBefore) scrollPositions.set(drawnSection, bodyBefore.scrollTop);
@@ -223,7 +305,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const selection = focused?.selectionStart;
     dispose(); root.replaceChildren(); root.classList.add('tt-settings');
     const nav = el('div', 'tt-settings-tabs'); nav.setAttribute('role', 'tablist'); nav.setAttribute('aria-label', 'Board settings sections');
-    const sections: [Section, string, string][] = [['columns', 'Columns', 'columns-3'], ['dates', 'Dates', 'calendar-days'], ['filters', 'Filters', 'list-filter'], ['destination', 'New tasks', 'file-plus-2']];
+    const sections: [Section, string, string][] = [['columns', 'Columns', 'columns-3'], ['dates', 'Dates', 'calendar-days'], ['filters', 'Filters', 'list-filter'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
     for (const [id, title, glyph] of sections) {
       const tab = button(title, 'tt-settings-tab'); tab.prepend(icon(glyph));
       tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(section === id)); tab.setAttribute('aria-controls', 'tt-settings-panel');
@@ -284,10 +366,18 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(field('Show completed tasks for', input(draft.showCompletedDays, 'Show completed tasks for', (v) => draft.showCompletedDays = v, 'number'), 'Days after completion. Set to 0 to hide completed cards.'));
     } else if (section === 'filters') {
       heading(body, 'Choose what belongs here', 'Choose a field, a condition and its values. A matching exclusion always wins.');
-      const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(false), filterGroup(true)); body.append(groups);
+      const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(draft, false), filterGroup(draft, true)); body.append(groups);
       const warnings = el('div', 'tt-filter-warnings'); warnings.setAttribute('role', 'status');
       warnings.append(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text))); body.append(warnings);
       body.append(el('p', 'tt-scope-note', 'Tags match the task or its page, including nested tags. Folders include their descendants. Properties belong to the source note. Press Enter or choose a suggestion to add a value. Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
+    } else if (section === 'quick') {
+      quickFilterEditor(body);
+    } else if (section === 'appearance') {
+      heading(body, 'Choose how cards look', 'Saved in the board note, so they follow the board to other devices.');
+      body.append(check('Sort completed subtasks to end of list', draft.sortCompletedSubtasks, (v) => { draft.sortCompletedSubtasks = v; }));
+      body.append(check('Hide completed subtasks', draft.hideCompletedSubtasks, (v) => { draft.hideCompletedSubtasks = v; }));
+      body.append(el('p', 'tt-help', 'The board toolbar has a button for this too. A completed subtask with open subtasks stays visible.'));
+      body.append(check('Add red bar to overdue tasks', draft.overdueBar, (v) => { draft.overdueBar = v; }));
     } else {
       heading(body, 'Give new tasks a home', 'Tasks added on this board go to this note and section.');
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));
@@ -331,8 +421,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   return {
     showErrors(next) {
       // Property errors live beside their controls and update as the user fixes them.
-      errors = next.filter((message) => !/^Must (not )?include, property \d+:/.test(message)); validation = true;
+      errors = next.filter((message) => !/^(Quick filter \d+, )?[Mm]ust (not )?include, property \d+:/.test(message)); validation = true;
+      const quickInvalid = draft.quickFilters.filter((q) => !q.name.trim() || q.filters.some(filterError) || q.excludedFilters.some(filterError));
       if (draft.filters.some(filterError) || draft.excludedFilters.some(filterError)) section = 'filters';
+      else if (quickInvalid.length) { section = 'quick'; for (const q of quickInvalid) openQuick.add(q.id); }
       draw();
       const invalid = root.querySelector<HTMLElement>('[aria-invalid="true"]');
       if (invalid) { invalid.focus(); invalid.scrollIntoView({ block: 'nearest' }); }

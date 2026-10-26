@@ -80,8 +80,8 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
             catch (e) { check.checked = selected.includes(label.id); throw e; }
           });
         };
-        const edit = button('', 'clickable-icon tt-label-edit'); edit.title = `Edit ${labelDescription(label)}`;
-        edit.setAttribute('aria-label', edit.title); host.icon(edit, 'pencil');
+        const edit = button('', 'clickable-icon tt-label-edit'); edit.setAttribute('aria-label', `Edit ${labelDescription(label)}`);
+        host.icon(edit, 'pencil');
         edit.onclick = () => editor(label);
         row.append(choice, edit); list.append(row);
       }
@@ -157,7 +157,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     }
     for (const swatch of LABEL_COLORS) {
       const b = button('', 'tt-label-color'); b.style.backgroundColor = swatch.color;
-      b.title = swatch.name; b.setAttribute('aria-label', swatch.name); b.dataset.color = swatch.color;
+      b.setAttribute('aria-label', swatch.name); b.dataset.color = swatch.color;
       b.onclick = () => { color = swatch.color; hex.value = color.toUpperCase(); hex.setCustomValidity(''); update(); };
       swatches.append(b);
     }
