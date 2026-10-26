@@ -22,7 +22,7 @@ import {
   type ViewState,
 } from 'obsidian';
 import { FM, LEGACY_FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
-import { draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
+import { changedFrontmatter, draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
 import { inFolder } from './src/core/filters.ts';
@@ -232,8 +232,9 @@ export default class TaskTrellisPlugin extends Plugin {
 
   /** Writes the settings form to the board note and retags tasks in renamed columns. Returns validation errors. */
   async saveBoardSettings(file: TFile, config: BoardConfig, draft: BoardDraft): Promise<string[]> {
-    const { frontmatter, errors, renames, removed } = draftToFrontmatter(draft, config);
+    const { errors, renames, removed } = draftToFrontmatter(draft, config);
     if (errors.length > 0) return errors;
+    const frontmatter = changedFrontmatter(draft, config);
     const retagUndo = renames.size ? await this.retagColumns(config.slug, renames) : null;
     try {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {

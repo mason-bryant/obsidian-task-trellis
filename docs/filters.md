@@ -44,7 +44,7 @@ A quick filter can match on:
 
 Within Priority, Labels or Due, any checked choice can match. Every part you fill in must match. A quick filter with nothing chosen matches every task.
 
-Boards come with three quick filters: **High priority** (high or highest), **Overdue**, and one for the board's first label, named after it with a 🏷️ in front (for example **🏷️ Critical**). Boards created before quick filters existed show the same three until their settings are saved with changes. They're stored in the board note:
+Boards come with three quick filters: **High priority** (high or highest), **Overdue**, and one for the board's first label, named after it with a 🏷️ in front (for example **🏷️ Critical**). Boards created before quick filters existed show the same three until their quick filters are edited. They're stored in the board note:
 
 ```yaml
 quick-filters:

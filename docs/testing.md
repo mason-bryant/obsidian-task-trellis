@@ -155,3 +155,18 @@ All **397 tests across 32 files** pass, along with lint, type checking, producti
 Browser checks at desktop and 390 × 844 verified the shared Field/Condition/Value layout, adding tag/folder/property rules, property exclusions, chip entry, removing rules, retaining values across tabs and Save & open board. Narrow rules had no horizontal overflow and the browser reported no errors. These are responsive-browser checks, not a new native iOS run.
 
 The packaged build was installed in Mason Remote with `data.json` preserved and the previous artifacts backed up at `/private/tmp/task-trellis-before-filter-ui-20261025-213510`. Native reload/visual verification is pending because macOS was locked during the installation.
+
+## Quick filters and Appearance (unreleased, October 26)
+
+All **418 tests across 34 files** pass, along with lint, type checking, `check:release` and `npm run package`. The packaged build ran natively on macOS Obsidian 1.14.4 in a disposable vault of fictional tasks, using a separate Obsidian profile driven through its developer-tools port.
+
+- **Upgrade:** a board note in the pre-quick-filter format showed High priority, Overdue and 🏷️ Critical without being written. Opening settings, visiting every tab and saving with no edits left it byte-for-byte unchanged. Saving one Appearance change added only that key; `owner`, `column-widths`, labels and the note body were preserved.
+- **Concurrent edits (bug found and fixed):** with the settings dialog open, a toolbar change to Hide completed subtasks was reverted when the dialog was later saved with an unrelated edit, because saving rewrote every setting. Saves now write only the settings edited in the dialog; re-run natively, the toolbar change survived.
+- **Toolbar toggles:** Hide completed subtasks redrew about 19 ms after a click and stayed in sync with the note. Clicks closer together than one redraw (5 ms in the test) collapse into one change; normal clicking was unaffected.
+- **Rename:** with a quick filter and Compact on, a board-and-tags rename (`#tt/house/` → `#tt/home-base/`) kept both, and Restore board rename brought back the name, tags and view state.
+- **Matching:** priority, label, overdue, today, no-priority, page-tag and task-tag filters returned the expected cards. Two filters together narrowed further. A filter for a missing label showed "Turn off quick filters". Completed subtasks sorted last and were hidden as expected, except one with an open subtask.
+- **Tooltips:** no element on the board, in any settings tab or in the label picker has both `title` and `aria-label`. Hovering with a real pointer showed one Obsidian tooltip each.
+- **Overdue bar off:** matched a normal card's border in the default theme and AnuPpuccin, dark and light.
+- **Performance:** `npm run benchmark` now includes a board with three quick filters on, each checked for every task: 12.3 ms at 10,000 tasks and 55.7 ms at 50,000, against 9.7 ms and 46.7 ms without (Apple M5 Pro, Node 24).
+
+Not covered: the six-tab settings dialog on a phone, quick-filter state with two synced devices, and a VoiceOver pass over the new controls.
