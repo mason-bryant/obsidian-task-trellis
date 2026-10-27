@@ -696,7 +696,7 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   row.draggable = !row.querySelector('.tt-add-input');
   row.addEventListener('dragstart', (e) => {
     e.stopPropagation();
-    if (row.closest('.tt-touch-dragging')) { e.preventDefault(); return; }
+    if (!row.draggable || row.closest('.tt-touch-dragging')) { e.preventDefault(); return; }
     draggingId = task.id;
     dragStartedAt = Date.now();
     e.dataTransfer?.setData(DRAG_TYPE, task.id);
@@ -744,10 +744,10 @@ function subtaskBox(parent: BoardTask, slug: string, section: HTMLElement, host:
     host,
     (text, detailed) => host.onAddSubtask(parent, text, detailed),
     () => {
-      const card = box.closest<HTMLElement>('.tt-card');
+      const owner = box.parentElement;
       box.remove();
+      if (owner) updateComposerDragState(owner);
       if (!section.hasChildNodes()) section.remove();
-      if (card) card.draggable = !card.querySelector('.tt-add-input');
     },
   );
   return box;
@@ -773,6 +773,13 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], host: RenderHost)
   return b;
 }
 
+/** Nested composers must suppress native dragging on every enclosing task. */
+function updateComposerDragState(owner: HTMLElement): void {
+  for (let current: HTMLElement | null = owner; current; current = current.parentElement) {
+    if (current.matches('.tt-card, .tt-subtask')) current.draggable = !current.querySelector('.tt-add-input');
+  }
+}
+
 /** Opens the add box at the end of the task's subtasks, expanding them first if they're hidden. */
 function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel, host: RenderHost): HTMLElement {
   const b = el('button', 'clickable-icon tt-card-icon tt-add-subtask');
@@ -796,8 +803,7 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
     }
     if (!section) section = owner.appendChild(el('div', 'tt-subtasks'));
     section.append(subtaskBox(task, model.config.slug, section, host));
-    const card = owner.closest<HTMLElement>('.tt-card');
-    if (card) card.draggable = false;
+    updateComposerDragState(owner);
   });
   return b;
 }

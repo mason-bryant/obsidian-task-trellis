@@ -170,3 +170,9 @@ All **418 tests across 34 files** pass, along with lint, type checking, `check:r
 - **Performance:** `npm run benchmark` now includes a board with three quick filters on, each checked for every task: 12.3 ms at 10,000 tasks and 55.7 ms at 50,000, against 9.7 ms and 46.7 ms without (Apple M5 Pro, Node 24).
 
 Not covered: the six-tab settings dialog on a phone, quick-filter state with two synced devices, and a VoiceOver pass over the new controls.
+
+## PR 25 review repairs (October 27)
+
+All **434 tests across 35 files**, lint, type checking and production packaging pass. New cases cover a stale label picker after another label is created, explicit create/update intent, focus on the final allocated ID, deleted-label edit rejection with draft retention, monotonic allocation from the current counter, and nested subtask composers disabling/restoring every draggable ancestor. Promotion write failures now use a general message instead of assuming indentation or stale content.
+
+The label counter protects writes against the latest local board contents; it is not a distributed allocator. Simultaneous offline additions on different devices can still conflict. No new real-device sync or native mobile test is claimed.

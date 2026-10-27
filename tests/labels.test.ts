@@ -133,3 +133,13 @@ it('warns when a manually configured column conflicts with the label namespace',
   expect(parsed.config.columns.map((c) => c.id)).toEqual(['backlog', 'doing']);
   expect(parsed.warnings).toContain('"Label" is reserved for label tags. Rename this column.');
 });
+
+it('allocates creates from the fresh counter even when the proposed ID now belongs to another label', async () => {
+  const { saveLabelDefinition } = await import('../src/core/labels.ts');
+  const draft = { id: '7', name: 'First', color: '#123456' };
+  const first = saveLabelDefinition(starterLabels(), draft, 'create', 7);
+  const second = saveLabelDefinition(first.labels, { ...draft, name: 'Second' }, 'create', first.next);
+  expect(second.labels.slice(-2).map(l => [l.id, l.name])).toEqual([['7', 'First'], ['8', 'Second']]);
+  expect(second.next).toBe(9);
+  expect(saveLabelDefinition(second.labels.filter(l => l.id !== '8'), draft, 'create', second.next).savedId).toBe('9');
+});

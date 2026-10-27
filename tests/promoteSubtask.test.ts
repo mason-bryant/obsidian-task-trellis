@@ -124,3 +124,26 @@ describe('dragging a subtask row', () => {
     expect(host.onMoveMenu.mock.calls[0]![0]).toBe(patch);
   });
 });
+
+it('disables every draggable ancestor of a nested composer and restores them only when their inputs close', () => {
+  const root = document.createElement('div'); document.body.replaceChildren(root);
+  const host = {
+    renderText: (el: HTMLElement, t: BoardTask) => { el.textContent = t.text; }, icon: () => undefined, sourceLabel: () => 'House',
+    isCollapsed: () => false, onToggleRow: vi.fn(), onSetSubtasksCollapsed: vi.fn(), onDrop: vi.fn(), onToggle: vi.fn(), onEdit: vi.fn(),
+    onOpenSource: vi.fn(), onDragEnd: vi.fn(), onAddTask: vi.fn(), onAddSubtask: vi.fn(), onMoveMenu: vi.fn(),
+  } satisfies RenderHost;
+  renderBoard(root, model(), host, { warnings: [], info: [] });
+  const row = (id: string) => [...root.querySelectorAll<HTMLElement>('.tt-card, .tt-subtask')].find(el => el.dataset.id === id)!;
+  const nested = row(pick.id), parent = row(buy.id), main = row(card.id);
+  nested.querySelector<HTMLButtonElement>('.tt-add-subtask')!.click();
+  expect([nested.draggable, parent.draggable, main.draggable]).toEqual([false, false, false]);
+  const drag = new Event('dragstart', { bubbles: true, cancelable: true });
+  nested.dispatchEvent(drag); expect(drag.defaultPrevented).toBe(true);
+  // A second composer can coexist until a redraw; closing one must not re-enable its ancestors.
+  parent.querySelector<HTMLButtonElement>(':scope > .tt-subtask-controls .tt-add-subtask')!.click();
+  nested.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect(nested.draggable).toBe(true);
+  expect([parent.draggable, main.draggable]).toEqual([false, false]);
+  parent.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect([nested.draggable, parent.draggable, main.draggable]).toEqual([true, true, true]);
+});

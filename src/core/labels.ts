@@ -89,6 +89,18 @@ export function newLabelId(labels: BoardLabel[], next = 1): string {
   return String(Math.max(next, ...used.map((n) => n + 1)));
 }
 
+/** Apply an explicit create/update against the palette read inside the board write. */
+export function saveLabelDefinition(labels: BoardLabel[], label: BoardLabel, intent: 'create' | 'update', next = 1): { labels: BoardLabel[]; savedId: string; next: number } {
+  if (intent === 'update') {
+    if (!labels.some((existing) => existing.id === label.id)) {
+      throw new Error('This label was removed. Reopen the picker to create a new label.');
+    }
+    return { labels: labels.map((existing) => existing.id === label.id ? label : existing), savedId: label.id, next };
+  }
+  const id = newLabelId(labels, next);
+  return { labels: [...labels, { ...label, id }], savedId: id, next: Number(id) + 1 };
+}
+
 /** Only replaces this board's labels; other boards, fields, placement tags and block ids survive. */
 export function setTaskLabels(line: string, slug: string, ids: string[]): string {
   if (!/^[\p{L}\p{N}_-]+$/u.test(slug) || ids.some((id) => !/^[a-z0-9_-]+$/.test(id))) {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { defaultLabels, type BoardLabel } from '../src/core/labels.ts';
+import { defaultLabels, saveLabelDefinition, type BoardLabel } from '../src/core/labels.ts';
 import { renderLabelPicker, type LabelPickerHost } from '../src/ui/renderLabelPicker.ts';
 
 let root: HTMLElement;
@@ -18,9 +18,10 @@ beforeEach(() => {
   host = {
     icon: () => undefined,
     saveSelection: vi.fn(async () => undefined),
-    saveLabel: vi.fn(async (label) => {
-      labels = labels.some((l) => l.id === label.id) ? labels.map((l) => l.id === label.id ? label : l) : [...labels, label];
-      return labels;
+    saveLabel: vi.fn(async (label, intent) => {
+      const result = saveLabelDefinition(labels, label, intent);
+      labels = result.labels;
+      return result;
     }),
   };
   renderLabelPicker(root, labels, [], host);
@@ -55,7 +56,7 @@ describe('label picker', () => {
     input(name!, 'Financial planning'); input(hex!, 'invalid'); submit(); await flush();
     expect(host.saveLabel).not.toHaveBeenCalled();
     input(hex!, '#FC0'); submit(); await flush();
-    expect(host.saveLabel).toHaveBeenCalledWith({ id: 'green', name: 'Financial planning', color: '#ffcc00' });
+    expect(host.saveLabel).toHaveBeenCalledWith({ id: 'green', name: 'Financial planning', color: '#ffcc00' }, 'update');
     expect(root.querySelector('.tt-label-swatch')!.textContent).toBe('Financial planning');
     expect(document.activeElement).toBe(check('green'));
   });
@@ -164,4 +165,24 @@ it('retains the scheme preview after a failed write and prevents overlapping wri
   expect(root.querySelector<HTMLButtonElement>('[aria-label="Previous scheme"]')!.disabled).toBe(true);
   submit(); await flush();
   expect(root.querySelector('.tt-label-schemes-button')).not.toBeNull();
+});
+
+it('creates against the latest palette instead of overwriting a concurrent addition, then focuses the saved ID', async () => {
+  root.querySelector<HTMLButtonElement>('.tt-label-create')!.click();
+  input(root.querySelector<HTMLInputElement>('input')!, 'My new label');
+  labels = [...labels, { id: '1', name: 'From another picker', color: '#123456' }];
+  submit(); await flush();
+  expect(labels.find(l => l.id === '1')!.name).toBe('From another picker');
+  expect(labels.find(l => l.id === '2')!.name).toBe('My new label');
+  expect(host.saveLabel).toHaveBeenCalledWith(expect.anything(), 'create');
+  expect(document.activeElement).toBe(check('2'));
+});
+
+it('retains an edit draft when its label was deleted since the picker opened', async () => {
+  edit(); input(root.querySelector<HTMLInputElement>('input')!, 'Keep this draft');
+  labels = labels.filter(l => l.id !== 'green');
+  submit(); await flush();
+  expect(root.querySelector<HTMLInputElement>('input')!.value).toBe('Keep this draft');
+  expect(root.querySelector('[role="alert"]')!.textContent).toContain('removed');
+  expect(labels.some(l => l.id === 'green')).toBe(false);
 });

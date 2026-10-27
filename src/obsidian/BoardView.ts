@@ -2,7 +2,7 @@ import { applyLabelScheme, parsePreviousScheme, type LabelSchemeState } from '..
 import { isColumnResizing } from '../ui/columnResize.ts';
 import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
-import { newLabelId, parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
+import { saveLabelDefinition, parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { LabelPickerModal } from './LabelPickerModal.ts';
 import { Component, FileView, MarkdownRenderer, Menu, Notice, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
@@ -340,23 +340,18 @@ export class BoardView extends FileView {
         this.showWritten(current, [written.raw]);
         current = written;
       },
-      saveLabel: async (label) => {
-        let updated: BoardLabel[] = [];
+      saveLabel: async (label, intent) => {
+        let result = { labels: [] as BoardLabel[], savedId: label.id, next: 1 };
         await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
           const palette = parseLabels(fm[FM.labels], []);
-          if (palette.some((l) => l.id === label.id)) {
-            updated = palette.map((l) => l.id === label.id ? label : l);
-          } else {
-            // Numbered from the note as saved, so a label added on another device keeps its number.
-            const stored = fm[FM.labelNext], counter = typeof stored === 'number' ? stored : 1;
-            const id = newLabelId(palette, Math.max(counter, /^\d+$/.test(label.id) ? Number(label.id) : 0));
-            updated = [...palette, { ...label, id }];
-            fm[FM.labelNext] = Number(id) + 1;
-          }
-          fm[FM.labels] = updated;
+          const stored = fm[FM.labelNext];
+          const counter = typeof stored === 'number' && Number.isSafeInteger(stored) && stored > 0 ? stored : 1;
+          result = saveLabelDefinition(palette, label, intent, counter);
+          fm[FM.labels] = result.labels;
+          if (intent === 'create') fm[FM.labelNext] = result.next;
         });
         this.queueRender();
-        return updated;
+        return result;
       },
     }).open();
   }
@@ -416,7 +411,7 @@ export class BoardView extends FileView {
     try {
       const result = await this.plugin.writer.applyEdits(tasks, edits, slug, promote ?? undefined);
       if (promote && result.failedPaths.includes(promote.subtask.path)) {
-        new Notice('Task Trellis: could not move the subtask out. Its note changed, or its lines mix tabs and spaces.');
+        new Notice('Task Trellis: could not move the subtask out. The note could not be updated. Check that it is writable and the subtask is still under its parent, then try again.');
       }
       const action = result.action;
       if (action) {
