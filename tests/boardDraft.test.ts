@@ -43,6 +43,7 @@ describe('board settings draft', () => {
       'sort-completed-subtasks': false,
       'hide-completed-subtasks': false,
       'overdue-bar': true,
+      'open-links': 'popup',
       'new-tasks': 'default',
       'new-tasks-note': '',
       'new-tasks-heading': '',

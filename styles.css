@@ -879,3 +879,10 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 @media (prefers-reduced-motion: reduce) {
   .tt-rename-progress::before, .tt-rename-saving::before { animation: none; }
 }
+
+/* Pop-up note editor: the note's own editor in a modal. */
+.tt-note-popup { width: min(760px, 92vw); height: min(80vh, 900px); display: flex; flex-direction: column; }
+.tt-note-popup > .modal-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tt-note-popup > .modal-content > .workspace-leaf-content { flex: 1; min-height: 0; }
+.tt-note-popup .view-header, .tt-note-popup .inline-title { display: none; }
+.tt-note-popup-expand { position: absolute; top: var(--size-2-3); inset-inline-end: calc(var(--size-2-3) + var(--icon-size) + var(--size-4-4)); }
