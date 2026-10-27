@@ -2,10 +2,10 @@ import { applyLabelScheme, parsePreviousScheme, type LabelSchemeState } from '..
 import { isColumnResizing } from '../ui/columnResize.ts';
 import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
-import { parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
+import { newLabelId, parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { LabelPickerModal } from './LabelPickerModal.ts';
 import { Component, FileView, MarkdownRenderer, Menu, Notice, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
-import { buildBoard, planDrop, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
+import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
 import { todayISO } from '../core/dates.ts';
 import { parseTaskLine } from '../core/taskLine.ts';
@@ -290,6 +290,10 @@ export class BoardView extends FileView {
             });
           }
         };
+        if (choices.out) {
+          section('Make it a card', [choices.out]);
+          menu.addSeparator();
+        }
         section('Move to column', choices.columns);
         menu.addSeparator();
         section('Move to row', choices.rows);
@@ -309,6 +313,7 @@ export class BoardView extends FileView {
     let current = this.plugin.index.currentSnapshot(task);
     new LabelPickerModal(this.app, labels, taskLabels(task.raw, slug), {
       showSearch: this.plugin.settings.showLabelSearch,
+      labelNext: this.board.config.labelNext,
       previousScheme: this.board.config.previousLabelScheme,
       saveScheme: async (id) => {
         let updated!: LabelSchemeState;
@@ -339,8 +344,15 @@ export class BoardView extends FileView {
         let updated: BoardLabel[] = [];
         await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
           const palette = parseLabels(fm[FM.labels], []);
-          updated = palette.some((l) => l.id === label.id)
-            ? palette.map((l) => l.id === label.id ? label : l) : [...palette, label];
+          if (palette.some((l) => l.id === label.id)) {
+            updated = palette.map((l) => l.id === label.id ? label : l);
+          } else {
+            // Numbered from the note as saved, so a label added on another device keeps its number.
+            const stored = fm[FM.labelNext], counter = typeof stored === 'number' ? stored : 1;
+            const id = newLabelId(palette, Math.max(counter, /^\d+$/.test(label.id) ? Number(label.id) : 0));
+            updated = [...palette, { ...label, id }];
+            fm[FM.labelNext] = Number(id) + 1;
+          }
           fm[FM.labels] = updated;
         });
         this.queueRender();
@@ -383,12 +395,16 @@ export class BoardView extends FileView {
 
   private async performDrop(taskId: string, target: DropTarget): Promise<void> {
     if (this.stopped || !this.model || !this.board) return;
-    const edits = planDrop(this.model, taskId, target);
+    // A subtask dragged out of its card becomes a card of its own.
+    const promotion = this.model.rowOf[taskId] === undefined ? planPromotion(this.model, taskId, target) : null;
+    const edits = promotion?.edits ?? planDrop(this.model, taskId, target);
     if (edits.size === 0) return;
+    const snapshot = (t: BoardTask) => this.withPending(this.plugin.index.currentSnapshot(t));
     // The lines the board shows, so a drop right after another one edits what that one wrote.
-    const tasks = Object.values(this.model.cells).flatMap((columns) => Object.values(columns).flat())
+    const tasks = [...Object.values(this.model.cells).flatMap((columns) => Object.values(columns).flat()), ...(promotion ? [promotion.subtask] : [])]
       .filter((t) => edits.has(t.id))
-      .map((t) => this.withPending(this.plugin.index.currentSnapshot(t)));
+      .map(snapshot);
+    const promote = promotion && { subtask: snapshot(promotion.subtask), card: snapshot(promotion.card) };
     const slug = this.board.config.slug;
     // Show the result right away; the index catches up once the files are written.
     for (const [id, raw] of this.plugin.writer.preview(tasks, edits, slug)) {
@@ -398,10 +414,13 @@ export class BoardView extends FileView {
     const owned = new Map([...edits.keys()].map((id) => [id, this.pending.get(id)]));
     this.render();
     try {
-      const result = await this.plugin.writer.applyEdits(tasks, edits, slug);
+      const result = await this.plugin.writer.applyEdits(tasks, edits, slug, promote ?? undefined);
+      if (promote && result.failedPaths.includes(promote.subtask.path)) {
+        new Notice('Task Trellis: could not move the subtask out. Its note changed, or its lines mix tabs and spaces.');
+      }
       const action = result.action;
       if (action) {
-        this.undoAction = { label: 'Task moved', action };
+        this.undoAction = { label: promote ? 'Subtask moved out' : 'Task moved', action };
         this.highlightIds = new Set([taskId]); this.highlightUntil = Date.now() + 1000;
       }
       for (const id of result.skippedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);

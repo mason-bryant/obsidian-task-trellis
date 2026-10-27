@@ -673,6 +673,8 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   const main = taskMain(task, host);
   const subtasks = model.subtasks[task.id] ?? [];
   if (!task.closed && subtasks.length === 0) main.append(addSubtaskButton(task, row, model, host));
+  // Out of the card without dragging; shown on the row being pointed at, and always on touch screens.
+  if (host.onMoveMenu && !task.closed) main.append(moveMenuButton(task, model, host));
   row.append(main);
   const meta = el('div', 'tt-card-meta');
   appendBadges(meta, task, model, host);
@@ -689,6 +691,26 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
     e.stopPropagation();
     if ((e.target as HTMLElement).closest('a')) return;
     host.onEdit(task);
+  });
+  // Dragged out of its card, it becomes a card of its own (see planPromotion).
+  row.draggable = !row.querySelector('.tt-add-input');
+  row.addEventListener('dragstart', (e) => {
+    e.stopPropagation();
+    if (row.closest('.tt-touch-dragging')) { e.preventDefault(); return; }
+    draggingId = task.id;
+    dragStartedAt = Date.now();
+    e.dataTransfer?.setData(DRAG_TYPE, task.id);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    row.ownerDocument.defaultView?.requestAnimationFrame(() => {
+      if (row.isConnected && draggingId === task.id) row.classList.add('is-dragging');
+    });
+  });
+  row.addEventListener('dragend', (e) => {
+    e.stopPropagation();
+    draggingId = null;
+    row.classList.remove('is-dragging');
+    clearIndicators(row.ownerDocument);
+    host.onDragEnd();
   });
   return row;
 }

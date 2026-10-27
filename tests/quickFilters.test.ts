@@ -44,7 +44,7 @@ describe('quick filter config', () => {
 
   it('writes the defaults into new boards so they read back the same', () => {
     const fresh = parseBoardConfig('House', newBoardFrontmatter('house')).config;
-    expect(fresh.quickFilters).toEqual(config().quickFilters);
+    expect(fresh.quickFilters).toEqual(config().quickFilters.map((f) => f.id === 'label-green' ? { ...f, id: 'label-1', labels: ['1'] } : f));
   });
 
   it('ignores unnamed filters and unknown choices, and keeps ids unique', () => {

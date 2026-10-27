@@ -12,7 +12,9 @@ export type LabelPickerHost = {
   onBusyChange?(busy: boolean): void;
   icon(el: HTMLElement, name: string): void;
   saveSelection(ids: string[]): Promise<void>;
-  /** Returns the current board palette after saving just this definition. */
+  /** The board's `label-next` counter, for numbering a new label. */
+  labelNext?: number;
+  /** Returns the current board palette after saving just this definition, which may renumber a new label. */
   saveLabel(label: BoardLabel): Promise<BoardLabel[]>;
 };
 
@@ -53,7 +55,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     const addIcon = node('span', 'tt-add-icon'); addIcon.setAttribute('aria-hidden', 'true');
     host.icon(addIcon, 'plus');
     create.append(addIcon, node('span', '', 'Add Label'));
-    create.onclick = () => editor({ id: newLabelId(labels), name: '', color: LABEL_COLORS[0].color });
+    create.onclick = () => editor({ id: newLabelId(labels, host.labelNext), name: '', color: LABEL_COLORS[0].color });
     if (host.showSearch) root.append(search);
     root.append(list, create);
     if (host.saveScheme) {
@@ -175,7 +177,8 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
       e.preventDefault();
       const next = normalizeLabelColor(hex.value);
       if (!next) { hex.reportValidity(); return; }
-      void save(async () => { labels = await host.saveLabel({ id: label.id, name: name.value.trim(), color: next }); picker(label.id); });
+      void save(async () => { labels = await host.saveLabel({ id: label.id, name: name.value.trim(), color: next });
+        picker(labels.some((l) => l.id === label.id) ? label.id : labels[labels.length - 1]?.id); });
     };
     root.append(form, error); update(); name.focus();
   }

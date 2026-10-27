@@ -1,6 +1,6 @@
 import { parsePreviousScheme, type PreviousScheme } from './labelSchemes.ts';
 import { parseColumnWidths, type ColumnWidths } from './columnWidths.ts';
-import { defaultLabels, parseLabels, type BoardLabel } from './labels.ts';
+import { parseLabels, starterLabels, type BoardLabel } from './labels.ts';
 import { defaultQuickFilters, parseQuickFilters, quickFilterFrontmatter, type QuickFilter } from './quickFilters.ts';
 import { slugify } from './taskLine.ts';
 import { normalizeFolder, normalizeTag, propertyFilters, scalarText, stringList } from './frontmatterValues.ts';
@@ -16,6 +16,8 @@ export type BoardConfig = {
   columns: BoardColumn[];
   columnWidths: ColumnWidths;
   labels: BoardLabel[];
+  /** The number the next new label gets; see `newLabelId`. */
+  labelNext: number;
   quickFilters: QuickFilter[];
   previousLabelScheme: PreviousScheme;
   doneColumn: string | null;
@@ -72,6 +74,7 @@ export type DueNowUnit = 'days' | 'weeks';
 export const FM = {
   slug: 'slug',
   labels: 'labels',
+  labelNext: 'label-next',
   quickFilters: 'quick-filters',
   previousLabelScheme: 'previous-label-scheme',
   columns: 'columns',
@@ -113,8 +116,9 @@ const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 export function newBoardFrontmatter(slug: string): Record<string, unknown> {
   return {
     [FM.slug]: slug,
-    [FM.labels]: defaultLabels(),
-    [FM.quickFilters]: defaultQuickFilters(defaultLabels()).map(quickFilterFrontmatter),
+    [FM.labels]: starterLabels(),
+    [FM.labelNext]: starterLabels().length + 1,
+    [FM.quickFilters]: defaultQuickFilters(starterLabels()).map(quickFilterFrontmatter),
     [FM.columns]: [...DEFAULT_COLUMNS],
     [FM.doneColumn]: 'Done',
     [FM.limitDone]: true,
@@ -193,6 +197,7 @@ export function parseBoardConfig(
       columns,
       columnWidths: parseColumnWidths(f[FM.columnWidths], columns.map((c) => c.id)),
       labels,
+      labelNext: intSetting(f[FM.labelNext], 1, 1, 1_000_000),
       quickFilters: parseQuickFilters(f[FM.quickFilters], labels, warnings),
       previousLabelScheme: parsePreviousScheme(f[FM.previousLabelScheme]),
       doneColumn,
