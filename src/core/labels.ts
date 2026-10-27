@@ -10,8 +10,14 @@ export const LABEL_COLORS = [
   { name: 'Blue', color: '#1558bc' },
 ] as const;
 
+/** The palette of a board note without a labels list. Its ids name the starting colors, as they always have. */
 export function defaultLabels(): BoardLabel[] {
   return LABEL_COLORS.map(({ name, color }) => ({ id: name.toLowerCase(), name: '', color }));
+}
+
+/** The labels a new board starts with, numbered so the tag never names a color it may not have. */
+export function starterLabels(): BoardLabel[] {
+  return LABEL_COLORS.map(({ color }, i) => ({ id: String(i + 1), name: '', color }));
 }
 
 export function normalizeLabelColor(value: string): string | null {
@@ -74,12 +80,25 @@ export function stripTaskLabels(line: string): string {
   return stripLegacyTaskLabels(line).replace(LABEL_TAG_RE, '$1');
 }
 
-/** A short, permanent id, unique within its board; names and colors can change freely. */
-export function newLabelId(labels: BoardLabel[]): string {
-  let id: string;
-  do { id = `l${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`; }
-  while (labels.some((label) => label.id === id));
-  return id;
+/**
+ * A permanent id for a new label: the next number, never one used before. `next` is the board's
+ * `label-next` counter, which remembers numbers whose labels were deleted from the note.
+ */
+export function newLabelId(labels: BoardLabel[], next = 1): string {
+  const used = labels.map((l) => /^\d+$/.test(l.id) ? Number(l.id) : 0);
+  return String(Math.max(next, ...used.map((n) => n + 1)));
+}
+
+/** Apply an explicit create/update against the palette read inside the board write. */
+export function saveLabelDefinition(labels: BoardLabel[], label: BoardLabel, intent: 'create' | 'update', next = 1): { labels: BoardLabel[]; savedId: string; next: number } {
+  if (intent === 'update') {
+    if (!labels.some((existing) => existing.id === label.id)) {
+      throw new Error('This label was removed. Reopen the picker to create a new label.');
+    }
+    return { labels: labels.map((existing) => existing.id === label.id ? label : existing), savedId: label.id, next };
+  }
+  const id = newLabelId(labels, next);
+  return { labels: [...labels, { ...label, id }], savedId: id, next: Number(id) + 1 };
 }
 
 /** Only replaces this board's labels; other boards, fields, placement tags and block ids survive. */

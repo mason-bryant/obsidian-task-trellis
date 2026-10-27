@@ -1,18 +1,22 @@
-import { describe, expect, it, vi } from 'vitest';
-import { defaultLabels, newLabelId, labelDescription, labelTextColor, normalizeLabelColor, parseLabels, setTaskLabels, taskLabels } from '../src/core/labels.ts';
+import { describe, expect, it } from 'vitest';
+import { defaultLabels, newLabelId, starterLabels, labelDescription, labelTextColor, normalizeLabelColor, parseLabels, setTaskLabels, taskLabels } from '../src/core/labels.ts';
 import { newBoardFrontmatter, parseBoardConfig } from '../src/core/boardConfig.ts';
 import { dedupeFields, movePlacementsToEnd, parseTaskLine, setClosedFallback, setDueDate, setPlacement } from '../src/core/taskLine.ts';
 
 const raw = '- [ ] Paint the kitchen #house 🔁 every week 📅 2026-10-25 #tt/home/doing/100 ^task-id';
 
 describe('board labels', () => {
-  it('gives new and existing boards independent copies of six unnamed defaults', () => {
+  it('numbers a new board’s six labels, and keeps color ids for a board without a labels list', () => {
     const a = parseBoardConfig('Home', newBoardFrontmatter('home')).config;
     const b = parseBoardConfig('Work', {}).config;
-    expect(a.labels).toEqual(defaultLabels());
-    expect(b.labels).toEqual(a.labels);
+    expect(a.labels).toEqual(starterLabels());
+    expect(a.labels.map((l) => l.id)).toEqual(['1', '2', '3', '4', '5', '6']);
+    expect(a.labelNext).toBe(7);
+    expect(b.labels).toEqual(defaultLabels());
+    expect(b.labels.map((l) => l.id)).toEqual(['green', 'yellow', 'orange', 'red', 'purple', 'blue']);
+    expect(b.labels.map((l) => l.color)).toEqual(a.labels.map((l) => l.color));
     a.labels[0]!.name = 'Financial planning';
-    expect(b.labels.every((l) => l.name === '')).toBe(true);
+    expect(starterLabels().every((l) => l.name === '')).toBe(true);
     expect(parseBoardConfig('Blank', { labels: [] }).config.labels).toEqual([]);
   });
 
@@ -105,7 +109,7 @@ describe('label tags', () => {
   it('keeps long label names out of tags and preserves assignments through name/color edits', () => {
     const labels = defaultLabels();
     const id = newLabelId(labels);
-    expect(id).toMatch(/^l[a-f0-9]{6}$/);
+    expect(id).toBe('1');
     labels.push({ id, name: 'A very long label name '.repeat(20), color: '#ffffff' });
     const line = setTaskLabels(raw, 'home', [id]);
     expect(line).toContain(`#tt/home/label/${id}`);
@@ -116,17 +120,26 @@ describe('label tags', () => {
 });
 
 
-it('retries a short id collision within the board', () => {
-  const random = vi.spyOn(crypto, 'randomUUID')
-    .mockReturnValueOnce('aaaaaa00-0000-0000-0000-000000000000')
-    .mockReturnValueOnce('bbbbbb00-0000-0000-0000-000000000000');
-  try {
-    expect(newLabelId([{ id: 'laaaaaa', name: '', color: '#ffffff' }])).toBe('lbbbbbb');
-  } finally { random.mockRestore(); }
+it('numbers new labels after every number used, including deleted ones the counter remembers', () => {
+  const label = (id: string) => ({ id, name: '', color: '#ffffff' });
+  expect(newLabelId(starterLabels(), 7)).toBe('7');
+  expect(newLabelId([label('1'), label('3')])).toBe('4');
+  expect(newLabelId([label('1'), label('3')], 9)).toBe('9');
+  expect(newLabelId([label('green'), label('laaaaaa')])).toBe('1');
 });
 
 it('warns when a manually configured column conflicts with the label namespace', () => {
   const parsed = parseBoardConfig('Home', { columns: ['Backlog', 'Label', 'Doing'] });
   expect(parsed.config.columns.map((c) => c.id)).toEqual(['backlog', 'doing']);
   expect(parsed.warnings).toContain('"Label" is reserved for label tags. Rename this column.');
+});
+
+it('allocates creates from the fresh counter even when the proposed ID now belongs to another label', async () => {
+  const { saveLabelDefinition } = await import('../src/core/labels.ts');
+  const draft = { id: '7', name: 'First', color: '#123456' };
+  const first = saveLabelDefinition(starterLabels(), draft, 'create', 7);
+  const second = saveLabelDefinition(first.labels, { ...draft, name: 'Second' }, 'create', first.next);
+  expect(second.labels.slice(-2).map(l => [l.id, l.name])).toEqual([['7', 'First'], ['8', 'Second']]);
+  expect(second.next).toBe(9);
+  expect(saveLabelDefinition(second.labels.filter(l => l.id !== '8'), draft, 'create', second.next).savedId).toBe('9');
 });

@@ -8,9 +8,9 @@ Each board starts with six unnamed labels: green, yellow, orange, red, purple an
 
 Assigned labels appear as short colored bars above the card’s title. Hover to see a description such as **Red: Urgent**; custom colors use their hex code. On a phone, open the picker to see the labels’ names and selections. Subtasks do not have label controls or indicators.
 
-Labels and assignments are independent on each board, even when the same task appears on several boards. Each assignment is an ordinary Obsidian tag, such as `#tt/personal-projects/label/l8f2a31`. You can search for it in Obsidian or use it in a board's tag filters. Label tags do not change the task's column or sort order.
+Labels and assignments are independent on each board, even when the same task appears on several boards. Each assignment is an ordinary Obsidian tag, such as `#tt/personal-projects/label/3`. You can search for it in Obsidian or use it in a board's tag filters. Label tags do not change the task's column or sort order.
 
-The final part is a short, permanent label ID, unique within that board. Names can be as long as you like: renaming or recoloring a label keeps its ID and tags unchanged. Older labels may retain IDs such as `red`; those are permanent IDs too, regardless of the current name or color. The board note's `labels` properties map IDs to names and colors. Both the board definitions and task tags travel with your vault's sync. **Undo** reverses the latest assignment change.
+The final part is the label's permanent number on that board. Names can be as long as you like: renaming or recoloring a label keeps its number and tags unchanged. Each new label gets the next number, and the board note's `label-next` remembers it so a deleted label's number is never reused. Boards made before labels were numbered keep the IDs they started with, such as `red` or `l8f2a31`; those are permanent too, whatever the label's current name or color, and new labels there are numbered. The board note's `labels` properties map IDs to names and colors. Both the board definitions and task tags travel with your vault's sync. **Undo** reverses the latest assignment change.
 
 Older hidden-comment assignments are still readable. Changing a task's selection rewrites that board's assignments as tags. There is no automatic vault-wide migration.
 
@@ -29,3 +29,5 @@ Available schemes: **Trellis** (the original colors), **Tableau balanced**, **Ta
 Applying a different scheme saves each label’s exact outgoing color—including custom hex colors—as **Previous scheme**. Choose that entry and apply to restore it. The outgoing colors become the new Previous scheme, so you can switch back again. This single snapshot is stored in the board note and travels with sync. Renamed or reordered labels restore by permanent ID; newly added labels without a saved color stay unchanged, and deleted labels are not recreated. Applying unchanged colors keeps the existing snapshot.
 
 The two Tableau options use six-color selections from [Tableau categorical palettes](https://help.tableau.com/current/pro/desktop/en-us/formatting_create_custom_colors.htm) and [Tableau 10](https://github.com/d3/d3-scale-chromatic/blob/main/src/categorical/Tableau10.js). The other alternatives are original palettes informed by [Wix’s color scheme examples](https://www.wix.com/blog/website-color-schemes).
+
+When adding labels on multiple devices, let the board finish syncing first. The counter uses the latest local board contents; simultaneous offline additions on different devices can still conflict.

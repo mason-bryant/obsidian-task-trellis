@@ -127,7 +127,6 @@ export function buildBoard(
     return result;
   };
 
-  const nowRow = rows.find((r) => r.kind === 'now')!;
   const rowOf: Record<string, string> = {};
   const subtasks: Record<string, BoardTask[]> = {};
   let total = 0;
@@ -137,9 +136,7 @@ export function buildBoard(
       (subtasks[task.parentId!] ??= []).push(task);
     } else if (where === 'card') {
       const column = columnOf(task, config);
-      // The No due date column replaces the No due date row, so undated tasks outside it
-      // (completed ones in Done) sit in Due now.
-      const row = !task.dueDate && config.undatedColumn && column !== config.undatedColumn ? nowRow : rowForDue(rows, task.dueDate);
+      const row = rowOfTask(task, rows, config);
       cells[row.id]![column]!.push(task);
       rowOf[task.id] = row.id;
       total++;
@@ -158,6 +155,16 @@ export function buildBoard(
   }
 
   return { config, today, rows, columns: config.columns, cells, rowOf, subtasks, total, activeQuickFilters: quick.map((f) => f.id) };
+}
+
+/**
+ * The row a task's own date puts it in. The No due date column replaces the No due date row, so
+ * undated tasks outside it (completed ones in Done) sit in Due now.
+ */
+function rowOfTask(task: ParsedTask, rows: RowDef[], config: BoardConfig): RowDef {
+  return !task.dueDate && config.undatedColumn && columnOf(task, config) !== config.undatedColumn
+    ? rows.find((r) => r.kind === 'now')!
+    : rowForDue(rows, task.dueDate);
 }
 
 /** Sort-numbered cards first, then by due date, priority and location. */
@@ -217,13 +224,58 @@ export function subtasksKey(task: BoardTask): string {
  * neighbours in the target cell. Done orders by completion date, so a drop there renumbers nothing.
  */
 export function planDrop(model: BoardModel, draggedId: string, target: DropTarget): Map<string, TaskEdit> {
-  const { config } = model;
   const fromRowId = model.rowOf[draggedId];
-  if (fromRowId === undefined) return new Map();
   const dragged = findCard(model, draggedId);
+  if (fromRowId === undefined || !dragged) return new Map();
+  return planPlacement(model, dragged, fromRowId, target);
+}
+
+/** A subtask dragged out of its card: the card it leaves, and the edits that place it as a card of its own. */
+export type Promotion = { subtask: BoardTask; card: BoardTask; edits: Map<string, TaskEdit> };
+
+/**
+ * Like `planDrop`, for a subtask that becomes a card at `target`. It moves as if from the cell its own
+ * date and column put it in, so a drop there leaves them alone, and it always gets this board's tag.
+ * Completed, it reopens outside the Done column.
+ */
+export function planPromotion(model: BoardModel, subtaskId: string, target: DropTarget): Promotion | null {
+  const subtask = findSubtask(model, subtaskId);
+  const card = subtask && cardOfSubtask(model, subtask);
+  if (!subtask || !card) return null;
+  const { config } = model;
+  const edits = planPlacement(model, subtask, rowOfTask(subtask, model.rows, config).id, target);
+  const edit = edits.get(subtask.id);
+  if (!edit) return null;
+  if (config.doneColumn && subtask.closed && target.columnId !== config.doneColumn) edit.closed = false;
+  return { subtask, card, edits };
+}
+
+export function findSubtask(model: BoardModel, id: string): BoardTask | undefined {
+  for (const list of Object.values(model.subtasks)) {
+    const found = list.find((t) => t.id === id);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** The card a subtask shows in: its nearest ancestor that is a card. */
+export function cardOfSubtask(model: BoardModel, subtask: BoardTask): BoardTask | undefined {
+  const parentOf = new Map(Object.entries(model.subtasks).flatMap(([parent, list]) => list.map((t) => [t.id, parent] as const)));
+  let id = parentOf.get(subtask.id);
+  for (let guard = 0; id !== undefined && guard < 100; guard++) {
+    const card = findCard(model, id);
+    if (card) return card;
+    id = parentOf.get(id);
+  }
+  return undefined;
+}
+
+function planPlacement(model: BoardModel, dragged: BoardTask, fromRowId: string, target: DropTarget): Map<string, TaskEdit> {
+  const { config } = model;
+  const draggedId = dragged.id;
   const targetRow = model.rows.find((r) => r.id === target.rowId);
   const cell = model.cells[target.rowId]?.[target.columnId];
-  if (!dragged || !targetRow || !cell) return new Map();
+  if (!targetRow || !cell) return new Map();
 
   const fromColumn = columnOf(dragged, config);
   const list = cell.filter((t) => t.id !== draggedId);
@@ -282,32 +334,40 @@ export type MoveChoice = {
   current: boolean;
 };
 
-export type MoveChoices = { columns: MoveChoice[]; rows: MoveChoice[] };
+/** `out` is a subtask's way out of its card, to just below it. */
+export type MoveChoices = { columns: MoveChoice[]; rows: MoveChoice[]; out?: MoveChoice };
 
 /**
  * "Move to…" for an open card, where it can't be dragged: every column (in the card's row) and
  * every row (in its column), each as a drop at the end of that cell. A No due date column takes
  * the place of the No due date row, so it's listed with the columns (rowId 'none') and that row
  * isn't; a card leaving it goes to Due now in the chosen column, or its tagged column for a row.
+ * A subtask gets the same list from its card's cell, each choice making it a card of its own, and
+ * a choice to go just below its card.
  */
 export function moveChoices(model: BoardModel, task: BoardTask): MoveChoices | null {
-  const rowId = model.rowOf[task.id];
-  if (rowId === undefined || task.closed) return null;
+  const card = model.rowOf[task.id] === undefined ? cardOfSubtask(model, task) : task;
+  const rowId = card && model.rowOf[card.id];
+  if (!card || rowId === undefined || task.closed) return null;
+  const isSubtask = card !== task;
   const { config } = model;
-  const columnId = columnOf(task, config);
+  const columnId = columnOf(card, config);
   const undated = columnId === config.undatedColumn;
   const nowId = model.rows.find((r) => r.kind === 'now')!.id;
-  const choice = (label: string, toRow: string, toColumn: string): MoveChoice => {
-    const target = { rowId: toRow, columnId: toColumn, index: model.cells[toRow]?.[toColumn]?.length ?? 0 };
-    const current = toRow === rowId && toColumn === columnId;
-    return { label, detail: current ? '' : moveEffect(planDrop(model, task.id, target).get(task.id)), target, current };
+  const effect = (target: DropTarget) => moveEffect(isSubtask ? planPromotion(model, task.id, target)?.edits.get(task.id) : planDrop(model, task.id, target).get(task.id));
+  const choice = (label: string, toRow: string, toColumn: string, index = model.cells[toRow]?.[toColumn]?.length ?? 0): MoveChoice => {
+    const target = { rowId: toRow, columnId: toColumn, index };
+    const current = !isSubtask && toRow === rowId && toColumn === columnId;
+    return { label, detail: current ? '' : effect(target), target, current };
   };
+  const cell = model.cells[rowId]?.[columnId] ?? [];
   return {
     columns: model.columns.map((c) =>
       choice(c.label, c.id === config.undatedColumn ? 'none' : undated ? nowId : rowId, c.id)),
     rows: model.rows
       .filter((r) => !(config.undatedColumn && r.id === 'none'))
-      .map((r) => choice(r.label, r.id, undated ? workflowColumnOf(task, config) : columnId)),
+      .map((r) => choice(r.label, r.id, undated ? workflowColumnOf(card, config) : columnId)),
+    ...(isSubtask ? { out: choice(`Below “${card.text}”`, rowId, columnId, cell.indexOf(card) + 1) } : {}),
   };
 }
 

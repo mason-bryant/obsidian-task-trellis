@@ -1,10 +1,10 @@
-import { replaceNoteLine } from '../core/lineEndings.ts';
+import { joinEditedLines, replaceNoteLine } from '../core/lineEndings.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import { setTaskLabels } from '../core/labels.ts';
 import { Notice, TFile, type App, type WorkspaceLeaf } from 'obsidian';
 import { applyEdit, type BoardTask, type TaskEdit } from '../core/board.ts';
 import { todayISO } from '../core/dates.ts';
-import { insertSubtask } from '../core/subtasks.ts';
+import { insertSubtask, promoteSubtask } from '../core/subtasks.ts';
 import { dedupeFields, movePlacementsToEnd, parseTaskLine, setClosedFallback, normalizeRequestMarker } from '../core/taskLine.ts';
 
 const TASKS_PLUGIN_ID = 'obsidian-tasks-plugin';
@@ -21,6 +21,9 @@ type PluginHost = {
     plugins?: Record<string, { apiV1?: TasksApiV1 } | undefined>;
   };
 };
+
+/** A subtask leaving its card's list; see `promoteSubtask`. */
+export type Promoting = { subtask: BoardTask; card: BoardTask };
 
 type FileChange = { file: TFile; before: string; after: string };
 export type UndoAction = { paths: string[]; undo(): Promise<boolean> };
@@ -63,7 +66,8 @@ export class TaskWriter {
     return out;
   }
 
-  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string): Promise<EditResult> {
+  /** `promote` also moves that subtask out of its card's list in the note, in the same write. */
+  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string, promote?: Promoting): Promise<EditResult> {
     const byPath = new Map<string, BoardTask[]>();
     for (const task of tasks) {
       if (edits.has(task.id)) byPath.set(task.path, [...(byPath.get(task.path) ?? []), task]);
@@ -73,10 +77,10 @@ export class TaskWriter {
     for (const [path, fileTasks] of byPath) {
       const applied: string[] = [];
       try {
-        await this.rewrite(path, fileTasks, (task) => {
+        await this.rewrite(path, fileTasks, (task, _at, current) => {
           applied.push(task.id);
-          return applyEdit(task.raw, edits.get(task.id)!, slug, (l) => this.toggleLine(l, path));
-        }, changes);
+          return applyEdit(current, edits.get(task.id)!, slug, (l) => this.toggleLine(l, path));
+        }, changes, promote?.subtask.path === path ? promote : undefined);
         result.appliedIds.push(...applied);
       } catch (error) {
         console.error('[Task Trellis] write failed', error);
@@ -85,7 +89,8 @@ export class TaskWriter {
     }
     const applied = new Set(result.appliedIds);
     result.skippedIds = [...edits.keys()].filter((id) => !applied.has(id));
-    if (result.skippedIds.length) new Notice(`Task Trellis: ${result.skippedIds.length} task(s) could not be updated. Check the affected notes and try again.`);
+    // BoardView explains a subtask that couldn't move out.
+    if (result.skippedIds.length && !(promote && result.failedPaths.includes(promote.subtask.path))) new Notice(`Task Trellis: ${result.skippedIds.length} task(s) could not be updated. Check the affected notes and try again.`);
     result.action = this.undoFor(changes);
     return result;
   }
@@ -219,28 +224,39 @@ export class TaskWriter {
    * the rest. A line that moved is followed when that's unambiguous (see `locate`); otherwise it is
    * skipped. Returns how many tasks were skipped.
    */
-  private async rewrite(path: string, tasks: BoardTask[], linesFor: (task: BoardTask, at: number) => string[], changes?: FileChange[]): Promise<number> {
+  private async rewrite(
+    path: string, tasks: BoardTask[], linesFor: (task: BoardTask, at: number, current: string) => string[],
+    changes?: FileChange[], promote?: Promoting,
+  ): Promise<number> {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) return tasks.length;
     let missed = 0;
     let change: FileChange | undefined;
+    let unmovable = false;
     await this.app.vault.process(file, (content) => {
-      const lines = content.split(/\r?\n/);
-      let after = content;
+      const read = content.split(/\r?\n/);
+      let lines = read, after = content, moved = (i: number) => i;
+      if (promote) {
+        const sub = locate(read, promote.subtask), card = locate(read, promote.card);
+        const result = sub < 0 || card < 0 ? null : promoteSubtask(read, sub, card);
+        if (!result) { unmovable = true; return content; }
+        lines = result.lines; after = joinEditedLines(content, lines); moved = result.at;
+      }
       const located = tasks
-        .map((task) => ({ task, at: locate(lines, task) }))
+        .map((task) => { const at = locate(read, task); return { task, at: at < 0 ? at : moved(at) }; })
         .sort((a, b) => b.at - a.at);
       for (const { task, at } of located) {
         if (at < 0) {
           missed++;
           continue;
         }
-        const replacement = linesFor(task, at).map(normalizeRequestMarker);
+        const replacement = linesFor(task, at, lines[at]!).map(normalizeRequestMarker);
         after = replaceNoteLine(after, at, replacement);
       }
       if (after !== content) change = { file, before: content, after };
       return after;
     });
+    if (unmovable) throw new Error(`could not move the subtask out of its card in ${path}`);
     if (change) changes?.push(change);
     return missed;
   }
