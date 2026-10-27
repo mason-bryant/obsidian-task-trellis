@@ -5,7 +5,7 @@ import { renderBoardNameEditor } from '../src/ui/renderBoardNameEditor.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
-import { setTaskLabels, taskLabels } from '../src/core/labels.ts';
+import { saveLabelDefinition, setTaskLabels, taskLabels } from '../src/core/labels.ts';
 import { renderLabelPicker } from '../src/ui/renderLabelPicker.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from '../src/core/collapse.ts';
 import { previewIcon } from './icons.ts';
@@ -141,10 +141,10 @@ const host: RenderHost = {
         files[task.path]![task.line] = setTaskLabels(files[task.path]![task.line]!, config.slug, ids);
         offerUndo(before, 'Task labels updated'); render();
       },
-      saveLabel: async (label) => {
-        config.labels = config.labels.some((l) => l.id === label.id)
-          ? config.labels.map((l) => l.id === label.id ? label : l) : [...config.labels, label];
-        render(); return config.labels;
+      saveLabel: async (label, intent) => {
+        const result = saveLabelDefinition(config.labels, label, intent, config.labelNext);
+        config.labels = result.labels; config.labelNext = result.next;
+        render(); return result;
       },
     });
     dialog.showModal();

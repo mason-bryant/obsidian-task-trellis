@@ -306,23 +306,20 @@
   cursor: pointer;
 }
 
-.tt-subtask:hover {
-  background: var(--background-modifier-hover);
-}
-
 .tt-subtask > .tt-card-meta {
   margin-top: 2px;
 }
 
-/* One per row would crowd a long list; it shows on the row being pointed at. */
-.tt-subtask .tt-add-subtask {
-  opacity: 0;
+/* One per row would crowd a long list; with a mouse they show on the row being pointed at. Touch
+ * screens never see these :hover rules: iOS spends the first tap on a control that hover changes. */
+@media (hover: hover) {
+  body:not(.is-mobile) .tt-subtask > .tt-card-main > :is(.tt-add-subtask, .tt-card-more) { opacity: 0; }
+  body:not(.is-mobile) .tt-subtask:hover > .tt-card-main > :is(.tt-add-subtask, .tt-card-more),
+  body:not(.is-mobile) .tt-subtask > .tt-card-main > :is(.tt-add-subtask, .tt-card-more):focus-visible { opacity: 1; }
+  body:not(.is-mobile) .tt-subtask:hover { background: var(--background-modifier-hover); }
 }
-
-.tt-subtask:hover > .tt-card-main > .tt-add-subtask,
-.tt-subtask .tt-add-subtask:focus-visible {
-  opacity: 1;
-}
+.tt-subtask > .tt-card-main > .tt-card-more { margin-left: auto; }
+.tt-subtask.is-dragging { opacity: .45; }
 
 .tt-subtasks > .tt-add-box {
   padding: 2px 0;
@@ -502,7 +499,6 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-subtasks { gap: 4px; margin-top: 10px; }
 .tt-subtask { padding: 4px; }
 .tt-subtask .tt-card-text { font-weight: 400; }
-.tt-subtask .tt-add-subtask { opacity: .65; }
 .tt-subtask-toggle { gap: 5px; }
 .tt-board--compact .tt-card { padding: 8px 10px; }
 .tt-board--compact .tt-card-meta { margin-top: 5px; }
@@ -685,7 +681,6 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   .tt-row-toggle { align-items: center; justify-content: center; margin-left: -12px; }
   .tt-add-button, .tt-more { min-height: 44px; }
   .tt-cell .tt-add-button { opacity: .85; }
-  .tt-subtask > .tt-card-main > .tt-add-subtask { opacity: .65; }
   .tt-card-icon.tt-card-more { display: inline-flex; }
   /* A tap leaves :hover on, which would keep the card lifted. */
   .tt-card:hover { transform: none; }

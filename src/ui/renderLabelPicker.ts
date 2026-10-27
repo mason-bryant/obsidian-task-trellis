@@ -12,8 +12,10 @@ export type LabelPickerHost = {
   onBusyChange?(busy: boolean): void;
   icon(el: HTMLElement, name: string): void;
   saveSelection(ids: string[]): Promise<void>;
-  /** Returns the current board palette after saving just this definition. */
-  saveLabel(label: BoardLabel): Promise<BoardLabel[]>;
+  /** The board's `label-next` counter, for numbering a new label. */
+  labelNext?: number;
+  /** Returns the current board palette after saving just this definition, which may renumber a new label. */
+  saveLabel(label: BoardLabel, intent: 'create' | 'update'): Promise<{ labels: BoardLabel[]; savedId: string }>;
 };
 
 /** Shared picker/editor used by the native Obsidian modal and browser preview. */
@@ -53,7 +55,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     const addIcon = node('span', 'tt-add-icon'); addIcon.setAttribute('aria-hidden', 'true');
     host.icon(addIcon, 'plus');
     create.append(addIcon, node('span', '', 'Add Label'));
-    create.onclick = () => editor({ id: newLabelId(labels), name: '', color: LABEL_COLORS[0].color });
+    create.onclick = () => editor({ id: newLabelId(labels, host.labelNext), name: '', color: LABEL_COLORS[0].color }, 'create');
     if (host.showSearch) root.append(search);
     root.append(list, create);
     if (host.saveScheme) {
@@ -137,7 +139,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     root.append(preview, error); drawPreview(labels);
     options.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
   }
-  function editor(label: BoardLabel): void {
+  function editor(label: BoardLabel, intent: 'create' | 'update' = 'update'): void {
     root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
     const form = node('form', 'tt-label-editor');
     const nameField = node('label', 'tt-label-field', 'Label name');
@@ -170,12 +172,16 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     header = renderEditorHeader(headerSlot, 'Edit label', (el, name) => host.icon(el, name), () => form.requestSubmit(), () => picker(label.id), 'Save label');
     form.append(preview, nameField, node('div', 'tt-label-field', 'Color'), swatches, hexField,
       node('p', 'tt-label-help', 'Changes apply to every task using this label on this board.'),
-      node('p', 'tt-label-help', `Permanent tag ID: ${label.id}`));
+      node('p', 'tt-label-help', intent === 'create' ? 'A permanent tag ID will be assigned when you save.' : `Permanent tag ID: ${label.id}`));
     form.onsubmit = (e) => {
       e.preventDefault();
       const next = normalizeLabelColor(hex.value);
       if (!next) { hex.reportValidity(); return; }
-      void save(async () => { labels = await host.saveLabel({ id: label.id, name: name.value.trim(), color: next }); picker(label.id); });
+      void save(async () => {
+        const result = await host.saveLabel({ id: label.id, name: name.value.trim(), color: next }, intent);
+        labels = result.labels;
+        picker(result.savedId);
+      });
     };
     root.append(form, error); update(); name.focus();
   }
