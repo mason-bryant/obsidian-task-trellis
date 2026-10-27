@@ -170,3 +170,20 @@ All **418 tests across 34 files** pass, along with lint, type checking, `check:r
 - **Performance:** `npm run benchmark` now includes a board with three quick filters on, each checked for every task: 12.3 ms at 10,000 tasks and 55.7 ms at 50,000, against 9.7 ms and 46.7 ms without (Apple M5 Pro, Node 24).
 
 Not covered: the six-tab settings dialog on a phone, quick-filter state with two synced devices, and a VoiceOver pass over the new controls.
+
+
+## Pop-up editor lifecycle repairs (unreleased, October 27)
+
+The private `WorkspaceLeaf` constructor and manual `activeEditor` assignment have been replaced with `workspace.getLeaf('tab')` and `setActiveLeaf`. A normal workspace pane is temporarily presented in the modal and returned to its original container before closing or expanding. This uses public API members and DOM operations, but Obsidian does not provide a dedicated embedded-editor API; future UI compatibility still warrants testing. The temporary tab is visible in the tab bar while the modal is open.
+
+All **433 tests across 35 files** pass, along with lint, type checking, production packaging and whitespace checks. Fifteen new regression tests cover successful/failed/cancelled loading, a real active pane, stale source-line clamping, save failure and retry, duplicate close attempts, edits during an awaited save, expansion, unload during opening/saving, newer focus ownership, keyboard dismissal, IME/other-dialog isolation, handler cleanup and non-Markdown navigation.
+
+Native macOS Obsidian **1.13.7** checks used only synthetic `Popup QA` notes in the disposable readiness vault:
+
+- The note-name link opened the native editor at the task line. Immediate typing followed by Escape saved to disk and returned to the board. Native testing exposed the editor consuming Escape; a scoped window-capture listener now handles dismissal before Obsidian's keymap, with regression coverage.
+- Expanding saved and retained the same editor in a regular tab. Cmd+W also dismissed the modal through its save path.
+- A real write failure was induced by making only the fixture note read-only. The modal stayed open with its full draft and error message. After restoring write permission, retrying saved the complete draft, verified on disk. Obsidian also displayed its own write-failure notices.
+- Disabling Task Trellis with an edited popup open removed the modal and left the live editor in its normal tab, with text intact; the plugin was then re-enabled.
+- An internal note link opened the linked note, Cmd+B inserted bold Markdown in that note, and Escape saved and returned to the board.
+
+The test build was installed only in the disposable vault; personal vault files and installed artifacts were not changed. No new native iOS/Android, popout-window, or concurrent-device sync test is claimed.

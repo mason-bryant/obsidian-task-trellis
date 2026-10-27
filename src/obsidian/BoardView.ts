@@ -14,7 +14,6 @@ import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
 import { noteTags } from './noteTags.ts';
-import { openInPopup } from './NotePopup.ts';
 import type { UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 
@@ -167,7 +166,7 @@ export class BoardView extends FileView {
   private openSource(task: BoardTask, newTab: boolean): void {
     const navigate = () => void this.plugin.writer.openSource(task, newTab);
     if (newTab || this.board?.config.openLinks === 'tab') { navigate(); return; }
-    openInPopup(this.app, this.app.vault.getFileByPath(task.path), { line: task.line }, navigate);
+    this.plugin.notePopups.open(this.app.vault.getFileByPath(task.path), { line: task.line }, navigate);
   }
 
   /** Filter keys no note in the vault has; only checked when the board is empty. */
@@ -225,7 +224,7 @@ export class BoardView extends FileView {
           const navigate = () => void this.app.workspace.openLinkText(href, task.path, true);
           if (e.ctrlKey || e.metaKey || this.board?.config.openLinks === 'tab') { navigate(); return; }
           const { path, subpath } = parseLinktext(href);
-          openInPopup(this.app, this.app.metadataCache.getFirstLinkpathDest(path, task.path), subpath ? { subpath } : {}, navigate);
+          this.plugin.notePopups.open(this.app.metadataCache.getFirstLinkpathDest(path, task.path), subpath ? { subpath } : {}, navigate);
         });
       },
       icon: (el, name) => setIcon(el, name),
