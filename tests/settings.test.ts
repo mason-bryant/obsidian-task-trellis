@@ -18,3 +18,4 @@ it('uses a neutral heading for new installations and preserves existing saved he
   expect(normalizeSettings(undefined).newTaskHeading).toBe('');
   expect(normalizeSettings({ newTaskHeading: '### My existing section' }).newTaskHeading).toBe('### My existing section');
 });
+

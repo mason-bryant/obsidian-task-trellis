@@ -45,6 +45,7 @@ export type BoardDraft = DraftFilterSet & {
   sortCompletedSubtasks: boolean;
   hideCompletedSubtasks: boolean;
   overdueBar: boolean;
+  openLinks: BoardConfig['openLinks'];
   quickFilters: DraftQuickFilter[];
   newTasks: BoardConfig['newTasks'];
   newTasksNote: string;
@@ -79,6 +80,7 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     sortCompletedSubtasks: config.sortCompletedSubtasks,
     hideCompletedSubtasks: config.hideCompletedSubtasks,
     overdueBar: config.overdueBar,
+    openLinks: config.openLinks,
     ...filterSetDraft(config),
     quickFilters: config.quickFilters.map((f) => ({
       id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], due: [...f.due], ...filterSetDraft(f),
@@ -166,6 +168,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.sortCompletedSubtasks]: draft.sortCompletedSubtasks,
     [FM.hideCompletedSubtasks]: draft.hideCompletedSubtasks,
     [FM.overdueBar]: draft.overdueBar,
+    [FM.openLinks]: draft.openLinks,
     [FM.newTasks]: draft.newTasks,
     [FM.newTasksNote]: draft.newTasks === 'note' ? draft.newTasksNote.trim() : '',
     [FM.newTasksHeading]: draft.newTasks === 'default' ? '' : draft.newTasksHeading.trim(),

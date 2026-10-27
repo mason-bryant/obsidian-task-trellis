@@ -46,6 +46,8 @@ export type BoardConfig = {
   hideCompletedSubtasks: boolean;
   /** The red edge on overdue cards. */
   overdueBar: boolean;
+  /** How a card's note and the links in its text open. */
+  openLinks: 'popup' | 'tab';
   /** Where tasks added on this board go; `default` uses the plugin setting. */
   newTasks: 'default' | NewTaskKind;
   newTasksNote: string;
@@ -94,6 +96,7 @@ export const FM = {
   sortCompletedSubtasks: 'sort-completed-subtasks',
   hideCompletedSubtasks: 'hide-completed-subtasks',
   overdueBar: 'overdue-bar',
+  openLinks: 'open-links',
   newTasks: 'new-tasks',
   newTasksNote: 'new-tasks-note',
   newTasksHeading: 'new-tasks-heading',
@@ -133,6 +136,7 @@ export function newBoardFrontmatter(slug: string): Record<string, unknown> {
     [FM.sortCompletedSubtasks]: false,
     [FM.hideCompletedSubtasks]: false,
     [FM.overdueBar]: true,
+    [FM.openLinks]: 'popup',
     [FM.newTasks]: 'default',
   };
 }
@@ -210,6 +214,7 @@ export function parseBoardConfig(
       sortCompletedSubtasks: boolSetting(f[FM.sortCompletedSubtasks], false),
       hideCompletedSubtasks: boolSetting(f[FM.hideCompletedSubtasks], false),
       overdueBar: boolSetting(f[FM.overdueBar], true),
+      openLinks: scalarText(f[FM.openLinks])?.toLowerCase() === 'tab' ? 'tab' : 'popup',
       newTasks: newTasksSetting(f[FM.newTasks], warnings),
       newTasksNote: typeof f[FM.newTasksNote] === 'string' ? (f[FM.newTasksNote] as string).trim() : '',
       newTasksHeading: typeof f[FM.newTasksHeading] === 'string' ? (f[FM.newTasksHeading] as string).trim() : '',

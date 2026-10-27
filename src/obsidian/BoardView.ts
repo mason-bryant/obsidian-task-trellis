@@ -4,7 +4,7 @@ import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
 import { parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { LabelPickerModal } from './LabelPickerModal.ts';
-import { Component, FileView, MarkdownRenderer, Menu, Notice, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { Component, FileView, MarkdownRenderer, Menu, Notice, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
 import { todayISO } from '../core/dates.ts';
@@ -14,6 +14,7 @@ import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
 import { noteTags } from './noteTags.ts';
+import { openInPopup } from './NotePopup.ts';
 import type { UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 
@@ -162,6 +163,13 @@ export class BoardView extends FileView {
     renderBoard(this.contentEl, this.model, this.host(), { warnings: this.board.warnings, info });
   }
 
+  /** The card's note in the pop-up editor at its line, or in a tab, as Settings say. */
+  private openSource(task: BoardTask, newTab: boolean): void {
+    const navigate = () => void this.plugin.writer.openSource(task, newTab);
+    if (newTab || this.board?.config.openLinks === 'tab') { navigate(); return; }
+    openInPopup(this.app, this.app.vault.getFileByPath(task.path), { line: task.line }, navigate);
+  }
+
   /** Filter keys no note in the vault has; only checked when the board is empty. */
   private missingFilterKeys(): string[] {
     return this.board ? missingRequiredPropertyKeys(this.board.config, this.app.vault.getMarkdownFiles()
@@ -213,7 +221,11 @@ export class BoardView extends FileView {
             return;
           }
           const href = link.dataset.href ?? link.getAttribute('href') ?? '';
-          void this.app.workspace.openLinkText(href, task.path, e.ctrlKey || e.metaKey);
+          // Always a new tab: in this one the board view would take the note as its board.
+          const navigate = () => void this.app.workspace.openLinkText(href, task.path, true);
+          if (e.ctrlKey || e.metaKey || this.board?.config.openLinks === 'tab') { navigate(); return; }
+          const { path, subpath } = parseLinktext(href);
+          openInPopup(this.app, this.app.metadataCache.getFirstLinkpathDest(path, task.path), subpath ? { subpath } : {}, navigate);
         });
       },
       icon: (el, name) => setIcon(el, name),
@@ -251,8 +263,8 @@ export class BoardView extends FileView {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
       }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); new Notice('Task Trellis: could not update the task.'); }),
-      onEdit: (task) => void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); new Notice('Task Trellis: could not open the task editor.'); }),
-      onOpenSource: (task, newTab) => void this.plugin.writer.openSource(task, newTab),
+      onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); new Notice('Task Trellis: could not open the task editor.'); }) : this.openSource(task, false),
+      onOpenSource: (task, newTab) => this.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
       onAddTask: async (target, text, detailed) => {
         try { return this.model ? await this.plugin.quickAdd.addFromBoard(this.model, target, text, detailed) : false; }

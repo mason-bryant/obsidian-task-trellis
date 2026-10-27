@@ -5,8 +5,8 @@ import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/b
 import { renderBoardSettings } from '../src/ui/renderBoardSettings.ts';
 
 it('defaults to note-order subtasks, all shown, with the overdue bar', () => {
-  expect(parseBoardConfig('House', {}).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true });
-  expect(parseBoardConfig('House', newBoardFrontmatter('house')).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true });
+  expect(parseBoardConfig('House', {}).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup' });
+  expect(parseBoardConfig('House', newBoardFrontmatter('house')).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup' });
 });
 
 it('saves the Appearance checkboxes to the board note', () => {
@@ -22,7 +22,12 @@ it('saves the Appearance checkboxes to the board note', () => {
   for (const label of ['Sort completed subtasks to end of list', 'Hide completed subtasks', 'Add red bar to overdue tasks']) {
     box(label).click();
   }
+  const opener = root.querySelector<HTMLSelectElement>('select[aria-label="Open notes and links in"]')!;
+  expect(opener.value).toBe('popup');
+  opener.value = 'tab'; opener.dispatchEvent(new Event('change'));
   const { frontmatter, errors } = draftToFrontmatter(draft, config);
   expect(errors).toEqual([]);
-  expect(frontmatter).toMatchObject({ 'sort-completed-subtasks': true, 'hide-completed-subtasks': true, 'overdue-bar': false });
+  expect(frontmatter).toMatchObject({ 'sort-completed-subtasks': true, 'hide-completed-subtasks': true, 'overdue-bar': false, 'open-links': 'tab' });
+  expect(parseBoardConfig('House', { 'open-links': 'Tab' }).config.openLinks).toBe('tab');
+  expect(parseBoardConfig('House', { 'open-links': 'other' }).config.openLinks).toBe('popup');
 });
