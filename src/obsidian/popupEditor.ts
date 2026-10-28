@@ -1,3 +1,4 @@
+import { around } from 'monkey-around';
 import { WorkspaceLeaf, type App, type MarkdownFileInfo, type MarkdownView } from 'obsidian';
 
 /**
@@ -32,4 +33,27 @@ export function claimPopupEditor(app: App, view: MarkdownView): () => void {
     view.containerEl.removeEventListener('focusin', claim);
     if (workspace.activeEditor === info) workspace.activeEditor = previous;
   };
+}
+
+/**
+ * macOS menu accelerators can bypass DOM key handlers and Scope. Guard only Obsidian's
+ * close-tab command while this popup has focus; other commands and dialogs delegate.
+ * Like the leaf constructor, the registry is unsupported and checked before mounting.
+ */
+export function guardPopupClose(app: App, modal: HTMLElement, close: () => void): () => void {
+  const command = (app as unknown as {
+    commands?: { commands?: Record<string, { checkCallback?: (checking: boolean) => boolean | void }> };
+  }).commands?.commands?.['workspace:close'];
+  if (typeof command?.checkCallback !== 'function') throw new Error('Popup close protection is unavailable.');
+  return around(command, {
+    checkCallback(next) {
+      return function (checking: boolean) {
+        if (modal.isConnected && modal.contains(modal.ownerDocument.activeElement)) {
+          if (!checking) close();
+          return true;
+        }
+        return next?.call(command, checking);
+      };
+    },
+  });
 }

@@ -100,6 +100,7 @@ function fixture(loading = Promise.resolve()) {
   };
   const app = {
     workspace,
+    commands: { commands: { 'workspace:close': { checkCallback: vi.fn((_checking: boolean) => true) } } },
     detachedLeaf: vi.fn(() => leaf),
     scope: {},
     keymap: { popScope: vi.fn(), pushScope: vi.fn() },
@@ -328,4 +329,49 @@ it('ignores IME dismissal and other dialogs, and removes its key handler on clos
   const after = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
   f.view.containerEl.dispatchEvent(after);
   expect(after.defaultPrevented).toBe(false);
+});
+
+
+it('routes the native close-tab command through save protection only while its popup owns focus', async () => {
+  const f = fixture();
+  const command = f.app.commands.commands['workspace:close'];
+  const original = command.checkCallback;
+  const pending = deferred();
+  await f.ready();
+  f.view.containerEl.tabIndex = 0;
+  f.view.containerEl.focus();
+  vi.mocked(f.view.save).mockReturnValueOnce(pending.promise);
+  expect(command.checkCallback(true)).toBe(true);
+  expect(f.view.save).not.toHaveBeenCalled();
+  command.checkCallback(false);
+  expect(f.view.save).toHaveBeenCalledOnce();
+  expect(original).not.toHaveBeenCalled();
+  expect(f.leaf.detach).not.toHaveBeenCalled();
+  pending.resolve();
+  await vi.waitFor(() => expect(f.finished).toHaveBeenCalledOnce());
+  command.checkCallback(false);
+  expect(original).toHaveBeenCalledOnce();
+});
+
+it('leaves native close-tab handling alone when another dialog has focus', async () => {
+  const f = fixture();
+  const command = f.app.commands.commands['workspace:close'];
+  const original = command.checkCallback;
+  await f.ready();
+  const other = document.body.appendChild(document.createElement('input'));
+  other.focus();
+  command.checkCallback(false);
+  expect(original).toHaveBeenCalledOnce();
+  expect(f.view.save).not.toHaveBeenCalled();
+  f.popup.close();
+  await vi.waitFor(() => expect(f.finished).toHaveBeenCalledOnce());
+});
+
+it('falls back to ordinary navigation when native close-command protection is unavailable', async () => {
+  const f = fixture();
+  Object.defineProperty(f.app, 'commands', { value: undefined });
+  f.popup.open();
+  await vi.waitFor(() => expect(f.navigate).toHaveBeenCalledOnce());
+  expect(f.app.detachedLeaf).not.toHaveBeenCalled();
+  expect(f.popup.modalEl.isConnected).toBe(false);
 });

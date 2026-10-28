@@ -1,8 +1,8 @@
 import { MarkdownView, Modal, Notice, Scope, setIcon, type App, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { isComposing } from '../ui/dom.ts';
-import { claimPopupEditor, createPopupLeaf } from './popupEditor.ts';
+import { claimPopupEditor, createPopupLeaf, guardPopupClose } from './popupEditor.ts';
 
-/** Own every popup so plugin reload cannot leave an editor or hotkey scope behind. */
+/** Own every popup so plugin reload can save and clean up, or retain a recovery draft. */
 export class NotePopups {
   private openPopups = new Set<NotePopup>();
   private stopped = false;
@@ -28,6 +28,7 @@ export class NotePopups {
 export class NotePopup extends Modal {
   private leaf: WorkspaceLeaf | null = null;
   private view: MarkdownView | null = null;
+  private restoreClose: (() => void) | null = null;
   private restoreEditor: (() => void) | null = null;
   private closed = false;
   private saving = false;
@@ -39,11 +40,13 @@ export class NotePopup extends Modal {
     private onFail: () => void, private onFinished: () => void) {
     super(app);
     this.scope = new Scope(app.scope);
-    this.scope.register([], 'Escape', (event) => {
+    const dismiss = (event: KeyboardEvent) => {
       if (isComposing(event)) return;
       this.close();
       return false;
-    });
+    };
+    this.scope.register([], 'Escape', dismiss);
+    this.scope.register(['Mod'], 'w', dismiss);
   }
 
   onOpen(): void {
@@ -71,6 +74,7 @@ export class NotePopup extends Modal {
   private async mount(): Promise<void> {
     let leaf: WorkspaceLeaf | null = null;
     try {
+      this.restoreClose = guardPopupClose(this.app, this.modalEl, () => this.close());
       leaf = this.leaf = createPopupLeaf(this.app);
       await leaf.openFile(this.file, { active: false, state: { mode: 'source' }, eState: this.eState });
       if (this.closed) { leaf.detach(); this.leaf = null; return; }
@@ -159,6 +163,8 @@ export class NotePopup extends Modal {
   private dismiss(): void {
     if (this.closed) return;
     this.closed = true;
+    this.restoreClose?.();
+    this.restoreClose = null;
     this.restoreEditor?.();
     this.restoreEditor = null;
     super.close();
