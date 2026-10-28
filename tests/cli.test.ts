@@ -6,7 +6,7 @@ import {
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { applyEdit, taskId, type BoardTask } from '../src/core/board.ts';
 import { parseTaskLine, replaceTaskText } from '../src/core/taskLine.ts';
-import { insertUnderHeadingAt } from '../src/core/newTask.ts';
+import { insertUnderHeadingAt, removeLinesAt } from '../src/core/newTask.ts';
 import { insertSubtaskAt } from '../src/core/subtasks.ts';
 
 const config = parseBoardConfig('Home', {
@@ -80,6 +80,12 @@ describe('replaceTaskText', () => {
       .toBe('\t- [x] <!-- task-trellis-request:r1 --> New ✅ 2026-10-01');
   });
 
+  it('keeps ordinary tags, without repeating one the new text names', () => {
+    expect(replaceTaskText('- [ ] Buy filters #home 📅 2026-11-01', 'Buy furnace filters')).toBe('- [ ] Buy furnace filters #home 📅 2026-11-01');
+    expect(replaceTaskText('- [ ] Call #Mom about #1 dinner #home/family #tt/home/backlog', 'Call mother #mom'))
+      .toBe('- [ ] Call mother #mom #home/family #tt/home/backlog');
+  });
+
   it('refuses text that would change placement, and descriptions behind a field', () => {
     expect(replaceTaskText('- [ ] Call roofer', 'Call #tt/home/done')).toBeNull();
     expect(replaceTaskText('- [ ] Call roofer', '  ')).toBeNull();
@@ -101,6 +107,12 @@ describe('insert positions', () => {
       content: '# A\n\n## To do\n- [ ] x\n\t- [ ] y\n', at: 3,
     });
     expect(insertUnderHeadingAt('', '', ['- [ ] x'])).toEqual({ content: '- [ ] x\n', at: 0 });
+  });
+
+  it('removes inserted lines only where they still are, keeping line endings', () => {
+    expect(removeLinesAt('# A\r\n- [ ] x\r\n\t- [ ] y\r\nend', 1, ['- [ ] x', '\t- [ ] y'])).toBe('# A\r\nend');
+    expect(removeLinesAt('# A\n- [ ] x\n', 0, ['- [ ] x'])).toBeNull();
+    expect(removeLinesAt('# A\n', -1, ['- [ ] x'])).toBeNull();
   });
 
   it('reports where a subtask went', () => {

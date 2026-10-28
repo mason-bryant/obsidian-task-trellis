@@ -89,6 +89,14 @@ export function insertUnderHeadingAt(content: string, heading: string, newLines:
   };
 }
 
+/** `content` without `removed`, which must be its lines from `at`; null when they aren't. */
+export function removeLinesAt(content: string, at: number, removed: string[]): string | null {
+  const lines = content.split(/\r?\n/);
+  if (at < 0 || removed.some((line, i) => lines[at + i] !== line)) return null;
+  lines.splice(at, removed.length);
+  return joinEditedLines(content, lines);
+}
+
 function parseHeadingSpec(heading: string): HeadingSpec | null {
   const trimmed = heading.trim();
   if (!trimmed) return null;

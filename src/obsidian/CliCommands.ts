@@ -263,8 +263,9 @@ export class CliCommands {
     const destination: NewTaskDestination = note ? { kind: 'note', note, heading } : { ...base, heading };
     if (dryRun) return { dryRun: true, destination, lines };
     const added = await this.plugin.quickAdd.addLines(config, destination, lines, requestId);
-    this.lastUndo = this.plugin.writer.undoWrite(added.file, added.before, added.after);
-    await this.settle(added.before === added.after ? [] : [added.file.path]);
+    // A retried request writes nothing, so the last change stays the one to undo.
+    if (!added.duplicate) this.lastUndo = this.plugin.writer.undoWrite(added.file, added.before, added.after);
+    await this.settle(added.duplicate ? [] : [added.file.path]);
     return {
       added: added.at < 0 ? [] : await this.addedLines(added.file.path, added.at, added.duplicate ? 1 : lines.length),
       ...(added.duplicate ? { duplicate: true } : {}),
@@ -451,7 +452,10 @@ export class CliCommands {
 
   private model(entry: BoardEntry, filters: string[] = []): BoardModel {
     const cache = this.plugin.app.metadataCache;
-    return buildBoard(this.plugin.index.all(), entry.config, todayISO(),
+    const model = buildBoard(this.plugin.index.all(), entry.config, todayISO(),
       (path) => cache.getCache(path)?.frontmatter, (path) => noteTags(cache.getCache(path)), filters);
+    // A filter the board didn't apply would let show and bulk reach every card.
+    if (model.activeQuickFilters.length !== filters.length) throw new Error('Some of those quick filters can’t be applied on this board.');
+    return model;
   }
 }

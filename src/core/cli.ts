@@ -110,8 +110,13 @@ export function resolveLabels(config: BoardConfig, values: string[]): string[] {
   return [...new Set(values.map((v) => pick(config.labels, v, (l) => l.name, 'label').id))];
 }
 
+/** Only filters shown on the toolbar: the board never applies a hidden one. */
 export function resolveQuickFilters(config: BoardConfig, values: string[]): string[] {
-  return [...new Set(values.map((v) => pick(config.quickFilters, v, (f) => f.name, 'quick filter').id))];
+  return [...new Set(values.map((v) => {
+    const filter = pick(config.quickFilters, v, (f) => f.name, 'quick filter');
+    if (!filter.show) throw new Error(`The ${filter.name} quick filter is hidden from the board’s toolbar, so it can’t be applied. Show it in the board’s settings first.`);
+    return filter.id;
+  }))];
 }
 
 export function resolveRow(model: BoardModel, value: string): string {
@@ -180,7 +185,7 @@ export function boardJson(path: string, config: BoardConfig, newTasks: NewTaskDe
     doneColumn: config.doneColumn,
     undatedColumn: config.undatedColumn,
     labels: config.labels,
-    quickFilters: config.quickFilters.map((f) => ({ id: f.id, name: f.name })),
+    quickFilters: config.quickFilters.filter((f) => f.show).map((f) => ({ id: f.id, name: f.name })),
     newTasks,
     ...(warnings.length ? { warnings } : {}),
   };

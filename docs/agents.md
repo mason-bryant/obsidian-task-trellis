@@ -43,7 +43,8 @@ Every command also takes `format=json` (the default) or `format=text`.
 **Values**
 
 - `board`: the slug from `task-trellis:boards`, the board note's path, or its name.
-- `column`, `row`, `labels` and `filter`: ids from `task-trellis:boards` or `task-trellis:show`, or their names. Lists are comma-separated, such as `labels=1,3`. Rows are `none` (No due date), `now` (Due now), a week row such as `week-2026-11-02`, and `later`.
+- `column`, `row`, `labels` and `filter`: ids from `task-trellis:boards` or `task-trellis:show`, or their names. Lists are comma-separated, such as `labels=1,3`. Rows are `none` (No due date), `now` (Due now), a week row such as `week-2026-11-02`, and `later`. `filter` takes only the quick filters shown on the board's toolbar, which are the ones `task-trellis:boards` lists.
+- `text` for `set`: the task's new words. The task keeps its fields and its tags; tags in the new text are added.
 - `due`: `YYYY-MM-DD`; `none` removes the date. `priority`: `highest`, `high`, `medium`, `low`, `lowest` or `none`.
 - `position`: `top`, `bottom` (the default), `before:<id>` or `after:<id>`, naming a card in the target cell.
 - `subtasks`: a JSON array of texts, such as `subtasks='["Buy paint","Tape the edges"]'`.
@@ -89,7 +90,7 @@ JSON results start with `"ok": true`, or are `{"ok": false, "error": "…"}` wit
 
 `skipped` lists tasks left alone because they changed since they were read. `dry-run` returns the lines that would be written, without writing them.
 
-`task-trellis:undo` undoes only the last change made through the commands, not changes made on a board. It leaves alone any note that changed again since, and says so. Undoing an add into a note it created leaves that note empty rather than deleting it.
+`task-trellis:undo` undoes only the last change made through the commands, not changes made on a board. It leaves alone any note that changed again since, and says so. Undoing an add into a note it created leaves the note in place rather than deleting it: empty, or with what its template added.
 
 ## Task ids and safe writes
 

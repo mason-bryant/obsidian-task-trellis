@@ -275,6 +275,13 @@ describe('task-trellis:set and complete', () => {
     expect(notes['Inbox.md']!.split('\n')[4]).toBe(result.changed[0].raw);
   });
 
+  it('keeps the task’s tags when its text changes', async () => {
+    const { run, notes } = fixture({ 'Inbox.md': INBOX.replace('Fix gate #tt', 'Fix the #yard gate #home #tt') });
+    const result = await run('set', { id: 'Inbox.md:6', text: 'Repair the gate #Home' });
+    expect(result.changed).toEqual([{ id: 'Inbox.md:6', raw: '- [ ] Repair the gate #Home #yard #tt/home/backlog' }]);
+    expect(notes['Inbox.md']!.split('\n')[6]).toBe(result.changed[0].raw);
+  });
+
   it('follows a task whose line moved when expect still matches it uniquely', async () => {
     const { run, notes } = fixture();
     const raw = '- [ ] Fix gate #tt/home/backlog';
@@ -323,6 +330,47 @@ describe('task-trellis:bulk and undo', () => {
     expect((await run('bulk', { board: 'home', due: '2026-11-02' })).error).toBe('Choose the cards with ids, filter or column.');
     expect((await run('bulk', { board: 'home', column: 'backlog', due: 'none', priority: 'low' })).error).toContain('exactly one change');
     expect((await run('bulk', { board: 'home', ids: 'Inbox.md:5', priority: 'low' })).error).toContain('Not cards on this board');
+  });
+
+  it('refuses a quick filter hidden from the toolbar, which the board never applies', async () => {
+    const { run, notes } = fixture({}, { 'Boards/Home.md': { ...HOME, 'quick-filters': [
+      { id: 'overdue', name: 'Overdue', show: false, due: ['overdue'] }, { id: 'urgent', name: 'Urgent', labels: ['1'] },
+    ] } });
+    const before = notes['Inbox.md'];
+    expect((await run('boards')).boards[0].quickFilters).toEqual([{ id: 'urgent', name: 'Urgent' }]);
+    expect(await run('bulk', { board: 'home', filter: 'overdue', priority: 'high' })).toEqual({
+      ok: false, error: 'The Overdue quick filter is hidden from the board’s toolbar, so it can’t be applied. Show it in the board’s settings first.',
+    });
+    expect((await run('show', { board: 'home', filter: 'Overdue' })).ok).toBe(false);
+    expect(notes['Inbox.md']).toBe(before);
+    const shown = await run('bulk', { board: 'home', filter: 'urgent', priority: 'high', 'dry-run': 'true' });
+    expect(shown.changes.map((c: { id: string }) => c.id)).toEqual(['Inbox.md:4']);
+  });
+
+  it('keeps the last change to undo when a retried add writes nothing', async () => {
+    const { run, notes } = fixture();
+    const before = notes['Inbox.md'];
+    await run('add', { board: 'home', text: 'Order mulch', 'request-id': 'agent-1' });
+    expect((await run('add', { board: 'home', text: 'Order mulch', 'request-id': 'agent-1' })).duplicate).toBe(true);
+    expect((await run('undo')).undone).toBe(true);
+    expect(notes['Inbox.md']).toBe(before);
+  });
+
+  it.each([
+    { kept: false, template: () => '# New project\n', undone: '# New project\n' },
+    { kept: true, template: (content: string) => `# New project\n\n${content}`, undone: '# New project\n\n## Tasks\n' },
+  ])('undoes an add into a note Templater filled in, keeping the template (task kept by the template: $kept)', async ({ template, undone }) => {
+    const { run, notes, plugin } = fixture();
+    const app = plugin.app as unknown as { plugins: { enabledPlugins: Set<string> }; workspace: Events };
+    app.plugins.enabledPlugins.add('templater-obsidian');
+    const pending = run('add', { board: 'home', note: 'Projects/New.md', heading: 'Tasks', text: 'Paint', subtasks: '["Buy paint"]' });
+    await vi.waitFor(() => expect(notes['Projects/New.md']).toBe('## Tasks\n- [ ] Paint #tt/home/backlog\n\t- [ ] Buy paint\n'));
+    notes['Projects/New.md'] = template(notes['Projects/New.md']!);
+    app.workspace.trigger('templater:overwrite-file', { file: plugin.app.vault.getFileByPath('Projects/New.md') });
+    expect((await pending).added.map((a: { raw: string }) => a.raw)).toEqual(['- [ ] Paint #tt/home/backlog', '\t- [ ] Buy paint']);
+    expect(notes['Projects/New.md']).toContain('# New project\n\n## Tasks\n- [ ] Paint #tt/home/backlog\n\t- [ ] Buy paint\n');
+    expect((await run('undo')).undone).toBe(true);
+    expect(notes['Projects/New.md']).toBe(undone);
   });
 
   it('undoes an add, and leaves a note alone that changed since', async () => {

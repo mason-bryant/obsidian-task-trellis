@@ -6,7 +6,7 @@ import type { BoardModel, BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
 import { taskMatchesBoard } from '../core/filters.ts';
-import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, type NewTaskFields } from '../core/newTask.ts';
+import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, removeLinesAt, type NewTaskFields } from '../core/newTask.ts';
 import { parseTaskLine, setDueDate, normalizeRequestMarker } from '../core/taskLine.ts';
 import type { ShortcutTask } from '../core/shortcut.ts';
 import type TaskTrellisPlugin from '../../main.ts';
@@ -16,6 +16,7 @@ type DailyNotes = { getDailyNote(): Promise<TFile | null> };
 
 /** A task written by `addLines`: the note before and after, and the task's line (-1 when it can no longer be found). */
 export type AddedLines = { file: TFile; at: number; duplicate: boolean; before: string; after: string; uncertain?: boolean; warning?: string };
+type Change = { before: string; after: string };
 
 type AppInternals = {
   internalPlugins?: { getEnabledPluginById?(id: string): unknown };
@@ -160,12 +161,21 @@ export class QuickAdd {
       return after;
     });
     if (created && !duplicate) {
-      try { await this.keepThroughTemplater(file, dest.heading, saved); }
+      let readded: Change | null;
+      try { readded = await this.keepThroughTemplater(file, dest.heading, saved); }
       catch { return { file, at, duplicate, before, after, uncertain: true, warning: 'The task was written, but template processing could not be verified. Check the destination note before retrying. Sync is not confirmed.' }; }
-      // Templater may have rewritten the note around the task.
+      // Templater may have rewritten the note around the task. `before` and `after` then describe the
+      // note as it left it, so undoing the add keeps the template's content.
       if (this.templaterOn()) {
-        const current = (await this.app.vault.read(file)).split(/\r?\n/);
+        const final = await this.app.vault.read(file);
+        const current = final.split(/\r?\n/);
         if (current[at] !== saved[0]) at = current.indexOf(saved[0]!);
+        if (readded?.after === final) ({ before, after } = readded);
+        else if (final !== after) {
+          // Without the lines together to remove, there is no undo: `before` equals `after`.
+          before = removeLinesAt(final, at, saved) ?? final;
+          after = final;
+        }
       }
     }
     const latestCache = this.app.metadataCache.getFileCache(file);
@@ -261,10 +271,11 @@ export class QuickAdd {
 
   /**
    * Templater rewrites a new note from what it reads ~300 ms after creation. The task is written
-   * before that, so it normally survives; if the rewrite dropped it, add it again.
+   * before that, so it normally survives; if the rewrite dropped it, add it again. Returns the note
+   * before and after adding it again, if that was needed.
    */
-  private async keepThroughTemplater(file: TFile, heading: string, lines: string[]): Promise<void> {
-    if (this.stopped || !this.templaterOn()) return;
+  private async keepThroughTemplater(file: TFile, heading: string, lines: string[]): Promise<Change | null> {
+    if (this.stopped || !this.templaterOn()) return null;
     const workspace = this.app.workspace as unknown as Events;
     await new Promise<void>((resolve) => {
       let timer = 0;
@@ -280,13 +291,17 @@ export class QuickAdd {
       this.pending.add(finish);
       timer = window.setTimeout(finish, TEMPLATER_WAIT_MS);
     });
-    if (this.stopped) return;
+    if (this.stopped) return null;
     const content = await this.app.vault.read(file);
+    let readded: Change | null = null;
     if (!this.stopped && !content.split(/\r?\n/).includes(lines[0]!)) {
-      await this.app.vault.process(file, (c) =>
-        this.stopped || c.split(/\r?\n/).includes(lines[0]!) ? c : insertUnderHeading(c, heading, lines),
-      );
+      await this.app.vault.process(file, (c) => {
+        if (this.stopped || c.split(/\r?\n/).includes(lines[0]!)) return c;
+        readded = { before: c, after: insertUnderHeading(c, heading, lines) };
+        return readded.after;
+      });
     }
+    return readded;
   }
 
   private templaterOn(): boolean {
