@@ -45,7 +45,7 @@ Every command also takes `format=json` (the default) or `format=text`.
 **Values**
 
 - `board`: the slug from `task-trellis:boards`, the board note's path, or its name.
-- `column`, `row`, `labels` and `filter`: ids from `task-trellis:boards` or `task-trellis:show`, or their names. Lists are comma-separated, such as `labels=green,blue`. Rows are `none` (No due date), `now` (Due now), a week row such as `week-2026-11-02`, and `later`. `filter` takes only the quick filters shown on the board's toolbar, which are the ones `task-trellis:boards` lists.
+- `column`, `row`, `labels` and `filter`: ids from `task-trellis:boards` or `task-trellis:show`, or their names. Label ids differ by board, such as `7` or `green`. Lists are comma-separated, such as `labels=green,blue`. Rows are `none` (No due date), `now` (Due now), a week row such as `week-2026-11-02`, and `later`. `filter` takes only the quick filters shown on the board's toolbar, which are the ones `task-trellis:boards` lists.
 - `text` for `set`: the task's new words. The task keeps its fields and its tags; tags in the new text are added.
 - `due`: `YYYY-MM-DD`; `none` removes the date. `priority`: `highest`, `high`, `medium`, `low`, `lowest` or `none`.
 - `position`: `top`, `bottom` (the default), `before:<id>` or `after:<id>`, naming a card in the target cell.
