@@ -1,3 +1,4 @@
+import { NotePopups } from './src/obsidian/NotePopup.ts';
 import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
 import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
 import { boardNameError } from './src/core/boardName.ts';
@@ -56,6 +57,7 @@ export default class TaskTrellisPlugin extends Plugin {
   writer!: TaskWriter;
   boards!: BoardRegistry;
   boardRenames!: BoardTagRename;
+  notePopups!: NotePopups;
   quickAdd!: QuickAdd;
   private boardNavigation!: BoardNavigation;
   private openingBoardList: Promise<void> | null = null;
@@ -66,6 +68,8 @@ export default class TaskTrellisPlugin extends Plugin {
 
   async onload(): Promise<void> {
     this.stopped = false;
+    this.notePopups = new NotePopups(this.app);
+    this.register(() => this.notePopups.destroy());
     this.register(() => {
       this.stopped = true;
       if (this.configTimer !== null) window.clearTimeout(this.configTimer);

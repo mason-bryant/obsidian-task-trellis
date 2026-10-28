@@ -171,6 +171,25 @@ All **418 tests across 34 files** pass, along with lint, type checking, `check:r
 
 Not covered: the six-tab settings dialog on a phone, quick-filter state with two synced devices, and a VoiceOver pass over the new controls.
 
+
+## Pop-up editor lifecycle repairs (unreleased, October 27)
+
+The popup preserves the board behind it without creating a workspace tab. Obsidian has no dedicated public embedded-editor factory, so the unsupported detached-leaf constructor and native close-command guard are isolated in `popupEditor.ts`, with a guarded fallback to ordinary navigation if it cannot open. Native editor command context is claimed only while the popup owns it, and its focus handler is removed on close. Expansion saves first and reuses an existing note tab, including a deferred tab or one in another window.
+
+After integrating the merged PR 25, all **457 tests across 36 files** pass, along with lint, type checking and production packaging. Twenty-three popup cases cover successful/failed/cancelled loading, unsupported-constructor fallback, no tab activation during opening, source-line clamping, failed close/expand saves and retries, duplicate close attempts, typing during an awaited save, existing/deferred tab reuse, navigation failure, editor-context ownership, unload during opening/saving, failed-save recovery after unload, keyboard dismissal, IME isolation and non-Markdown navigation.
+
+Plugin unload requests a save and keeps the editor alive until saving succeeds. If it fails, the recovery popup and its draft remain available for retry. There is no fire-and-forget save followed by immediate detachment. This intentionally favors recoverable text over forcibly removing every modal on unload.
+
+Native macOS Obsidian **1.13.7** verification of the revised implementation used only synthetic notes in the disposable readiness vault:
+
+- The board stayed visible behind the native popup, with no extra tab. Typing followed immediately by Escape saved the task line to disk.
+- Expanding saved into a normal note tab. Reopening from the board and expanding again reused that tab, preserved the new text and did not create another tab.
+- An internal link opened the correct note. Cmd+B inserted bold Markdown into that note, verified on disk.
+- Native Cmd+W initially closed the board as well as the popup: macOS menu accelerators bypassed DOM handlers and `Scope`. A narrow, reversible guard now routes Obsidian's native close-tab command through the popup's save path only while that popup has focus. The repeated native test saved and closed the popup while retaining the board. The unsupported command registry is guarded; if unavailable, opening falls back to ordinary navigation. Automated tests verify focused/unfocused command behavior, cleanup, and fallback.
+- Making just the synthetic task note read-only induced a real EACCES write failure. The complete draft and error message remained open. Disabling Task Trellis from its settings window attempted another save, failed safely and left the recovery editor available. After restoring write access, Escape saved the complete draft to disk and closed the editor. The plugin was re-enabled afterward.
+
+The build was installed only in the disposable vault, and Mason Remote was returned to the foreground without changing its files or installed plugin. No new native iOS/Android, popout-window or concurrent-device sync pass is claimed.
+
 ## PR 25 review repairs (October 27)
 
 All **434 tests across 35 files**, lint, type checking and production packaging pass. New cases cover a stale label picker after another label is created, explicit create/update intent, focus on the final allocated ID, deleted-label edit rejection with draft retention, monotonic allocation from the current counter, and nested subtask composers disabling/restoring every draggable ancestor. Promotion write failures now use a general message instead of assuming indentation or stale content.
