@@ -2,7 +2,7 @@ import { joinEditedLines, replaceNoteLine } from '../core/lineEndings.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import { setTaskLabels } from '../core/labels.ts';
 import { Notice, TFile, type App, type WorkspaceLeaf } from 'obsidian';
-import { applyEdit, type BoardTask, type TaskEdit } from '../core/board.ts';
+import { applyEdit, taskId, type BoardTask, type TaskEdit } from '../core/board.ts';
 import { todayISO } from '../core/dates.ts';
 import { insertSubtask, promoteSubtask } from '../core/subtasks.ts';
 import { dedupeFields, movePlacementsToEnd, parseTaskLine, setClosedFallback, normalizeRequestMarker } from '../core/taskLine.ts';
@@ -27,7 +27,7 @@ export type Promoting = { subtask: BoardTask; card: BoardTask };
 
 type FileChange = { file: TFile; before: string; after: string };
 export type UndoAction = { paths: string[]; undo(): Promise<boolean> };
-export type EditResult = { action: UndoAction | null; appliedIds: string[]; skippedIds: string[]; failedPaths: string[] };
+export type EditResult = { action: UndoAction | null; appliedIds: string[]; skippedIds: string[]; failedPaths: string[]; writtenTasks?: BoardTask[] };
 
 /** Writes task lines back to their notes, through the Tasks plugin when it is available. */
 export class TaskWriter {
@@ -67,12 +67,13 @@ export class TaskWriter {
   }
 
   /** `promote` also moves that subtask out of its card's list in the note, in the same write. */
-  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string, promote?: Promoting): Promise<EditResult> {
+  async applyEdits(tasks: BoardTask[], edits: Map<string, TaskEdit>, slug: string, promote?: Promoting, captureSnapshots = false): Promise<EditResult> {
     const byPath = new Map<string, BoardTask[]>();
     for (const task of tasks) {
       if (edits.has(task.id)) byPath.set(task.path, [...(byPath.get(task.path) ?? []), task]);
     }
-    const result: EditResult = { action: null, appliedIds: [], skippedIds: [], failedPaths: [] };
+    const writtenTasks: BoardTask[] = [];
+    const result: EditResult = { action: null, appliedIds: [], skippedIds: [], failedPaths: [], ...(captureSnapshots ? { writtenTasks } : {}) };
     const changes: FileChange[] = [];
     for (const [path, fileTasks] of byPath) {
       const applied: string[] = [];
@@ -80,7 +81,7 @@ export class TaskWriter {
         await this.rewrite(path, fileTasks, (task, _at, current) => {
           applied.push(task.id);
           return applyEdit(current, edits.get(task.id)!, slug, (l) => this.toggleLine(l, path));
-        }, changes, promote?.subtask.path === path ? promote : undefined);
+        }, changes, promote?.subtask.path === path ? promote : undefined, captureSnapshots ? writtenTasks : undefined);
         result.appliedIds.push(...applied);
       } catch (error) {
         console.error('[Task Trellis] write failed', error);
@@ -226,14 +227,16 @@ export class TaskWriter {
    */
   private async rewrite(
     path: string, tasks: BoardTask[], linesFor: (task: BoardTask, at: number, current: string) => string[],
-    changes?: FileChange[], promote?: Promoting,
+    changes?: FileChange[], promote?: Promoting, written?: BoardTask[],
   ): Promise<number> {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) return tasks.length;
     let missed = 0;
     let change: FileChange | undefined;
     let unmovable = false;
+    const refreshed: BoardTask[] = [];
     await this.app.vault.process(file, (content) => {
+      refreshed.length = 0;
       const read = content.split(/\r?\n/);
       let lines = read, after = content, moved = (i: number) => i;
       if (promote) {
@@ -251,13 +254,32 @@ export class TaskWriter {
           continue;
         }
         const replacement = linesFor(task, at, lines[at]!).map(normalizeRequestMarker);
+        if (written) {
+          for (const previous of refreshed) {
+            previous.line += replacement.length - 1;
+            previous.id = taskId(path, previous.line);
+          }
+          const original = parseTaskLine(task.raw);
+          const keep = replacement.findIndex((raw) => parseTaskLine(raw)?.closed !== original?.closed);
+          const offset = keep >= 0 ? keep : 0;
+          const raw = replacement[offset];
+          const parsed = raw === undefined ? null : parseTaskLine(raw);
+          if (parsed && raw !== undefined) refreshed.push({ ...parsed, path, id: taskId(path, at + offset), line: at + offset, raw, ...(task.parentId ? { parentId: task.parentId } : {}) });
+        }
         after = replaceNoteLine(after, at, replacement);
+      }
+      if (written) {
+        const source = after.replace(/\r\n/g, '\n');
+        const counts = new Map<string, number>();
+        for (const line of source.split('\n')) counts.set(line, (counts.get(line) ?? 0) + 1);
+        for (const task of refreshed) { task.twins = (counts.get(task.raw) ?? 1) - 1; task.duplicateSource = source; }
       }
       if (after !== content) change = { file, before: content, after };
       return after;
     });
     if (unmovable) throw new Error(`could not move the subtask out of its card in ${path}`);
     if (change) changes?.push(change);
+    written?.push(...refreshed);
     return missed;
   }
 }

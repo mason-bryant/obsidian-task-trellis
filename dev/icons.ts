@@ -1,5 +1,7 @@
 /** Fixed SVG geometry for standalone preview icons; no HTML parsing. */
 const paths: Record<string, Array<{ tag: keyof SVGElementTagNameMap; attrs: Record<string, string> }>> = {
+  "square": [{"tag":"rect","attrs":{"x":"3","y":"3","width":"18","height":"18","rx":"2"}}],
+  "check-square": [{"tag":"path","attrs":{"d":"m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"}}],
   "tag": [{"tag": "path", "attrs": {"d": "M20 13 13 20a2 2 0 0 1-3 0L2 12V2h10l8 8a2 2 0 0 1 0 3Z"}}, {"tag": "circle", "attrs": {"cx": "7", "cy": "7", "r": "1"}}],
   "pencil": [{"tag": "path", "attrs": {"d": "m16 3 5 5L8 21H3v-5ZM14 5l5 5"}}],
   "plus": [{"tag": "path", "attrs": {"d": "M12 5v14M5 12h14"}}],

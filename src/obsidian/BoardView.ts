@@ -1,3 +1,5 @@
+import { BulkEditModal } from './BulkEditModal.ts';
+import { planBulk, type BulkAction, type BulkResult } from '../core/bulkTriage.ts';
 import { applyLabelScheme, parsePreviousScheme, type LabelSchemeState } from '../core/labelSchemes.ts';
 import { isColumnResizing } from '../ui/columnResize.ts';
 import { parseColumnWidths } from '../core/columnWidths.ts';
@@ -9,7 +11,7 @@ import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, t
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
 import { todayISO } from '../core/dates.ts';
 import { parseTaskLine } from '../core/taskLine.ts';
-import { isDragging, renderBoard, type RenderHost } from '../ui/renderBoard.ts';
+import { clearBulkSelection, disposeBoardSelection, isDragging, renderBoard, type RenderHost } from '../ui/renderBoard.ts';
 import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
@@ -68,6 +70,7 @@ export class BoardView extends FileView {
     this.stopped = false;
     this.register(() => {
       this.stopped = true;
+      disposeBoardSelection(this.contentEl);
       this.cancelRender?.();
       this.cancelRender = null;
       this.renderQueued = false;
@@ -109,6 +112,7 @@ export class BoardView extends FileView {
   }
 
   async onUnloadFile(): Promise<void> {
+    disposeBoardSelection(this.contentEl);
     this.contentEl.empty();
     this.board = null;
     this.model = null;
@@ -246,6 +250,12 @@ export class BoardView extends FileView {
         void this.plugin.toggleView(this.board.config.slug, option);
         this.render();
       },
+      onBulkAction: (tasks, kind) => new Promise((resolve) => {
+        if (!this.board) { resolve(null); return; }
+        const slug = this.board.config.slug;
+        new BulkEditModal(this.app, this.board.config, kind, tasks.length,
+          (action) => this.applyBulk(tasks, action, slug), resolve).open();
+      }),
       onSubtasksMenu: (anchor, select, onClose) => {
         const menu = new Menu();
         menu.addItem((item) => item.setTitle('Collapse all subtasks').setIcon('fold-vertical').onClick(() => select(true)));
@@ -369,6 +379,7 @@ export class BoardView extends FileView {
     const entry = this.undoAction;
     if (!entry) return;
     this.undoAction = null;
+    clearBulkSelection(this.contentEl);
     try {
       await entry.action.undo();
       const paths = new Set(entry.action.paths);
@@ -379,6 +390,24 @@ export class BoardView extends FileView {
       new Notice('Task Trellis: could not undo the action.');
     }
     this.render();
+  }
+
+  private applyBulk(tasks: BoardTask[], action: BulkAction, slug: string): Promise<BulkResult> {
+    const run = this.moveQueue.then(async () => {
+      if (this.stopped || !this.board || this.board.config.slug !== slug) throw new Error('This board is no longer open.');
+      // Keep the selected snapshots; newer task text is never silently substituted.
+      const snapshots = tasks.map((task) => this.plugin.index.currentSnapshot(task));
+      const edits = planBulk(snapshots, this.board.config, todayISO(), action);
+      const result = await this.plugin.writer.applyEdits(snapshots, edits, slug, undefined, true);
+      if (result.action) this.undoAction = { label: `${result.appliedIds.length} tasks updated`, action: result.action };
+      await this.plugin.index.refresh([...new Set(tasks.map((task) => task.path))]);
+      const skipped = new Set(result.skippedIds);
+      const message = `${result.appliedIds.length} updated${skipped.size ? `; ${skipped.size} skipped because they changed or could not be saved. Clear and reselect to retry.` : ''}.`;
+      this.render();
+      return { tasks: [...(result.writtenTasks ?? []), ...tasks.filter((task) => skipped.has(task.id))], message };
+    });
+    this.moveQueue = run.then(() => undefined, () => undefined);
+    return run;
   }
 
   private drop(taskId: string, target: DropTarget): Promise<void> {

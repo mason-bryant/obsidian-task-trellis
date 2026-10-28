@@ -37,3 +37,16 @@ Task Trellis’s label, board settings, new board, and fallback new-task editors
 Tab to a card and press **Enter** to edit it (or open its source without the Tasks plugin). Use **Alt+Up** / **Alt+Down** to move an open card within its current column and date row. The card’s **⋯** menu provides moves to other columns and date rows without dragging. Done cards keep their completion-date order.
 
 Tab through checkboxes, label controls and action buttons to use them directly. Settings tabs also support arrow keys, Home and End. Save with the green checkmark; Cancel or Escape discards an unsaved editor draft. Label assignment checkboxes save immediately; editing a label’s name or color requires the checkmark.
+
+
+## Bulk triage
+
+Click **Select** in the board toolbar, then select individual cards. Selection controls are separate from task completion. On desktop, **Command-click** (Mac) or **Ctrl-click** (Windows/Linux) on a card enters selection mode and toggles that card. **Shift-click** selects a range of displayed cards in the same column, starting from the last individually selected card; without an anchor it selects just the clicked card. Command/Ctrl-clicking a link keeps its normal link behavior. Normal editing and dragging return when you click empty board space or outside the board, choose **Done selecting**, or press Escape. Selection stays active while a bulk edit dialog is open.
+
+Apply quick filters first, then use **Select all N** to select all matching main tasks, including tasks in collapsed rows and behind a “more” limit. The column picker limits this scope; **Select column** selects only that column. Swiping between columns does not change your selection. Nested subtasks cannot be selected independently.
+
+Use **Move**, **Due date**, **Labels**, or **Priority** above the task list. Review the choices and save with the green check mark at the top of the dialog. Labels can be added or removed without replacing other labels. Moving to Done completes tasks; moving out reopens them. Moving into the No due date column removes dates; undated tasks moving out receive the end date of Due now. Other column moves preserve dates. Child tasks keep their own text and travel with their parent as usual.
+
+Your selected tasks stay selected after a change, even if they no longer match the filter, so you can apply another action to the same group. Changing filters or the column picker clears the selection. **Clear** clears it manually. Each action offers one **Undo** for the successful writes; Undo also clears the selection.
+
+Tasks that changed since selection or cannot be saved are skipped and reported. Successful changes in other notes are retained. Undo skips notes changed since the action rather than overwriting newer edits or sync changes. Clear and reselect skipped tasks before retrying.

@@ -170,6 +170,12 @@ export function setDueDate(line: string, date: ISODate | null): string {
   return keepLast(replaced, DUE_TOKEN_RE);
 }
 
+/** Replaces the parsed priority field, retaining dates, tags and block ids. */
+export function setPriority(line: string, priority: Priority | null): string {
+  const stripped = line.replace(/\s?(🔺|⏫|🔼|🔽|⏬)️?/gu, '');
+  return priority === null ? stripped : insertBeforeTail(stripped, PRIORITY_EMOJI[priority]);
+}
+
 /** Drops earlier copies of single-valued fields (dates, priority), keeping the last, which Tasks reads. */
 export function dedupeFields(line: string): string {
   return SINGLE_FIELD_TOKEN_RES.reduce(keepLast, line);
