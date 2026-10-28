@@ -71,7 +71,7 @@ obsidian task-trellis:add board=home note="Projects/Kitchen.md" heading="## To d
 
 With `parent=<id>`, the task becomes the last subtask of that task, and `subtasks` go under it in turn. `board`, `column`, `labels`, `note` and `heading` don't apply to subtasks.
 
-`request-id` makes an add safe to retry: a second add with the same id finds the first task and adds nothing.
+`request-id` makes an add safe to retry. The id is saved in the task's line as a hidden comment, `<!-- task-trellis-request:<id> -->`, and a second add with the same id to the same note finds it and adds nothing. The comment stays in the line, so pass it only when nobody will see whether the first add worked, as in an unattended script.
 
 ### Moving cards
 
@@ -119,7 +119,7 @@ See [Tasks and cards](tasks.md) and [Labels](labels.md) for the details.
 - Start with `task-trellis:boards`, then `task-trellis:show board=<slug>` for card ids. Take board, column, label, row and quick filter ids from those results.
 - Pass `expect` with the task's whole `raw` line when changing a task, including a subtask's leading tab. Use the ids returned by a change for the next command, or run `show` again.
 - Check `ok`. When it's false, read `error`; it says what to change. Report `skipped` tasks and any `warning` to the user.
-- Use `dry-run` to show the user a change before making it, and `request-id` when an add might be retried.
+- Use `dry-run` to show the user a change before making it. Use `request-id` only when an add might be retried with no one watching; otherwise run `show` to check before adding again.
 - If `obsidian` isn't found, Obsidian isn't running, the result says the command line interface is off, or it says “The CLI is unable to find Obsidian”, tell the user. Don't fall back to editing notes unless they ask; if they do, follow [How tasks are stored](#how-tasks-are-stored).
 
 ## Privacy
