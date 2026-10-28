@@ -2,7 +2,7 @@
 
 # Community readiness test report
 
-Updated October 26, 2026 for version **0.1.15**. The original readiness review covered 0.1.10; version-specific follow-ups and maintainer confirmations are recorded below. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
+Updated October 27, 2026 for version **0.1.16**. The original readiness review covered 0.1.10; version-specific follow-ups and maintainer confirmations are recorded below. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
 
 ## Changes made during this review
 
@@ -17,7 +17,7 @@ Updated October 26, 2026 for version **0.1.15**. The original readiness review c
 
 ## Automated checks
 
-Current application suite: **301 tests across 24 files** (290 at the initial 0.1.10 review). Shortcut generator: **8 Python tests**. Lint, TypeScript checking, production packaging, notice/asset validation and preview build pass.
+Current application suite: **484 tests across 37 files** (290 at the initial 0.1.10 review). Shortcut generator: **8 Python tests**. Lint, TypeScript checking, production packaging, notice/asset validation and preview build pass.
 
 New stress coverage:
 
@@ -81,7 +81,7 @@ For the remaining native pass, use a disposable vault with fictional tasks. Test
 
 ## Submission status
 
-Release 0.1.12 is published. No directory submission or author outreach has been made. The maintainer has chosen to proceed without a separate provenance eligibility inquiry; history and notices remain documented without claiming a directory determination. Remaining coverage gaps are disclosed above. See [provenance](provenance.md) and the updated [submission draft](submission.md).
+The plugin has been submitted to the community directory. The last portal result recorded here was the failed automatic review of 0.1.13; the resulting source fixes have since merged and shipped. The current portal outcome has not been reverified for 0.1.16. No author outreach has been made. The maintainer has chosen to proceed without a separate provenance eligibility inquiry; history and notices remain documented without claiming a directory determination. Remaining coverage gaps are disclosed above. See [provenance](provenance.md) and the updated [submission draft](submission.md).
 
 
 ## Phone cross-column drag follow-up (2026-10-25, 0.1.12)
@@ -115,7 +115,7 @@ All 319 tests across 26 files pass, along with lint and production packaging. Th
 The final palette set replaces Spring light with Modern primary. All 16 focused label tests and packaging passed after the replacement. Installed locally into Mason Remote with settings preserved; native Obsidian showed the new resize controls and Modern primary in the scheme picker. No palette changes were applied to the personal board during this installation check.
 
 
-## Community review fixes (October 25, 2026, unreleased branch)
+## Community review fixes (pre-release check, October 25, 2026)
 
 The `codex/community-review-fixes` branch addresses the 0.1.13 portal scan and reliability review. **361 application tests and 8 shortcut tests pass**, along with lint, type checking, production packaging and the preview build. Local lint now includes the preview TypeScript and no longer disables the DOM-helper or declarative-settings rules. CI tests both Node 22 and 24; remote CI and portal results are separate checks.
 
@@ -132,13 +132,13 @@ Native checks used **macOS Obsidian 1.13.7 and Tasks 8.5.0** in the existing dis
 
 The native test build was installed only in the disposable readiness vault. Mason Remote was returned to the foreground without replacing its plugin build. The final small stale-card guard and message wording changes are covered by automated tests; those scenarios were not separately repeated natively. Native IME composition, iOS/Android behavior for this branch, and published artifact attestations remain unverified. Existing iOS gesture code was not changed. The desktop `display: contents` wrapper is intentionally retained; its scanner compatibility warning targets an older Obsidian version than this plugin supports.
 
-## Board title rename (unreleased, October 25)
+## Board title rename (pre-release check, October 25)
 
 The 368-test suite, lint, type checking, production packaging and preview build pass. Seven new tests cover filename collisions/validation, stale files, preserving the board slug and labels, legacy slug pinning, failed-save retry, duplicate submissions, IME Enter, cancellation and the accessible title button.
 
 Native Obsidian 1.13.7 in the disposable Task Trellis Readiness Test vault confirmed click-to-edit, saving a new filename, immediate heading/tab/breadcrumb updates, reopening with the saved name and cancelling. The fixture was renamed back afterward. Its task note's SHA-256 remained identical and its board slug remained `review-checks`. This check also caught and fixed the existing missing base FileView rename handler. The final handler change passed the focused BoardView/rename tests and lint. The build was installed only in the disposable test vault; no new iPhone or iPad run was performed.
 
-## Optional board-tag rename (unreleased, October 25)
+## Optional board-tag rename (pre-release check, October 25)
 
 All **391 tests across 31 files** pass, along with lint, type checking, production packaging and the preview build. New coverage exercises read-only previews, preview invalidation, namespace and filename collisions, excluded/completed/nested tasks, dependent board filters, mixed line endings, code examples, stale previews, backup failure, task/board/settings write failures, interrupted cleanup, restoration after restart, interrupted restoration and protection of later edits or newly created tasks. These are simulated failures, not physical disk or sync-provider fault tests.
 
@@ -148,7 +148,7 @@ The first native restoration safely rejected Obsidian's shortening of a full-pat
 
 The tested build remains installed only in the disposable vault. Mason Remote was returned to the foreground without changing its plugin build or migrating personal boards. No new iOS, Android, concurrent-device sync or large-vault migration benchmark is claimed. Ordinary Markdown-link reformatting beyond equivalent wiki links can still require manual recovery; changed notes are protected rather than overwritten.
 
-## Unified filter editor (unreleased, October 25)
+## Unified filter editor (pre-release check, October 25)
 
 All **397 tests across 32 files** pass, along with lint, type checking, production packaging and the preview build. Five new editor tests cover existing-filter round trips, adding/removing every rule type, inclusion/exclusion behavior against the actual matcher, property validation, literal commas, IME input, autocomplete lifecycle, focus, tab-switch persistence and saving state. The native adapter uses documented `TextComponent`, `DropdownComponent` and `AbstractInputSuggest` APIs; the task filter engine and stored filter format are unchanged.
 
@@ -172,7 +172,7 @@ All **418 tests across 34 files** pass, along with lint, type checking, `check:r
 Not covered: the six-tab settings dialog on a phone, quick-filter state with two synced devices, and a VoiceOver pass over the new controls.
 
 
-## Pop-up editor lifecycle repairs (unreleased, October 27)
+## Pop-up editor lifecycle repairs (pre-release check, October 27)
 
 The popup preserves the board behind it without creating a workspace tab. Obsidian has no dedicated public embedded-editor factory, so the unsupported detached-leaf constructor and native close-command guard are isolated in `popupEditor.ts`, with a guarded fallback to ordinary navigation if it cannot open. Native editor command context is claimed only while the popup owns it, and its focus handler is removed on close. Expansion saves first and reuses an existing note tab, including a deferred tab or one in another window.
 
@@ -195,3 +195,15 @@ The build was installed only in the disposable vault, and Mason Remote was retur
 All **434 tests across 35 files**, lint, type checking and production packaging pass. New cases cover a stale label picker after another label is created, explicit create/update intent, focus on the final allocated ID, deleted-label edit rejection with draft retention, monotonic allocation from the current counter, and nested subtask composers disabling/restoring every draggable ancestor. Promotion write failures now use a general message instead of assuming indentation or stale content.
 
 The label counter protects writes against the latest local board contents; it is not a distributed allocator. Simultaneous offline additions on different devices can still conflict. No new real-device sync or native mobile test is claimed.
+
+## Bulk triage and release 0.1.16 (October 27)
+
+Includes merged PRs 24–28: pop-up note editing and lifecycle fixes, subtask promotion and sequential label names, compact subtask controls, quick-filter label swatches, and bulk triage. The task guide documents selection, its scope, save behavior and Undo.
+
+- **Automated:** 484 application tests in 37 files and 8 Python shortcut tests; lint, TypeScript, production packaging/release checks and the browser harness build pass. PR 28 CI passed on Node 22 and Node 24. Regression coverage includes selected snapshots across consecutive edits, filters hiding selected cards, duplicate task identities, recurrence inserting lines, partial file failures, later-note edits during Undo, keyboard/modifier selection, click-away dismissal and listener cleanup.
+- **Native desktop:** Obsidian 1.13.7 in the disposable readiness vault. Selected three main tasks in two notes, applied a due date and moved them to Done. Verified the saved Markdown and the unchanged child task. Undo restored both notes byte-for-byte and cleared selection. Earlier checks applied priority and labels to selections retained after they stopped matching the active filter. The final implementation was installed/reloaded in Mason Remote; Command-click and click-away dismissal were verified without editing personal tasks.
+- **Browser:** Command-click and Shift-click ranges, empty-date validation, date changes, Done and Undo. At 390px wide the toolbar actions fit above the list, Select all included 17 matching tasks including hidden rows/cards, and applying a label updated all 17.
+- **Repairs found during this pass:** completing a bulk dialog after its board closes no longer resurrects that board; a failed remove-date save keeps the date input disabled. Regression tests cover both.
+- **Release-specific mobile attempt:** connected to the maintainer’s iPhone 15 Pro Max through Mirroring. Obsidian settings initially showed Task Trellis 0.1.15, disabled. Text entry and taps were unreliable; Mirroring closed once, and reconnecting and restarting Obsidian did not yield a usable bulk-edit session. The exact candidate bundle on the phone could not be established. Two synthetic test tasks and a board were prepared in the synced vault but never edited from the phone, then removed with a recoverable backup. Result: **incomplete, not passed**. Phone-width browser coverage is not a native iOS pass. Android remains deliberately deferred by the maintainer; no new VoiceOver or cross-device conflict-resolution pass is claimed.
+
+These implementation checks used the 0.1.16 source while the local manifest still read 0.1.15; a clean dependency installation, all 484 application and 8 shortcut tests, lint, preview build and final 0.1.16 packaging passed again on the release branch. Historical sections above retain their original version-specific counts and limitations.
