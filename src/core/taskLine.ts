@@ -126,12 +126,7 @@ export function parseTaskLine(line: string): ParsedTask | null {
   }
   const withoutPlacements = body.replace(placementRe(), '');
 
-  const tags: string[] = [];
-  for (const t of withoutPlacements.matchAll(TAG_RE)) {
-    const tag = (t[1] ?? '').replace(/\/+$/, '').toLowerCase();
-    // Obsidian ignores purely numeric tags.
-    if (tag && !/^\d+$/.test(tag)) tags.push(tag);
-  }
+  const tags = tagsIn(withoutPlacements).map(({ name }) => name);
 
   let text = stripTaskLabels(withoutPlacements).replace(/<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->/g, '');
   for (const re of FIELD_RES) text = text.replace(re, ' ');
@@ -198,6 +193,39 @@ export function movePlacementsToEnd(line: string): string {
   const tags = [...line.matchAll(placementRe())].map((m) => m[0].trim());
   if (tags.length === 0) return line;
   return appendAtEnd(line.replace(placementRe(), ''), tags);
+}
+
+/**
+ * Replaces the description, keeping the fields and tags after it, and the tags in it: those `text`
+ * doesn't name go after the new text. Null when the description isn't the start of the line's text
+ * (a field or label in front of it), or `text` is empty or has Task Trellis tags, since those would
+ * change the task's placement rather than its text.
+ */
+export function replaceTaskText(line: string, text: string): string | null {
+  const m = TASK_LINE_RE.exec(line);
+  const current = parseTaskLine(line)?.text;
+  const next = text.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+  if (!m || !current || !next || new RegExp(`(^|\\s)#${TAG_PREFIX}\\/`, 'u').test(next)) return null;
+  const body = m[4]!;
+  const marker = /^(?:<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->\s*)?/.exec(body)![0];
+  const rest = body.slice(marker.length);
+  if (!rest.startsWith(current)) return null;
+  const named = new Set(tagsIn(next).map(({ name }) => name));
+  const kept: string[] = [];
+  for (const { tag, name } of tagsIn(current)) {
+    if (named.has(name)) continue;
+    named.add(name);
+    kept.push(tag);
+  }
+  return `${m[1]}${m[2]}${m[3]}${marker}${[next, ...kept].join(' ')}${rest.slice(current.length)}`;
+}
+
+/** Tags as written (`#Home/Kitchen`) and as Obsidian names them (`home/kitchen`), without the purely numeric ones it ignores. */
+function tagsIn(text: string): { tag: string; name: string }[] {
+  return [...text.matchAll(TAG_RE)].flatMap((t) => {
+    const name = (t[1] ?? '').replace(/\/+$/, '').toLowerCase();
+    return name && !/^\d+$/.test(name) ? [{ tag: `#${t[1]}`, name }] : [];
+  });
 }
 
 /** Completes or reopens a task without the Tasks plugin: flips the checkbox and adds or removes `✅`. */

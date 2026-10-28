@@ -6,7 +6,7 @@ Task Trellis is a configurable kanban board for Obsidian. Bring tasks from daily
 
 Build boards around the way you work, use color to distinguish projects and categories, and capture ideas from your phone while they're fresh.
 
-[Quick start](#quick-start) · [iPhone capture](docs/ios-shortcuts.md) · [Guides](#guides)
+[Quick start](#quick-start) · [iPhone capture](docs/ios-shortcuts.md) · [AI agents](docs/agents.md) · [Guides](#guides)
 
 ![Task Trellis showing a home project board with workflow columns, due-date rows and colored labels](docs/images/board-desktop.png)
 
@@ -21,6 +21,7 @@ Build boards around the way you work, use color to distinguish projects and cate
 - **Recognize projects and categories at a glance.** Assign multiple colored labels to a card: Urgent, Financial planning, Paint kitchen, or whatever matters to you. Each board has its own label names and colors.
 - **Choose the right scope.** Build separate views for work, home or a specific project. Include or exclude tasks using tags, folders and note properties.
 - **Keep the context close.** Expand subtasks when you need the detail, collapse them for an overview, and jump from any card to its original note.
+- **Let an AI agent help.** Agents such as Claude Code and Codex, and your own scripts, can read boards and add, move, complete and triage tasks through Obsidian's command line, with the same safety checks and Undo as the board. [Agents and the CLI →](docs/agents.md)
 
 ## Keep working with the tasks you already have
 
@@ -39,6 +40,18 @@ When you're ready to review, swipe between full-width columns, check off tasks, 
 <img src="docs/images/board-mobile.png" alt="Phone-sized Task Trellis board with an Add task button above the list and labels on task cards" width="360">
 
 [Set up the iOS shortcut →](docs/ios-shortcuts.md)
+
+## Work with AI agents and scripts
+
+Ask an agent to "add a Paint kitchen task with three subtasks to my Kitchen note" or "move everything overdue on my Home board to next week", and it can do it with commands such as:
+
+```bash
+obsidian task-trellis:boards
+obsidian task-trellis:show board=home
+obsidian task-trellis:add board=home note="Projects/Kitchen.md" text="Paint kitchen" subtasks='["Buy paint","Tape the edges","Paint the walls"]'
+```
+
+The commands answer in JSON. They see each board as you do, refuse to overwrite tasks that changed since they were read, and offer a dry run and Undo. They need desktop Obsidian 1.13.7 or later with **Settings → General → Advanced → Command line interface** turned on, and Obsidian running. [Set up agents and the CLI →](docs/agents.md)
 
 ## Make it pleasant to come back to
 
@@ -71,6 +84,7 @@ The **Tasks** plugin is optional; it adds a task editor and recurring tasks. [Se
 | Update several tasks at once | [Bulk triage](docs/tasks.md#bulk-triage) |
 | Create and assign colored labels | [Labels](docs/labels.md) |
 | Capture tasks from an iPhone shortcut | [iOS Shortcuts](docs/ios-shortcuts.md) |
+| Let an AI agent or script read and update tasks | [Agents and the CLI](docs/agents.md) |
 
 ## Your vault stays yours
 

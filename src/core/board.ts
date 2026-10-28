@@ -6,7 +6,7 @@ import { activeQuickFilters, taskMatchesQuickFilter } from './quickFilters.ts';
 import { filterTaskFamilies, type QuickFilterContext } from './quickFilterHierarchy.ts';
 import { computeRows, rowForDue, type RowDef } from './rows.ts';
 import { planReorder } from './sort.ts';
-import { parseTaskLine, priorityRank, setDueDate, setPlacement, setPriority, type Priority, type ParsedTask } from './taskLine.ts';
+import { parseTaskLine, priorityRank, replaceTaskText, setDueDate, setPlacement, setPriority, type Priority, type ParsedTask } from './taskLine.ts';
 
 /** A task line found in the vault. `raw` is the line as last read, used to check it before writing. */
 export type BoardTask = ParsedTask & {
@@ -50,7 +50,10 @@ export type TaskEdit = {
   sort?: number;
   closed?: boolean;
   priority?: Priority | null;
-  labels?: { mode: 'add' | 'remove'; ids: string[] };
+  /** `set` replaces this board's labels with `ids`. */
+  labels?: { mode: 'add' | 'remove' | 'set'; ids: string[] };
+  /** New description; see `replaceTaskText`. */
+  text?: string;
 };
 
 export function taskId(path: string, line: number): string {
@@ -424,11 +427,17 @@ export function applyEdit(raw: string, edit: TaskEdit, slug: string, toggle: (li
   if (edit.due !== undefined) line = setDueDate(line, edit.due);
   if (edit.column !== undefined) line = setPlacement(line, slug, edit.column, edit.sort);
   if (edit.priority !== undefined) line = setPriority(line, edit.priority);
+  if (edit.text !== undefined) {
+    const replaced = replaceTaskText(line, edit.text);
+    if (replaced === null) throw new Error('The task text could not be replaced safely.');
+    line = replaced;
+  }
   if (edit.labels) {
     const existing = taskLabels(line, slug);
-    line = setTaskLabels(line, slug, edit.labels.mode === 'add'
-      ? [...new Set([...existing, ...edit.labels.ids])]
-      : existing.filter((id) => !edit.labels!.ids.includes(id)));
+    const { mode, ids } = edit.labels;
+    line = setTaskLabels(line, slug, mode === 'set' ? ids
+      : mode === 'add' ? [...new Set([...existing, ...ids])]
+      : existing.filter((id) => !ids.includes(id)));
   }
   lines[index] = line;
   return lines;
