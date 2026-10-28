@@ -15,7 +15,7 @@ export type BulkResult = { tasks: BoardTask[]; message: string };
 /** Only independently editable main cards, including cards beyond a collapsed row or a limit. */
 export function triageCards(model: BoardModel, column = ''): BoardTask[] {
   return model.rows.flatMap((row) => model.columns.filter((c) => !column || c.id === column)
-    .flatMap((c) => model.cells[row.id]?.[c.id] ?? [])).filter((task) => !task.parentId);
+    .flatMap((c) => model.cells[row.id]?.[c.id] ?? [])).filter((task) => !task.parentId && !model.quickContext?.contextOnly.has(task.id));
 }
 
 export function planBulk(tasks: BoardTask[], config: BoardConfig, today: string, action: BulkAction): Map<string, TaskEdit> {

@@ -35,14 +35,22 @@ Quick filters are buttons at the top of the board that narrow it further while t
 
 Manage them in **Settings → Quick filters**. Select a filter's name to expand it. **Show on board** puts its button in the toolbar. A hidden filter is kept but never applied. Use the arrows to reorder the buttons, the copy button to clone a filter, and the trash button to remove one.
 
+Filters with selected labels show colored squares beside their names, both on the board and in settings. The settings preview updates as you select labels.
+
 A quick filter can match on:
 
 - **Priority**: any checked level. **No priority** matches tasks without one.
-- **Labels**: tasks with any checked board label.
+- **Labels**: tasks with any checked board label. Choose **No labels** to find tasks with no labels assigned for this board; ordinary tags and labels from other boards do not count. Combine it with specific labels to match either unlabeled tasks or any checked label.
 - **Due**: **Overdue**, **Due today**, **Due now** (the board's Due now window, overdue included) or **No due date**. Any checked choice can match.
 - **Must include** and **Must not include** rules for tags, note folders and note properties. These work exactly like the board's own filters above.
 
 Within Priority, Labels or Due, any checked choice can match. Every part you fill in must match. A quick filter with nothing chosen matches every task.
+
+**Match subtasks** is off by default for each quick filter. With it off, only main tasks can bring a card into the filtered view; their existing subtasks remain available through the normal expand control. Turn it on to let a matching subtask bring its parent into view. When combining filters, filters without this option must match the main task. Enabled filters can match that task or the same subtask—separate siblings cannot satisfy different filters.
+
+A parent brought in only for context is marked **Matching subtask** and stays in its usual column and date row. Matching branches are expanded temporarily, including intervening parents, and the matching subtasks retain their own dates. Other siblings are behind **Show other subtasks**. These disclosures do not overwrite your saved collapse settings; turning the filters off restores the normal view. Matching branches are also revealed inside collapsed rows and past card limits. The usual completed-task visibility rules still apply when deciding whether a subtask can match.
+
+Quick filters do not widen the underlying board's task membership. If an eligible subtask has ancestors outside the board, those ancestors appear as compact context headings that open the source note, not as editable board cards. Parents shown only for context are excluded from bulk selection; bulk editing still applies only to main tasks that match directly.
 
 Boards come with three quick filters: **High priority** (high or highest), **Overdue**, and one for the board's first label, named after it with a 🏷️ in front (for example **🏷️ Critical**). Boards created before quick filters existed show the same three until their quick filters are edited. They're stored in the board note:
 
@@ -57,6 +65,15 @@ quick-filters:
     show: true
     due: [overdue]
     include-tags: [work]
+  - id: unlabeled
+    name: Needs a label
+    show: true
+    no-labels: true
+  - id: overdue-work
+    name: Overdue work
+    show: true
+    due: [overdue]
+    match-subtasks: true
 ```
 
 `id` keeps a filter's on/off state when it's renamed. Set `quick-filters: []` for a board with none.

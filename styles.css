@@ -464,6 +464,14 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-toolbar-button[aria-pressed='true'] { color: var(--text-accent); border-color: var(--interactive-accent); }
 .tt-subtasks-menu { min-width: 32px; flex: none; }
 .tt-quick-filter-colors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.tt-quick-filter-colors[hidden] { display: none; }
+.tt-filter-context-note, .tt-filter-match-note { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.tt-filter-match-note { color: var(--text-accent); }
+.tt-subtask.tt-filter-match { border-inline-start: 2px solid var(--interactive-accent); padding-inline-start: 8px; }
+.tt-filter-ancestors { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
+.tt-filter-parent { height: auto; padding: 2px 0; background: transparent; box-shadow: none; border: 0; color: var(--text-muted); text-align: start; white-space: normal; overflow-wrap: anywhere; }
+.tt-filter-show-others { margin-top: 8px; height: auto; white-space: normal; color: var(--text-muted); }
+.tt-filter-match-summary { margin: 8px 0 0 12px; padding-inline-start: 8px; border-inline-start: 1px solid var(--background-modifier-border); color: var(--text-muted); }
 .tt-quick-filter-color { width: 12px; height: 12px; flex: none; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 20%); }
 .tt-column-picker { min-height: 32px; max-width: 180px; font-size: var(--font-ui-small); }
 .tt-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; }

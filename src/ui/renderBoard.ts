@@ -8,6 +8,7 @@ import type { BoardColumn } from '../core/boardConfig.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
 import { installColumnSwipe } from './columnSwipe.ts';
 import { installTouchCardDrag } from './touchCardDrag.ts';
+import { quickFilterColors } from './quickFilterColors.ts';
 
 /** What the board needs from its host (the Obsidian view, or the dev harness). */
 export type RenderHost = {
@@ -46,6 +47,8 @@ export type RenderHost = {
   onSelectCard?(task: BoardTask, range: boolean): void;
   /** Renderer-owned selection controls; omitted during normal browsing. */
   selection?: { has(task: BoardTask): boolean; toggle(task: BoardTask, range: boolean): void; busy: boolean };
+  /** Renderer-owned temporary disclosures while a quick filter reveals matching descendants. */
+  quickDisclosure?: { collapsed(id: string): boolean; toggle(id: string): void; all(id: string): boolean; toggleAll(id: string): void };
   undo?: { label: string; run(): void };
   highlightIds?: Set<string>;
 };
@@ -60,6 +63,7 @@ const renderInputs = new WeakMap<HTMLElement, { model: BoardModel; host: RenderH
 const bulkStates = new WeakMap<HTMLElement, BulkSelection>();
 const selectionClickCleanup = new WeakMap<HTMLElement, () => void>();
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
+const quickDisclosures = new WeakMap<HTMLElement, { scope: string; collapsed: Set<string>; all: Set<string> }>();
 
 /** Undo invalidates selected snapshots; keep selection mode but require a fresh choice. */
 export function clearBulkSelection(root: HTMLElement): void { bulkStates.get(root)?.clear(); }
@@ -68,6 +72,7 @@ export function clearBulkSelection(root: HTMLElement): void { bulkStates.get(roo
 export function disposeBoardSelection(root: HTMLElement): void {
   selectionClickCleanup.get(root)?.();
   bulkStates.delete(root);
+  quickDisclosures.delete(root);
 }
 
 const DRAG_TYPE = 'application/x-task-trellis';
@@ -145,12 +150,29 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   let bulk = bulkStates.get(root);
   if (!bulk) { bulk = new BulkSelection(); bulkStates.set(root, bulk); }
   bulk.resetScope(JSON.stringify([config.slug, config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders,
-    config.propertyFilters, config.excludedPropertyFilters, model.activeQuickFilters, display.column]));
+    config.propertyFilters, config.excludedPropertyFilters, model.activeQuickFilters, config.quickFilters, display.column]));
   const selection = bulk;
   const redraw = () => {
     const latest = renderInputs.get(root)!;
     renderBoard(root, latest.model, latest.host, latest.notes);
   };
+  const quickScope = JSON.stringify([config.slug, model.activeQuickFilters, config.quickFilters]);
+  let disclosures = quickDisclosures.get(root);
+  if (!disclosures || disclosures.scope !== quickScope) {
+    disclosures = { scope: quickScope, collapsed: new Set(), all: new Set() };
+    quickDisclosures.set(root, disclosures);
+  }
+  const temporary = disclosures;
+  const toggleTemporary = (set: Set<string>, id: string) => { if (set.has(id)) set.delete(id); else set.add(id); redraw(); };
+  host = { ...host, quickDisclosure: {
+    collapsed: (id) => temporary.collapsed.has(id), toggle: (id) => toggleTemporary(temporary.collapsed, id),
+    all: (id) => temporary.all.has(id), toggleAll: (id) => toggleTemporary(temporary.all, id),
+  } };
+  // Reveal rows containing matched descendants without changing saved row preferences.
+  const revealedRows = new Set(Object.entries(model.rowOf)
+    .filter(([id]) => model.quickContext?.branches.has(id)).map(([, row]) => row));
+  const rowCollapsed = (id: string) => revealedRows.has(id) ? temporary.collapsed.has(`row:${id}`) : baseHost.isCollapsed(id);
+  const toggleRow = (id: string) => revealedRows.has(id) ? toggleTemporary(temporary.collapsed, `row:${id}`) : baseHost.onToggleRow(id);
   if (selection.active) {
     const doc = root.ownerDocument;
     const dismiss = (event: MouseEvent) => {
@@ -180,7 +202,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     }
   };
   const selectCard = (task: BoardTask, range: boolean) => {
-    if (selection.busy || task.parentId) return;
+    if (selection.busy || task.parentId || model.quickContext?.contextOnly.has(task.id)) return;
     const byId = new Map(triageCards(model, columnOf(task, config)).map((t) => [t.id, t]));
     const ordered = [...grid.querySelectorAll<HTMLElement>('.tt-card')].flatMap((c) => {
       const t = byId.get(c.dataset.id ?? ''); return t ? [t] : [];
@@ -240,7 +262,11 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       if (action.getAttribute('aria-expanded') === 'true') return;
       action.setAttribute('aria-expanded', 'true');
       host.onSubtasksMenu?.(action, (collapsed) => {
+        for (const id of model.quickContext?.branches ?? []) {
+          if (collapsed) temporary.collapsed.add(id); else temporary.collapsed.delete(id);
+        }
         host.onSetSubtasksCollapsed(subtaskKeys, collapsed);
+        if (model.quickContext?.branches.size) redraw();
         restoreFocus();
       }, restoreFocus);
     };
@@ -257,18 +283,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       const toggle = el('button', 'tt-toolbar-button tt-quick-filter'); toggle.type = 'button';
       toggle.dataset.boardFocus = `quick:${filter.id}`;
       toggle.append(hostIcon(host, 'filter'));
-      const labels = config.labels.filter((label) => filter.labels.includes(label.id));
-      if (labels.length) {
-        const colors = el('span', 'tt-quick-filter-colors');
-        for (const label of labels) {
-          const square = el('span', 'tt-quick-filter-color');
-          square.style.backgroundColor = label.color;
-          square.setAttribute('role', 'img');
-          square.setAttribute('aria-label', labelDescription(label));
-          colors.append(square);
-        }
-        toggle.append(colors);
-      }
+      toggle.append(quickFilterColors(root.ownerDocument, config.labels, filter.labels));
       toggle.append(el('span', '', filter.name));
       toggle.setAttribute('aria-pressed', String(on));
       toggle.onclick = () => host.onSetQuickFilters?.(on ? model.activeQuickFilters.filter((id) => id !== filter.id) : [...model.activeQuickFilters, filter.id]);
@@ -385,12 +400,12 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const undated = cell('none', visibleColumns[undatedAt]!, model, host);
     undated.classList.add('tt-cell--undated');
     undated.style.gridColumn = String(undatedAt + 1);
-    undated.style.gridRow = visibleColumns.length === 1 ? '2' : `2 / span ${rows.reduce((n, r) => n + (host.isCollapsed(r.id) ? 1 : 2), 0)}`;
+    undated.style.gridRow = visibleColumns.length === 1 ? '2' : `2 / span ${rows.reduce((n, r) => n + (rowCollapsed(r.id) ? 1 : 2), 0)}`;
     grid.append(undated);
   }
 
   for (const row of visibleColumns.every((c) => c.id === config.undatedColumn) ? [] : rows) {
-    const collapsed = host.isCollapsed(row.id);
+    const collapsed = rowCollapsed(row.id);
     const cells = model.cells[row.id] ?? {};
     const count = visibleColumns.reduce((n, c) => n + (cells[c.id]?.length ?? 0), 0);
 
@@ -410,7 +425,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     sticky.append(toggle, label);
     bar.append(sticky);
     bar.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('.tt-row-sticky')) host.onToggleRow(row.id);
+      if ((e.target as HTMLElement).closest('.tt-row-sticky')) toggleRow(row.id);
     });
     const bars = [bar];
     if (barSpans[1]) {
@@ -420,7 +435,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       rest.classList.toggle('tt-row-bar--now', row.kind === 'now');
       rest.append(sticky.cloneNode(true));
       rest.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('.tt-row-sticky')) host.onToggleRow(row.id);
+        if ((e.target as HTMLElement).closest('.tt-row-sticky')) toggleRow(row.id);
       });
       bars.push(rest);
     }
@@ -498,7 +513,7 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   c.dataset.column = column.id;
   const cards = model.cells[rowId]?.[column.id] ?? [];
   const limit = cardLimit(column.id, model.config);
-  const capped = limit !== null && cards.length > limit;
+  const capped = limit !== null && cards.length > limit && !cards.some((task) => model.quickContext?.branches.has(task.id));
   const hidden = capped && host.isCollapsed(moreKey(rowId));
   for (const task of hidden ? cards.slice(0, limit) : cards) c.append(card(task, model, host));
   if (capped) c.append(moreToggle(hidden, cards.length - limit, () => host.onToggleRow(moreKey(rowId))));
@@ -660,6 +675,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (host.selection) return selectionCard(task, model, host);
   const c = el('div', 'tt-card');
   c.dataset.id = task.id;
+  appendFilterContext(c, task, model, host);
   c.dataset.boardFocus = `card:${task.id}`;
   c.draggable = true;
   c.tabIndex = 0; c.setAttribute('role', 'group'); c.setAttribute('aria-label', task.text);
@@ -737,7 +753,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   c.append(main, meta);
   if (subtasks.length > 0) {
     const controls = el('div', 'tt-subtask-controls');
-    controls.append(subtaskToggle(task, subtasks, host), actions);
+    controls.append(subtaskToggle(task, subtasks, model, host), actions);
     c.append(controls);
   }
   const section = subtaskSection(task, model, host);
@@ -749,7 +765,9 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     // Links and tags inside the rendered text keep their own behaviour.
     if ((e.target as HTMLElement).closest('a')) return;
     if (host.onSelectCard && !task.parentId && (e.metaKey || e.ctrlKey || e.shiftKey)) {
-      e.preventDefault(); e.stopPropagation(); host.onSelectCard(task, e.shiftKey); return;
+      e.preventDefault(); e.stopPropagation();
+      if (!model.quickContext?.contextOnly.has(task.id)) host.onSelectCard(task, e.shiftKey);
+      return;
     }
     host.onEdit(task);
   });
@@ -784,11 +802,13 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
 function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const selection = host.selection!;
   const c = el('div', 'tt-card tt-selection-card'); c.dataset.id = task.id;
+  appendFilterContext(c, task, model, host);
+  const selectable = !task.parentId && !model.quickContext?.contextOnly.has(task.id);
   const selected = selection.has(task);
   c.classList.toggle('is-selected', selected);
   const check = el('button', 'tt-select-card'); check.type = 'button'; check.setAttribute('role', 'checkbox');
   check.setAttribute('aria-checked', String(selected)); check.setAttribute('aria-label', `Select ${task.text}`);
-  check.dataset.boardFocus = `select-card:${task.id}`; check.disabled = selection.busy || !!task.parentId;
+  check.dataset.boardFocus = `select-card:${task.id}`; check.disabled = selection.busy || !selectable;
   host.icon(check, selected ? 'check-square' : 'square');
   const main = el('div', 'tt-card-main'); const text = el('div', 'tt-card-text'); host.renderText(text, task);
   main.append(check, text); c.append(main);
@@ -802,10 +822,11 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   if (labels.length) c.prepend(bars);
   const children = model.subtasks[task.id]?.length ?? 0;
   if (children) c.append(el('span', 'tt-selection-detail', `${children} subtasks`));
+  if (model.quickContext?.branches.has(task.id)) appendMatchingSummary(c, task, model);
   c.addEventListener('click', (event) => {
     if ((event.metaKey || event.ctrlKey) && (event.target as Element).closest('a')) return;
     event.preventDefault(); event.stopImmediatePropagation();
-    if (!selection.busy && !task.parentId) selection.toggle(task, event.shiftKey);
+    if (!selection.busy && selectable) selection.toggle(task, event.shiftKey);
   }, true);
   c.addEventListener('mousedown', (event) => {
     if (event.button === 0 && event.shiftKey && !(event.target as Element).closest('a')) event.preventDefault();
@@ -813,10 +834,44 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   check.onkeydown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault(); event.stopPropagation();
-      if (!selection.busy && !task.parentId) selection.toggle(task, event.shiftKey);
+      if (!selection.busy && selectable) selection.toggle(task, event.shiftKey);
     }
   };
   return c;
+}
+
+function appendFilterContext(node: HTMLElement, task: BoardTask, model: BoardModel, host: RenderHost): void {
+  const ancestors = model.quickContext?.parents[task.id] ?? [];
+  if (ancestors.length) {
+    const context = el('div', 'tt-filter-ancestors');
+    context.setAttribute('aria-label', 'Parent task context');
+    for (const parent of ancestors) {
+      const link = el('button', 'tt-filter-parent', parent.text); link.type = 'button';
+      link.title = 'Open parent task in source note';
+      link.onclick = (event) => { event.stopPropagation(); host.onOpenSource(parent, event.metaKey || event.ctrlKey); };
+      context.append(link);
+    }
+    node.append(context);
+  }
+  if (model.quickContext?.contextOnly.has(task.id)) {
+    node.classList.add('tt-card--filter-context');
+    node.append(el('div', 'tt-filter-context-note', 'Matching subtask · parent shown for context'));
+  }
+  if (model.quickContext?.matches.has(task.id)) {
+    node.classList.add('tt-filter-match');
+    node.append(el('span', 'tt-filter-match-note', 'Matches quick filters'));
+  }
+}
+
+/** Selection mode shows the reason for a context card without enabling subtask edits. */
+function appendMatchingSummary(node: HTMLElement, task: BoardTask, model: BoardModel): void {
+  const list = el('div', 'tt-filter-match-summary');
+  for (const sub of model.subtasks[task.id] ?? []) {
+    if (!model.quickContext?.branches.has(sub.id)) continue;
+    const row = el('div', model.quickContext.matches.has(sub.id) ? 'tt-filter-match' : '', sub.text);
+    list.append(row); appendMatchingSummary(row, sub, model);
+  }
+  if (list.childElementCount) node.append(list);
 }
 
 /** Checkbox and text, shared by cards and subtasks. */
@@ -867,6 +922,7 @@ function appendBadges(meta: HTMLElement, task: BoardTask, model: BoardModel, hos
 function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const row = el('div', 'tt-subtask');
   row.dataset.id = task.id;
+  appendFilterContext(row, task, model, host);
   if (task.closed) row.classList.add('is-closed');
   if (isOverdue(task, model.today)) row.classList.add('is-overdue');
   const main = taskMain(task, host);
@@ -880,7 +936,7 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   if (meta.childElementCount > 0) row.append(meta);
   if (subtasks.length > 0) {
     const controls = el('div', 'tt-subtask-controls');
-    controls.append(subtaskToggle(task, subtasks, host));
+    controls.append(subtaskToggle(task, subtasks, model, host));
     if (!task.closed) controls.append(addSubtaskButton(task, row, model, host));
     row.append(controls);
   }
@@ -918,11 +974,22 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
 function subtaskSection(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement | null {
   const subtasks = model.subtasks[task.id] ?? [];
   const composing = composer?.key === subtaskBoxKey(task, model.config.slug);
-  if (subtasks.length > 0 ? host.isCollapsed(subtasksKey(task)) : !composing) return null;
-  const shown = model.config.hideCompletedSubtasks ? subtasks.filter((sub) => hasOpenWork(sub, model)) : subtasks;
-  if (!shown.length && !composing) return null;
+  if (subtasks.length > 0 ? subtasksCollapsed(task, model, host) : !composing) return null;
+  const available = model.config.hideCompletedSubtasks ? subtasks.filter((sub) => hasOpenWork(sub, model) || model.quickContext?.branches.has(sub.id)) : subtasks;
+  const narrowed = model.quickContext?.filteredParents.has(task.id);
+  const others = narrowed ? available.filter((sub) => !model.quickContext?.branches.has(sub.id)) : [];
+  const showAll = host.quickDisclosure?.all(task.id);
+  const shown = narrowed && !showAll ? available.filter((sub) => model.quickContext?.branches.has(sub.id)) : available;
+  if (!shown.length && !others.length && !composing) return null;
   const section = el('div', 'tt-subtasks');
   for (const sub of shown) section.append(subtaskRow(sub, model, host));
+  if (others.length) {
+    const more = el('button', 'tt-filter-show-others', showAll ? 'Hide other subtasks' : `Show ${others.length} other ${others.length === 1 ? 'subtask' : 'subtasks'}`);
+    more.type = 'button'; more.setAttribute('aria-expanded', String(!!showAll));
+    more.dataset.boardFocus = `other-subtasks:${task.id}`;
+    more.onclick = (event) => { event.stopPropagation(); host.quickDisclosure?.toggleAll(task.id); };
+    section.append(more);
+  }
   if (composing) section.append(subtaskBox(task, model.config.slug, section, host));
   return section;
 }
@@ -953,9 +1020,13 @@ function subtaskBox(parent: BoardTask, slug: string, section: HTMLElement, host:
 }
 
 /** Compact disclosure and completion count beside Add subtask, with an explicit action tooltip. */
-function subtaskToggle(task: BoardTask, subtasks: BoardTask[], host: RenderHost): HTMLElement {
+function subtasksCollapsed(task: BoardTask, model: BoardModel, host: RenderHost): boolean {
+  return model.quickContext?.branches.has(task.id) ? host.quickDisclosure?.collapsed(task.id) ?? false : host.isCollapsed(subtasksKey(task));
+}
+
+function subtaskToggle(task: BoardTask, subtasks: BoardTask[], model: BoardModel, host: RenderHost): HTMLElement {
   const key = subtasksKey(task);
-  const collapsed = host.isCollapsed(key);
+  const collapsed = subtasksCollapsed(task, model, host);
   const done = subtasks.filter((s) => s.closed).length;
   const b = el('button', `tt-subtask-toggle${collapsed ? ' is-collapsed' : ''}`);
   b.type = 'button';
@@ -967,7 +1038,8 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], host: RenderHost)
   b.append(chevron(), el('span', '', `${done}/${subtasks.length}`));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
-    host.onToggleRow(key);
+    if (model.quickContext?.branches.has(task.id)) host.quickDisclosure?.toggle(task.id);
+    else host.onToggleRow(key);
   });
   return b;
 }
@@ -989,9 +1061,10 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
     e.stopPropagation();
     const key = subtaskBoxKey(task, model.config.slug);
     if (composer?.key !== key) composer = { key, text: '' };
-    if ((model.subtasks[task.id]?.length ?? 0) > 0 && host.isCollapsed(subtasksKey(task))) {
+    if ((model.subtasks[task.id]?.length ?? 0) > 0 && subtasksCollapsed(task, model, host)) {
       // Redraws with the list open, and the box in it.
-      host.onToggleRow(subtasksKey(task));
+      if (model.quickContext?.branches.has(task.id)) host.quickDisclosure?.toggle(task.id);
+      else host.onToggleRow(subtasksKey(task));
       return;
     }
     let section = owner.querySelector<HTMLElement>(':scope > .tt-subtasks');
