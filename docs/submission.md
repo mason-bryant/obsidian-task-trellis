@@ -1,8 +1,8 @@
 [← Task Trellis](../README.md)
 
-# Community-directory submission draft
+# Community-directory submission
 
-Updated October 25, 2026 for **release 0.1.13**. **Submitted; automatic review of 0.1.13 failed.** The portal lists the source error and recommendations. The `codex/community-review-fixes` branch addresses the findings; no passing portal result is claimed yet.
+Updated October 27, 2026 for **0.1.16**. The plugin is already submitted. The last portal outcome recorded here was the failed automatic review of 0.1.13; its source fixes have since merged and shipped. A current portal result or directory acceptance has not been verified. Use the existing submission, not a duplicate.
 
 ## Listing
 
@@ -12,50 +12,40 @@ Updated October 25, 2026 for **release 0.1.13**. **Submitted; automatic review o
 - Author: Mason Bryant
 - Description: Manage tasks across your notes with configurable kanban boards, due-date rows, colored labels, and mobile task capture.
 - License: MIT, with historical MIT and bundled ISC notices retained.
-- Mobile: enabled. The maintainer confirmed the 0.1.12 iPhone smoke checklist on October 25, 2026. Android remains untested. See [testing](testing.md).
+- Minimum Obsidian version: **1.13.7**.
+- Mobile: enabled. Device-specific evidence and remaining gaps are recorded in [testing](testing.md).
 
 ## Suggested listing introduction
 
-Bring tasks scattered across your notes into a configurable kanban board. See progress and due dates together, add board-specific colored labels, and capture tasks from your phone. Tasks stay in Markdown, and each card links back to its source note.
+Bring tasks scattered across your notes into a configurable kanban board. See what you are working on now, what needs attention this week, and what should come next from your backlog. Use board-specific colored labels for projects and categories, while keeping tasks in their original Markdown notes.
 
-Customize columns and filter tasks by tags, folders or note properties. On phones, add tasks at the top of the list, swipe between columns, and use the ready-made iOS shortcut for quick capture. Tasks is optional; enable it for its editor and recurring-task behavior.
+Customize columns, due-date groups, and filters for tags, folders or note properties. Use quick filters to focus, then select individual cards, a column, or all matching tasks to change dates, labels, priority or workflow stage together. Undo protects notes edited after the action.
+
+Capture ideas on your phone with the task button above each list or the ready-made iOS shortcut. Swipe between columns, manage subtasks, and open a task's source note in a pop-up editor without losing the board. Tasks is optional; enable it for its editor and recurring-task behavior.
 
 ## Reviewer notes
 
-- The [README](../README.md) includes a short quick start, desktop/mobile sample screenshots and focused setup guides.
-- Task lines remain in source Markdown notes. Board configuration is stored in board-note properties. Labels and workflow positions use board-specific tags.
-- There is no telemetry, account requirement, payment or remote service. Obsidian may load remote embeds present in user-authored Markdown. See [privacy](privacy.md).
-- The Tasks, Daily notes and Templater integrations are optional and guarded. Internal view/navigation interfaces need continued compatibility testing after Obsidian upgrades.
-- Two small sorting/filtering files identified as adapted from 4D Eisenhower Matrix were replaced after version 0.1.9. The developer had access to the prior implementations; this is not claimed as a clean-room rewrite. Full historical attribution remains. See [provenance](provenance.md) for the scope and directory-policy caveat.
-- See [testing](testing.md) for measured stress results, actual iOS evidence, simulator coverage and untested platforms.
+- The [README](../README.md) includes a quick start, sample desktop/mobile screenshots and focused guides. The [0.1.16 release notes](releases/0.1.16.md) describe changes since 0.1.15.
+- Tasks remain Markdown checkboxes in source notes. Board configuration lives in board-note properties; labels and workflow placement use ordinary board-specific tags.
+- No telemetry, account requirement, payment or remote service. Obsidian may load remote embeds in user-authored Markdown. See [privacy and integrations](privacy.md).
+- Tasks, Daily notes and Templater integrations are optional and guarded. Internal navigation/editor integrations need continued compatibility testing after Obsidian updates. The pop-up editor falls back to ordinary navigation if its guarded integration is unavailable.
+- Two small implementations identified as adapted from 4D Eisenhower Matrix were replaced after 0.1.9. The developer had access to the prior implementations; no clean-room claim is made. Historical attribution remains. See [provenance](provenance.md).
+- The maintainer chose to proceed without a separate eligibility inquiry. No author approval or directory eligibility determination is claimed; this document does not authorize contacting other authors.
 
-## Release and validation status
+## Release validation
 
-- Release 0.1.13 adds eleven label color schemes, exact Previous scheme restoration and multi-column resizing. Required release assets are `main.js`, `manifest.json` and `styles.css`; license notices are embedded in the bundle. Future releases attach only the three supported install files.
-- Validation: **319 application tests**, **8 shortcut tests**, lint, build, release validation and preview build. The release PR must pass CI before merge.
-- The new scheme picker and resize controls were verified loaded in native macOS Obsidian after local installation. Scheme apply/restore was verified in the browser harness; native iPad resizing and cross-device scheme sync remain untested.
-- Minimum Obsidian version is **1.13.7**, tested natively on macOS. No compatibility with earlier versions is claimed.
-- The maintainer confirmed the requested 0.1.12 iPhone checks: moving cards between columns in both directions, vertical reordering and subsequent scrolling, task creation, and label renaming/saving with the keyboard open. This is maintainer-reported evidence, separate from the earlier automated and Mirroring checks.
-- The short macOS VoiceOver attempt remains inconclusive: activation could not be verified through the available computer controls. VoiceOver was restored to off. Android, Windows/Linux native behavior and broader assistive-technology coverage remain untested; these are disclosed coverage gaps, not known plugin failures.
-- Neither `task-trellis` nor “Task Trellis” appeared in the [official community plugin list](https://github.com/obsidianmd/obsidian-releases/blob/master/community-plugins.json) rechecked October 25, 2026. Availability is not reserved.
+- **484 application tests in 37 files**, **8 shortcut tests**, lint, TypeScript, production packaging/release validation and preview build pass. PR 28 CI passed on Node 22 and 24; the release preparation PR must pass the same checks.
+- Native macOS Obsidian 1.13.7: pop-up save/recovery, task promotion, plugin reload, bulk dates and Done movement across two notes, unchanged subtasks, saved-file verification and exact Undo restoration. See the dated test report for scope and limitations.
+- Browser checks cover selection shortcuts, click-away behavior, editor validation and the 390px layout. This is not a native mobile test.
+- Earlier real-iPhone evidence includes agent-operated 0.1.10 checks and the maintainer-confirmed 0.1.12 checklist. For 0.1.16, the agent-operated phone attempt was incomplete because remote input was unreliable; the maintainer then completed the requested phone smoke check and reported that it looked good. This closes the smoke checklist on maintainer-reported evidence; Android remains deferred by the maintainer. No new VoiceOver or cross-device conflict-resolution pass is claimed.
+- Required install assets are **main.js**, **manifest.json** and **styles.css**. Notices are embedded in the bundle. The release workflow verifies metadata, tests, builds and publishes those assets with provenance attestations.
 
-## Submission steps
-
-1. Review the listing text and disclosed test coverage above. Recheck name/ID availability if submission happens later.
-2. Sign in to the [Community directory](https://community.obsidian.md/) with an Obsidian account linked to GitHub and add the repository. See the [official submission instructions](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin).
-3. Address automated review feedback and any questions from reviewers. Publish a new version if code or release assets need correction.
-4. After acceptance, update the installation guide and README quick start with Community Plugins installation instructions.
-
-The maintainer has chosen to proceed without a separate provenance eligibility inquiry. Historical attribution and the [provenance record](provenance.md) remain available; no author approval or directory eligibility determination is claimed. This decision is not an instruction to contact other authors.
-
-The maintainer authorized starting the directory submission process on October 25. Account linking and any binding agreement still require the appropriate account flow. The portal now contains the submission and its 0.1.13 automated review.
-
-## Resubmitting fixes
+## Update the existing submission
 
 1. Open [Task Trellis in the submission portal](https://community.obsidian.md/account/plugins/task-trellis).
-2. Choose **Review branch**, enter `codex/community-review-fixes` in **Branch, tag, or commit SHA**, and click **Run preview scan** to scan the PR before release.
-3. After the branch passes review and CI, merge it. Update the package, manifest and versions map together for the next release, then push the matching version tag.
-4. The release workflow builds, checks and attests the three install assets and publishes the release. The portal scans new releases automatically; use **Check for new releases** if needed.
-5. Read the new review result. Do not create another plugin listing or assume a branch pass is final directory acceptance.
+2. For a pre-release scan, choose **Review branch**, enter the release branch or exact commit under **Branch, tag, or commit SHA**, and use **Run preview scan**. For this release the preparation branch is `codex/release-0.1.16`; after publication use tag `0.1.16`.
+3. Review the actual scan result and address actionable findings. A successful branch scan does not imply directory acceptance.
+4. After publishing, use **Check for new releases** if the portal has not picked up the tag. Read the release-specific result rather than relying on the historical 0.1.13 outcome.
+5. After confirmed acceptance, update the README and installation guide to describe Community Plugins installation.
 
-The remaining `display: contents` warning concerns a structural wrapper in the desktop grid, overridden to a scrolling block on narrow layouts. It has no interactive semantics. Retaining it avoids rewriting the tested mobile scroll structure solely for a scanner warning targeting an older Obsidian release. Vault enumeration and user-initiated clipboard writing are documented in [privacy](privacy.md).
+The previously retained `display: contents` warning concerns a structural desktop-grid wrapper overridden to a scrolling block on narrow layouts. It has no interactive semantics; retaining it avoids changing the tested mobile scroll structure solely for that warning. Any new scanner finding should be assessed separately. Vault enumeration and user-initiated clipboard writing are documented in [privacy](privacy.md).

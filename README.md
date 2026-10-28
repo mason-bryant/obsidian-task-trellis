@@ -17,6 +17,7 @@ Build boards around the way you work, use color to distinguish projects and cate
 - **Know what you're working on.** Give work a clear place in columns such as Backlog, Doing, Waiting and Done—or name your own stages.
 - **Plan the week ahead.** See overdue tasks, upcoming deadlines and undated ideas together. Choose the planning window and drag cards between date rows to reschedule them.
 - **Give your backlog a useful order.** Reorder cards, bring the next task into focus, and leave ideas without a due date until you're ready to schedule them.
+- **Triage a group at once.** Select cards individually, by column, or after filtering, then change their column, due date, labels or priority together. [Bulk triage →](docs/tasks.md#bulk-triage)
 - **Recognize projects and categories at a glance.** Assign multiple colored labels to a card: Urgent, Financial planning, Paint kitchen, or whatever matters to you. Each board has its own label names and colors.
 - **Choose the right scope.** Build separate views for work, home or a specific project. Include or exclude tasks using tags, folders and note properties.
 - **Keep the context close.** Expand subtasks when you need the detail, collapse them for an overview, and jump from any card to its original note.
@@ -67,6 +68,7 @@ The **Tasks** plugin is optional; it adds a task editor and recurring tasks. [Se
 | Show the right tasks on each board | [Filters](docs/filters.md) |
 | Add one-click quick filters to the toolbar | [Quick filters](docs/filters.md#quick-filters) |
 | Add tasks, move cards or manage subtasks | [Tasks and cards](docs/tasks.md) |
+| Update several tasks at once | [Bulk triage](docs/tasks.md#bulk-triage) |
 | Create and assign colored labels | [Labels](docs/labels.md) |
 | Capture tasks from an iPhone shortcut | [iOS Shortcuts](docs/ios-shortcuts.md) |
 
