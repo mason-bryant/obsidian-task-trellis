@@ -4,7 +4,7 @@ import { buildBoard, taskId, type BoardTask } from '../src/core/board.ts';
 import { newBoardFrontmatter, parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds } from '../src/core/collapse.ts';
-import { parseQuickFilters, taskMatchesQuickFilter } from '../src/core/quickFilters.ts';
+import { hasCriteria, parseQuickFilters, taskMatchesQuickFilter } from '../src/core/quickFilters.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 import { renderBoardSettings, type SettingsFormHost } from '../src/ui/renderBoardSettings.ts';
@@ -64,6 +64,36 @@ describe('quick filter config', () => {
 });
 
 describe('applying quick filters', () => {
+  it('matches unlabeled tasks for this board, optionally alongside selected labels', () => {
+    const c = config({ 'quick-filters': [{ name: 'Needs a label', 'no-labels': true }] });
+    const filter = c.quickFilters[0]!;
+    expect(hasCriteria(filter)).toBe(true);
+    expect(cards([filter.id], { 'quick-filters': [{ name: 'Needs a label', 'no-labels': true }] }))
+      .toEqual(['Call the roofer', 'Sweep the porch #outside']);
+    const matches = (raw: string) => taskMatchesQuickFilter(task(raw, 0), filter, c, TODAY, undefined);
+    expect(matches('- [ ] Work #outside #tt/other/label/green #tt/house/doing/10')).toBe(true);
+    expect(matches('- [ ] Work #tt/house/label/green')).toBe(false);
+    expect(matches('- [ ] Work #tt/house/label/unknown')).toBe(false);
+    expect(matches('- [ ] Work <!-- tt-labels:house:green -->')).toBe(false);
+    filter.labels = ['green'];
+    expect(matches('- [ ] Work #tt/house/label/green')).toBe(true);
+    expect(matches('- [ ] Work')).toBe(true);
+    expect(matches('- [ ] Work #tt/house/label/red')).toBe(false);
+    filter.priorities = ['high'];
+    expect(matches('- [ ] Work')).toBe(false);
+    expect(matches('- [ ] Work ⏫')).toBe(true);
+  });
+
+  it('reads no-labels safely without colliding with a label id named none', () => {
+    for (const [raw, expected] of [[undefined, false], [false, false], ['false', false], [true, true], [' TRUE ', true], [1, false]] as const) {
+      const c = config({ 'quick-filters': [{ name: 'Test', 'no-labels': raw }] });
+      expect(c.quickFilters[0]!.noLabels).toBe(expected);
+    }
+    const c = config({ 'quick-filters': [{ name: 'Label none', labels: ['none'] }] });
+    expect(taskMatchesQuickFilter(plain, c.quickFilters[0]!, c, TODAY, undefined)).toBe(false);
+    expect(taskMatchesQuickFilter(task('- [ ] Work #tt/house/label/none', 0), c.quickFilters[0]!, c, TODAY, undefined)).toBe(true);
+  });
+
   it('narrows the board with every filter that is on, and ignores ones that are off or hidden', () => {
     expect(cards([])).toEqual(['Call the roofer', 'Fix the leak', 'Oil the hinges', 'Sweep the porch #outside']);
     expect(cards(['high-priority'])).toEqual(['Call the roofer', 'Fix the leak']);
@@ -135,6 +165,14 @@ describe('quick filter toolbar', () => {
     [...ui.root.querySelectorAll<HTMLButtonElement>('.tt-empty-state button')].find((b) => b.textContent === 'Turn off quick filters')!.click();
     expect(ui.onSetQuickFilters).toHaveBeenCalledWith([]);
   });
+
+  it('shows selected colors in board palette order and omits stale label ids', () => {
+    const ui = board([], { 'quick-filters': [{ name: 'Colors', labels: ['red', 'missing', 'green'] }, { name: 'Unlabeled', 'no-labels': true }] });
+    const squares = [...ui.toggles[0]!.querySelectorAll<HTMLElement>('.tt-quick-filter-color')];
+    expect(squares.map((s) => s.getAttribute('aria-label'))).toEqual(['Green', 'Red']);
+    expect(squares.map((s) => s.style.backgroundColor)).toEqual(['rgb(33, 110, 78)', 'rgb(174, 46, 36)']);
+    expect(ui.toggles[1]!.querySelector('.tt-quick-filter-colors')?.hasAttribute('hidden')).toBe(true);
+  });
 });
 
 describe('quick filter settings', () => {
@@ -204,5 +242,56 @@ describe('quick filter settings', () => {
     ui.control('Move 🏷️ Green up').click();
     ui.control('Remove High priority').click();
     expect(ui.saved().config.quickFilters.map((f) => f.id)).toEqual(['label-green', 'overdue']);
+  });
+
+  it('defaults Match subtasks off and preserves it through saving, reopening and cloning', () => {
+    const ui = editor(); ui.expand(1);
+    expect(ui.checkbox(1, 'Match subtasks').checked).toBe(false);
+    ui.tick(1, 'Match subtasks');
+    expect(ui.saved().config.quickFilters[1]!.matchSubtasks).toBe(true);
+    const reopened = editor(ui.saved().frontmatter);
+    reopened.expand(1);
+    expect(reopened.checkbox(1, 'Match subtasks').checked).toBe(true);
+    reopened.control('Clone Overdue').click();
+    expect(reopened.saved().config.quickFilters[2]!.matchSubtasks).toBe(true);
+    reopened.tick(2, 'Match subtasks');
+    expect(reopened.saved().config.quickFilters[1]!.matchSubtasks).toBe(true);
+    expect(reopened.saved().config.quickFilters[2]!.matchSubtasks).toBe(false);
+  });
+
+  it('saves and restores No labels, including on boards with an empty palette', () => {
+    const ui = editor({ labels: [], 'quick-filters': [{ name: 'Needs a label' }] });
+    ui.expand(0);
+    ui.tick(0, 'No labels');
+    const saved = ui.saved();
+    expect(saved.errors).toEqual([]);
+    expect(saved.config.quickFilters[0]).toMatchObject({ labels: [], noLabels: true });
+    expect(saved.frontmatter['quick-filters']).toEqual([{ id: 'needs-a-label', name: 'Needs a label', show: true, 'no-labels': true }]);
+    const reopened = editor(saved.frontmatter);
+    reopened.expand(0);
+    expect(reopened.checkbox(0, 'No labels').checked).toBe(true);
+    reopened.tick(0, 'No labels');
+    expect(reopened.saved().frontmatter['quick-filters']).toEqual([{ id: 'needs-a-label', name: 'Needs a label', show: true }]);
+    expect(draftChanged(reopened.draft, ui.original)).toBe(false);
+  });
+
+  it('updates header colors immediately without losing focus or overwriting the name', () => {
+    const ui = editor({ 'quick-filters': [{ name: 'Colors', labels: ['red', 'missing', 'green'] }] });
+    const colors = () => [...ui.root.querySelectorAll('.tt-quick-filter-toggle .tt-quick-filter-color')].map((n) => n.getAttribute('aria-label'));
+    expect(colors()).toEqual(['Green', 'Red']);
+    ui.expand(0);
+    ui.checkbox(0, 'Green').focus();
+    ui.tick(0, 'Green');
+    expect(document.activeElement).toBe(ui.checkbox(0, 'Green'));
+    expect(colors()).toEqual(['Red']);
+    ui.tick(0, 'Blue');
+    expect(colors()).toEqual(['Red', 'Blue']);
+    const name = ui.control<HTMLInputElement>('Quick filter 1 name');
+    name.value = 'Review'; name.dispatchEvent(new Event('input'));
+    expect(ui.root.querySelector('.tt-quick-filter-toggle')!.textContent).toBe('Review');
+    expect(colors()).toEqual(['Red', 'Blue']);
+    ui.expand(0);
+    expect(colors()).toEqual(['Red', 'Blue']);
+    expect(ui.saved().config.quickFilters[0]).toMatchObject({ name: 'Review', labels: ['red', 'missing', 'blue'] });
   });
 });

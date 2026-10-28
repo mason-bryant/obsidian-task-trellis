@@ -1,5 +1,6 @@
 import { uiElement, isComposing } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
+import { quickFilterColors } from './quickFilterColors.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { labelDescription } from '../core/labels.ts';
 import { newQuickFilterId, QUICK_DUES, QUICK_PRIORITIES } from '../core/quickFilters.ts';
@@ -235,12 +236,13 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const quickCheck = (label: string, focus: string, checked: boolean, change: (v: boolean) => void) => {
       const wrap = check(label, checked, change); wrap.querySelector('input')!.dataset.focus = focus; return wrap;
     };
-    const choices = <T extends string>(legend: string, focus: string, options: [T, string, string?][], selected: T[]) => {
+    const choices = <T extends string>(legend: string, focus: string, options: [T, string, string?][], selected: T[], changed?: () => void) => {
       const group = el('fieldset', 'tt-quick-choices'); group.append(el('legend', 'tt-field-label', legend));
       for (const [value, label, color] of options) {
         const item = quickCheck(label, `${focus}-${value}`, selected.includes(value), (on) => {
           const at = selected.indexOf(value);
           if (on && at < 0) selected.push(value); else if (!on && at >= 0) selected.splice(at, 1);
+          changed?.();
         });
         if (color) { const swatch = el('span', 'tt-quick-swatch'); swatch.style.backgroundColor = color; item.insertBefore(swatch, item.lastChild); }
         group.append(item);
@@ -254,7 +256,12 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       const top = el('div', 'tt-quick-filter-header');
       const toggle = button('', 'tt-quick-filter-toggle'); toggle.dataset.focus = `${key}-toggle`;
       toggle.setAttribute('aria-expanded', String(open));
-      toggle.append(icon(open ? 'chevron-down' : 'chevron-right'), el('span', '', quick.name.trim() || '(unnamed)'));
+      let colors = quickFilterColors(root.ownerDocument, original.labels, quick.labels);
+      const updateColors = () => {
+        const next = quickFilterColors(root.ownerDocument, original.labels, quick.labels);
+        colors.replaceWith(next); colors = next;
+      };
+      toggle.append(icon(open ? 'chevron-down' : 'chevron-right'), icon('filter'), colors, el('span', '', quick.name.trim() || '(unnamed)'));
       toggle.onclick = () => { if (open) openQuick.delete(quick.id); else openQuick.add(quick.id); redraw(`${key}-toggle`); };
       const show = quickCheck('Show on board', `${key}-show`, quick.show, (v) => { quick.show = v; });
       const move = (to: number) => { [list[i], list[to]] = [list[to]!, list[i]!]; redraw(`quick-${to}-toggle`); };
@@ -276,8 +283,12 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         nameInput.dataset.focus = `${key}-name`;
         nameInput.setAttribute('aria-invalid', String(validation && !quick.name.trim()));
         item.append(field('Name', nameInput));
+        item.append(quickCheck('Match subtasks', `${key}-match-subtasks`, quick.matchSubtasks, (on) => { quick.matchSubtasks = on; }));
+        item.append(el('p', 'tt-help', 'Allow a matching subtask to show its parent for context. Otherwise, only main tasks can match this filter.'));
         item.append(choices('Priority', `${key}-priority`, QUICK_PRIORITIES, quick.priorities));
-        if (original.labels.length) item.append(choices('Labels', `${key}-label`, original.labels.map((l) => [l.id, labelDescription(l), l.color] as [string, string, string]), quick.labels));
+        const labels = choices('Labels', `${key}-label`, original.labels.map((l) => [l.id, labelDescription(l), l.color] as [string, string, string]), quick.labels, updateColors);
+        labels.append(quickCheck('No labels', `${key}-no-labels`, quick.noLabels, (on) => { quick.noLabels = on; }));
+        item.append(labels, el('p', 'tt-help', 'No labels matches tasks with no labels assigned for this board.'));
         item.append(choices('Due', `${key}-due`, QUICK_DUES, quick.due));
         const scope = { key: `${key}-`, label: `Quick filter ${i + 1}, ` };
         const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(quick, false, scope), filterGroup(quick, true, scope)); item.append(groups);
@@ -289,7 +300,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const add = button('Add quick filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.dataset.focus = 'quick-add';
     add.onclick = () => {
       const id = newQuickFilterId(list);
-      list.push({ id, name: '', show: true, priorities: [], labels: [], due: [], filters: [], excludedFilters: [], includeTags: '', excludeTags: '', includeFolders: '', excludeFolders: '' });
+      list.push({ id, name: '', show: true, priorities: [], labels: [], noLabels: false, matchSubtasks: false, due: [], filters: [], excludedFilters: [], includeTags: '', excludeTags: '', includeFolders: '', excludeFolders: '' });
       openQuick.add(id); redraw(`quick-${list.length - 1}-name`);
     };
     body.append(add);

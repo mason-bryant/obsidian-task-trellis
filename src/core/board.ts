@@ -3,6 +3,7 @@ import { diffDays, shortLabel, type ISODate } from './dates.ts';
 import type { BoardColumn, BoardConfig } from './boardConfig.ts';
 import { taskMatchesBoard, type Frontmatter } from './filters.ts';
 import { activeQuickFilters, taskMatchesQuickFilter } from './quickFilters.ts';
+import { filterTaskFamilies, type QuickFilterContext } from './quickFilterHierarchy.ts';
 import { computeRows, rowForDue, type RowDef } from './rows.ts';
 import { planReorder } from './sort.ts';
 import { parseTaskLine, priorityRank, setDueDate, setPlacement, setPriority, type Priority, type ParsedTask } from './taskLine.ts';
@@ -37,6 +38,7 @@ export type BoardModel = {
   total: number;
   /** Ids of the quick filters applied to the cards. */
   activeQuickFilters: string[];
+  quickContext?: QuickFilterContext;
 };
 
 export type DropTarget = { rowId: string; columnId: string; index: number };
@@ -124,8 +126,7 @@ export function buildBoard(
     const parent = task.parentId === undefined ? undefined : byId.get(task.parentId);
     let result: 'card' | 'subtask' | 'off' = 'off';
     if (parent && place(parent) !== 'off') result = 'subtask';
-    else if (isShown(task, config, today) && taskMatchesBoard(task, config, frontmatterOf(task.path), tagsFor(task.path)) &&
-      quick.every((filter) => taskMatchesQuickFilter(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)))) result = 'card';
+    else if (isShown(task, config, today) && taskMatchesBoard(task, config, frontmatterOf(task.path), tagsFor(task.path))) result = 'card';
     placement.set(task.id, result);
     return result;
   };
@@ -149,6 +150,29 @@ export function buildBoard(
     list.sort((a, b) => (config.sortCompletedSubtasks ? Number(a.closed) - Number(b.closed) : 0) || a.line - b.line);
   }
 
+  let quickContext: QuickFilterContext | undefined;
+  if (quick.length) {
+    const cards = Object.values(cells).flatMap((row) => Object.values(row).flat());
+    const { keep, context } = filterTaskFamilies(cards, subtasks, byId, quick,
+      (task, filter) => taskMatchesQuickFilter(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)),
+      (task) => isShown(task, config, today));
+    quickContext = context;
+    for (const row of Object.values(cells)) {
+      for (const [column, list] of Object.entries(row)) row[column] = list.filter((task) => keep.has(task.id));
+    }
+    for (const id of Object.keys(rowOf)) if (!keep.has(id)) delete rowOf[id];
+    // Exclude hidden families from bulk helpers and collapse controls as well as from the cells.
+    const visible = new Set<string>();
+    const pending = [...keep];
+    while (pending.length) {
+      const id = pending.pop()!;
+      if (visible.has(id)) continue;
+      visible.add(id); pending.push(...(subtasks[id] ?? []).map((t) => t.id));
+    }
+    for (const id of Object.keys(subtasks)) if (!visible.has(id)) delete subtasks[id];
+    total = keep.size;
+  }
+
   const compare = cardComparator(config.slug);
   const compareDone = doneComparator(compare);
   for (const row of rows) {
@@ -157,7 +181,7 @@ export function buildBoard(
     }
   }
 
-  return { config, today, rows, columns: config.columns, cells, rowOf, subtasks, total, activeQuickFilters: quick.map((f) => f.id) };
+  return { config, today, rows, columns: config.columns, cells, rowOf, subtasks, total, activeQuickFilters: quick.map((f) => f.id), quickContext };
 }
 
 /**

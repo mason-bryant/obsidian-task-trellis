@@ -23,6 +23,8 @@ export type DraftQuickFilter = DraftFilterSet & {
   show: boolean;
   priorities: QuickPriority[];
   labels: string[];
+  noLabels: boolean;
+  matchSubtasks: boolean;
   due: QuickDue[];
 };
 
@@ -83,7 +85,7 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     openLinks: config.openLinks,
     ...filterSetDraft(config),
     quickFilters: config.quickFilters.map((f) => ({
-      id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], due: [...f.due], ...filterSetDraft(f),
+      id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], noLabels: f.noLabels, matchSubtasks: f.matchSubtasks, due: [...f.due], ...filterSetDraft(f),
     })),
     newTasks: config.newTasks,
     newTasksNote: config.newTasksNote,
@@ -129,7 +131,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     const name = q.name.trim();
     if (!name) errors.push(`Quick filter ${i + 1} needs a name.`);
     return quickFilterFrontmatter({
-      id: q.id, name, show: q.show, priorities: q.priorities, labels: q.labels, due: q.due,
+      id: q.id, name, show: q.show, priorities: q.priorities, labels: q.labels, noLabels: q.noLabels, matchSubtasks: q.matchSubtasks, due: q.due,
       ...filterSetFrontmatter(q),
       propertyFilters: serialize(q.filters, `Quick filter ${i + 1}, must include`),
       excludedPropertyFilters: serialize(q.excludedFilters, `Quick filter ${i + 1}, must not include`),
