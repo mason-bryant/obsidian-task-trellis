@@ -22,8 +22,8 @@ export type RenderHost = {
   /** Remembers a board's display choices. Without these they last only for this view. */
   isViewOn?(option: ViewOption): boolean;
   onToggleView?(option: ViewOption): void;
-  /** Saves the board's Hide completed subtasks setting. Without it the toolbar has no button for it. */
-  onSetHideCompletedSubtasks?(hide: boolean): void;
+  /** Opens the host's accessible menu; calls onClose when dismissed. */
+  onSubtasksMenu?(anchor: HTMLElement, select: (collapsed: boolean) => void, onClose: () => void): void;
   onDrop(taskId: string, target: DropTarget): void;
   onToggle(task: BoardTask): void;
   onEdit(task: BoardTask): void;
@@ -147,31 +147,56 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   }
   picker.value = display.column;
   picker.onchange = () => { display.column = picker.value; renderBoard(root, model, baseHost, notes); };
-  tools.append(compact, picker);
+  tools.append(compact);
   const subtaskKeys = subtaskListKeys(model);
-  if (subtaskKeys.length > 0) {
-    for (const collapsed of [true, false]) {
-      const action = el('button', 'tt-toolbar-button', `${collapsed ? 'Collapse' : 'Expand'} all subtasks`);
-      action.type = 'button';
-      action.dataset.boardFocus = collapsed ? 'collapse-subtasks' : 'expand-subtasks';
-      action.title = 'Applies to all subtask lists on this board, including nested lists and hidden columns.';
-      action.onclick = () => host.onSetSubtasksCollapsed(subtaskKeys, collapsed);
-      tools.append(action);
-    }
-    if (host.onSetHideCompletedSubtasks) {
-      const hideDone = el('button', 'tt-toolbar-button', 'Hide completed subtasks'); hideDone.type = 'button';
-      hideDone.dataset.boardFocus = 'hide-completed-subtasks';
-      hideDone.setAttribute('aria-pressed', String(config.hideCompletedSubtasks));
-      hideDone.onclick = () => host.onSetHideCompletedSubtasks?.(!config.hideCompletedSubtasks);
-      tools.append(hideDone);
-    }
+  if (subtaskKeys.length > 0 && host.onSubtasksMenu) {
+    const action = el('button', 'tt-toolbar-button tt-subtasks-menu');
+    action.type = 'button';
+    action.dataset.boardFocus = 'subtasks';
+    action.setAttribute('aria-label', 'Subtasks');
+    action.setAttribute('aria-haspopup', 'menu');
+    action.setAttribute('aria-expanded', 'false');
+    action.append(hostIcon(host, 'list-tree'));
+    const restoreFocus = () => {
+      // A selection can redraw the toolbar, so find the current button.
+      const current = root.querySelector<HTMLButtonElement>('.tt-subtasks-menu');
+      current?.setAttribute('aria-expanded', 'false');
+      current?.focus({ preventScroll: true });
+    };
+    const open = () => {
+      if (action.getAttribute('aria-expanded') === 'true') return;
+      action.setAttribute('aria-expanded', 'true');
+      host.onSubtasksMenu?.(action, (collapsed) => {
+        host.onSetSubtasksCollapsed(subtaskKeys, collapsed);
+        restoreFocus();
+      }, restoreFocus);
+    };
+    action.onclick = open;
+    action.onkeydown = (event) => {
+      if (event.key === 'ArrowDown') { event.preventDefault(); open(); }
+    };
+    tools.append(action);
   }
+  tools.append(picker);
   if (host.onSetQuickFilters) {
     for (const filter of config.quickFilters.filter((f) => f.show)) {
       const on = model.activeQuickFilters.includes(filter.id);
       const toggle = el('button', 'tt-toolbar-button tt-quick-filter'); toggle.type = 'button';
       toggle.dataset.boardFocus = `quick:${filter.id}`;
-      toggle.append(hostIcon(host, 'filter'), el('span', '', filter.name));
+      toggle.append(hostIcon(host, 'filter'));
+      const labels = config.labels.filter((label) => filter.labels.includes(label.id));
+      if (labels.length) {
+        const colors = el('span', 'tt-quick-filter-colors');
+        for (const label of labels) {
+          const square = el('span', 'tt-quick-filter-color');
+          square.style.backgroundColor = label.color;
+          square.setAttribute('role', 'img');
+          square.setAttribute('aria-label', labelDescription(label));
+          colors.append(square);
+        }
+        toggle.append(colors);
+      }
+      toggle.append(el('span', '', filter.name));
       toggle.setAttribute('aria-pressed', String(on));
       toggle.onclick = () => host.onSetQuickFilters?.(on ? model.activeQuickFilters.filter((id) => id !== filter.id) : [...model.activeQuickFilters, filter.id]);
       tools.append(toggle);

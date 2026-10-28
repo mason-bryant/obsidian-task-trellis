@@ -9,6 +9,7 @@ const paths: Record<string, Array<{ tag: keyof SVGElementTagNameMap; attrs: Reco
   "arrow-down": [{"tag": "path", "attrs": {"d": "M12 5v14m-6-6 6 6 6-6"}}],
   "arrow-left": [{"tag": "path", "attrs": {"d": "M19 12H5m6-6-6 6 6 6"}}],
   "arrow-right": [{"tag": "path", "attrs": {"d": "M5 12h14m-6-6 6 6-6 6"}}],
+  "list-tree": [{"tag": "path", "attrs": {"d": "M21 12h-8M21 6H8M21 18h-8M3 6v12h5"}}],
   "list-plus": [{"tag": "path", "attrs": {"d": "M8 6h12M8 12h7M8 18h5M3 6h.01M3 12h.01M3 18h.01M19 15v6M16 18h6"}}],
   "file-text": [{"tag": "path", "attrs": {"d": "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M8 13h8M8 17h6"}}],
   "file-plus-2": [{"tag": "path", "attrs": {"d": "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M12 12v6M9 15h6"}}],

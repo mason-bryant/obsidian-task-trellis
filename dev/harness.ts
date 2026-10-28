@@ -164,7 +164,21 @@ const host: RenderHost = {
     collapsed = { ...collapsed, [`view:${option}`]: !collapsed[`view:${option}`] };
     render();
   },
-  onSetHideCompletedSubtasks: (hide) => { config.hideCompletedSubtasks = hide; render(); },
+  onSubtasksMenu: (_anchor, select, onClose) => {
+    const dialog = uiElement(document, 'dialog');
+    dialog.setAttribute('aria-label', 'Subtasks');
+    for (const collapsed of [true, false]) {
+      const item = uiElement(document, 'button');
+      item.className = 'move-item';
+      item.textContent = `${collapsed ? 'Collapse' : 'Expand'} all subtasks`;
+      item.onclick = () => { dialog.close(); select(collapsed); };
+      dialog.append(item);
+    }
+    dialog.onclose = () => { dialog.remove(); onClose(); };
+    dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
+    document.body.append(dialog);
+    dialog.showModal();
+  },
   onSetQuickFilters: (ids) => {
     collapsed = setActiveQuickFilterIds(collapsed, ids);
     render();
