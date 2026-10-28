@@ -82,3 +82,23 @@ it('does not redirect a stale card move onto a different task that reused its li
   await f.view.drop(task.id, { rowId: f.view.model.rows[0]!.id, index: 0, columnId: 'doing' });
   expect(f.content).toBe('- [ ] replacement from sync\n'); expect(f.view.pending.size).toBe(0);
 });
+
+it('bulk edits use selected snapshots across refreshes and support a second action after filtering out', async () => {
+  const f=fixture('- [ ] First ⏫\n- [ ] Second ⏫\n');await f.ready();
+  const view=f.view as unknown as {applyBulk(tasks: ReturnType<typeof f.index.all>, action: import('../src/core/bulkTriage.ts').BulkAction,slug:string):Promise<import('../src/core/bulkTriage.ts').BulkResult>};
+  const first=await view.applyBulk(f.index.all(),{kind:'priority',priority:'low'},'house');
+  expect(first.tasks).toHaveLength(2);expect(first.tasks.every(t=>t.priority==='low')).toBe(true);
+  const next=await view.applyBulk(first.tasks,{kind:'due',date:'2026-11-10'},'house');
+  expect(next.tasks.every(t=>t.dueDate==='2026-11-10')).toBe(true);
+  expect(f.view.undoAction?.action.paths).toEqual(['Tasks.md']);
+  await f.view.undo();expect(f.content).not.toContain('📅');expect(f.content).toContain('🔽');
+});
+
+it('bulk edits skip a changed selected line instead of modifying its replacement',async()=>{
+  const f=fixture('- [ ] First\n- [ ] Second\n');await f.ready();const selected=f.index.all();
+  f.setContent('- [ ] Replacement\n- [ ] Second\n');await f.index.refresh(['Tasks.md']);
+  const view=f.view as unknown as {applyBulk(tasks: typeof selected,action:import('../src/core/bulkTriage.ts').BulkAction,slug:string):Promise<import('../src/core/bulkTriage.ts').BulkResult>};
+  const result=await view.applyBulk(selected,{kind:'labels',mode:'add',ids:['red']},'house');
+  expect(result.message).toContain('1 skipped');expect(f.content.split('\n')[0]).toBe('- [ ] Replacement');
+  expect(f.content.split('\n')[1]).toContain('#tt/house/label/red');
+});

@@ -1,3 +1,4 @@
+import { BulkSelection, triageCards, type BulkKind, type BulkResult } from '../core/bulkTriage.ts';
 import { uiElement, isComposing } from './dom.ts';
 import { installColumnResize } from './columnResize.ts';
 import type { Section } from './renderBoardSettings.ts';
@@ -40,6 +41,11 @@ export type RenderHost = {
   onRename?(): void;
   onColumnWidthsChange?(widths: Record<string, number>): Promise<void> | void;
   onLabels?(task: BoardTask): void;
+  onBulkAction?(tasks: BoardTask[], kind: BulkKind): Promise<BulkResult | null>;
+  /** Renderer-owned shortcut for starting selection from a normal card. */
+  onSelectCard?(task: BoardTask, range: boolean): void;
+  /** Renderer-owned selection controls; omitted during normal browsing. */
+  selection?: { has(task: BoardTask): boolean; toggle(task: BoardTask, range: boolean): void; busy: boolean };
   undo?: { label: string; run(): void };
   highlightIds?: Set<string>;
 };
@@ -50,7 +56,19 @@ export type RenderNotes = { warnings: string[]; info: string[] };
 export type ViewOption = 'compact';
 
 type DisplayState = { slug: string; column: string } & Record<ViewOption, boolean>;
+const renderInputs = new WeakMap<HTMLElement, { model: BoardModel; host: RenderHost; notes: RenderNotes }>();
+const bulkStates = new WeakMap<HTMLElement, BulkSelection>();
+const selectionClickCleanup = new WeakMap<HTMLElement, () => void>();
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
+
+/** Undo invalidates selected snapshots; keep selection mode but require a fresh choice. */
+export function clearBulkSelection(root: HTMLElement): void { bulkStates.get(root)?.clear(); }
+
+/** Release document listeners when a view closes or switches files. */
+export function disposeBoardSelection(root: HTMLElement): void {
+  selectionClickCleanup.get(root)?.();
+  bulkStates.delete(root);
+}
 
 const DRAG_TYPE = 'application/x-task-trellis';
 const dropTargets = new WeakMap<HTMLElement, (id: string) => DropTarget>();
@@ -75,6 +93,7 @@ export function isDragging(): boolean {
  * box only if the board had it, so one set off by typing in a note leaves the cursor there.
  */
 export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
+  renderInputs.set(root, { model, host, notes });
   redrawHadFocus = root.contains(root.ownerDocument.activeElement);
   const focusKey = redrawHadFocus ? (root.ownerDocument.activeElement as HTMLElement)?.dataset.boardFocus : undefined;
   // An explicitly focused control keeps focus even when a draft input is redrawn.
@@ -89,6 +108,7 @@ export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHo
 }
 
 function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
+  selectionClickCleanup.get(root)?.();
   const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
   const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
@@ -122,6 +142,59 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     if (baseHost.onToggleView) { baseHost.onToggleView(option); return; }
     local[option] = !local[option]; renderBoard(root, model, baseHost, notes);
   };
+  let bulk = bulkStates.get(root);
+  if (!bulk) { bulk = new BulkSelection(); bulkStates.set(root, bulk); }
+  bulk.resetScope(JSON.stringify([config.slug, config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders,
+    config.propertyFilters, config.excludedPropertyFilters, model.activeQuickFilters, display.column]));
+  const selection = bulk;
+  const redraw = () => {
+    const latest = renderInputs.get(root)!;
+    renderBoard(root, latest.model, latest.host, latest.notes);
+  };
+  if (selection.active) {
+    const doc = root.ownerDocument;
+    const dismiss = (event: MouseEvent) => {
+      if (!root.isConnected) { cleanup(); return; }
+      // The bulk editor lives outside the board. Keep its selection until it closes,
+      // including while writes are in flight.
+      if (selection.busy) return;
+      const target = event.target as Element | null;
+      if (!target || typeof target.closest !== 'function') return;
+      if (root.contains(target) && target.closest('.tt-card, button, a, input, select, textarea, [role="button"], [role="splitter"], .tt-row-sticky')) return;
+      selection.active = false;
+      selection.clear();
+      // Do not cancel the click or move focus: an outside control must still work.
+      redraw();
+    };
+    const cleanup = () => {
+      doc.removeEventListener('click', dismiss, true);
+      selectionClickCleanup.delete(root);
+    };
+    doc.addEventListener('click', dismiss, true);
+    selectionClickCleanup.set(root, cleanup);
+  }
+  root.onkeydown = (event) => {
+    if (event.key === 'Escape' && selection.active && !selection.busy) {
+      event.preventDefault(); selection.active = false; selection.clear(); redraw();
+      root.querySelector<HTMLButtonElement>('[data-board-focus="select"]')?.focus();
+    }
+  };
+  const selectCard = (task: BoardTask, range: boolean) => {
+    if (selection.busy || task.parentId) return;
+    const byId = new Map(triageCards(model, columnOf(task, config)).map((t) => [t.id, t]));
+    const ordered = [...grid.querySelectorAll<HTMLElement>('.tt-card')].flatMap((c) => {
+      const t = byId.get(c.dataset.id ?? ''); return t ? [t] : [];
+    });
+    selection.active = true;
+    selection.toggle(task, ordered, range); redraw();
+    [...root.querySelectorAll<HTMLButtonElement>('.tt-select-card')]
+      .find((button) => button.dataset.boardFocus === `select-card:${task.id}`)?.focus({ preventScroll: true });
+  };
+  if (host.onBulkAction) host = { ...host, onSelectCard: selectCard };
+  if (selection.active) host = { ...host, selection: {
+    has: (task) => selection.has(task), busy: selection.busy, toggle: selectCard,
+  } };
+  root.classList.toggle('tt-board--selecting', selection.active);
   root.classList.toggle('tt-board--compact', viewOn('compact'));
   root.classList.toggle('tt-board--no-overdue-bar', !config.overdueBar);
   const toolbar = el('div', 'tt-board-toolbar');
@@ -206,6 +279,13 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const settings = el('button', 'tt-toolbar-button'); settings.type = 'button';
     settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = () => host.onSettings?.(); tools.append(settings);
   }
+  if (host.onBulkAction) {
+    const select = el('button', 'tt-toolbar-button', selection.active ? 'Done selecting' : 'Select');
+    select.type = 'button'; select.dataset.boardFocus = 'select'; select.setAttribute('aria-pressed', String(selection.active));
+    select.disabled = selection.busy;
+    select.onclick = () => { selection.active = !selection.active; selection.clear(); redraw(); };
+    tools.append(select);
+  }
   toolbar.append(heading, tools); root.insertBefore(toolbar, root.firstChild);
   const visibleColumns = display.column ? model.columns.filter((c) => c.id === display.column) : model.columns;
   scrollEl.style.setProperty('--tt-columns', String(visibleColumns.length));
@@ -236,6 +316,46 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.onclick = () => host.undo?.run();
     undo.append(el('span', '', host.undo.label), action); root.insertBefore(undo, scrollEl);
   }
+  if (selection.active) {
+    const bar = el('div', 'tt-bulk-bar'); bar.setAttribute('aria-label', 'Bulk task actions'); bar.setAttribute('role', 'region');
+    const count = el('span', 'tt-bulk-count', `${selection.tasks.length} selected`); count.setAttribute('role', 'status'); bar.append(count);
+    const button = (text: string, key: string, action: () => void) => {
+      const b = el('button', 'tt-toolbar-button', text); b.type = 'button'; b.dataset.boardFocus = key;
+      b.disabled = selection.busy; b.onclick = action; bar.append(b); return b;
+    };
+    const matching = triageCards(model, display.column);
+    button(`Select all ${matching.length}`, 'select-all', () => { selection.add(matching); redraw(); }).setAttribute('aria-label', `Select all ${matching.length} matching tasks`);
+    button('Clear', 'select-clear', () => { selection.clear(); redraw(); }).setAttribute('aria-label', 'Clear selection');
+    const actions = el('div', 'tt-bulk-actions'); bar.append(actions);
+    for (const [kind, label] of [['move', 'Move'], ['due', 'Due date'], ['labels', 'Labels'], ['priority', 'Priority']] as const) {
+      const b = button(label, `bulk:${kind}`, () => {
+        const scope = selection.scope;
+        selection.busy = true; redraw();
+        void baseHost.onBulkAction!(selection.tasks, kind).then((result) => {
+          if (result && selection.scope === scope) { selection.replace(result.tasks); selection.message = result.message; }
+        }).catch((error: unknown) => { selection.message = error instanceof Error ? error.message : 'Could not update tasks. Try again.'; })
+          .finally(() => {
+            selection.busy = false;
+            // A dialog can outlive its board tab. Never redraw a disposed/replaced view.
+            if (bulkStates.get(root) !== selection || !root.isConnected) return;
+            // Ask the host for a fresh model after writing; the index may have changed while the dialog was open.
+            baseHost.onDragEnd();
+            if (root.isConnected) {
+              const current = root.querySelector<HTMLButtonElement>(`[data-board-focus="bulk:${kind}"]`);
+              current?.focus({ preventScroll: true });
+            }
+            redraw();
+          });
+      });
+      b.disabled = selection.busy || selection.tasks.length === 0;
+      actions.append(b);
+    }
+    const visible = new Set(matching.map((task) => `${task.id}\0${task.raw}`));
+    const outside = selection.tasks.filter((task) => !visible.has(`${task.id}\0${task.raw}`)).length;
+    const status = el('span', 'tt-bulk-status', selection.busy ? 'Choose changes in the dialog…' : selection.message || (outside ? `${outside} selected tasks are outside the current view.` : 'Select cards, or select all matching tasks including collapsed rows.'));
+    status.setAttribute('role', 'status'); bar.append(status);
+    root.insertBefore(bar, scrollEl);
+  }
   for (const column of visibleColumns) {
     const count = model.rows.reduce((n, r) => n + (model.cells[r.id]?.[column.id]?.length ?? 0), 0);
     const header = el('div', 'tt-col-header');
@@ -243,6 +363,13 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const glyph = column.id === config.doneColumn ? 'circle-check' : column.id === config.undatedColumn ? 'inbox' : 'circle';
     header.append(hostIcon(host, glyph), el('span', 'tt-col-title', column.label), el('span', 'tt-count', String(count)));
     if (column.id === config.doneColumn) header.classList.add('tt-col-header--done');
+    if (selection.active) {
+      const selectColumn = el('button', 'tt-select-column', 'Select column'); selectColumn.type = 'button';
+      selectColumn.setAttribute('aria-label', `Select ${column.label} column`); selectColumn.disabled = selection.busy;
+      selectColumn.dataset.boardFocus = `select-column:${column.id}`;
+      selectColumn.onclick = () => { selection.add(triageCards(model, column.id)); redraw(); };
+      header.append(selectColumn);
+    }
     grid.append(header);
   }
 
@@ -342,7 +469,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       scrollEl.scrollLeft + offsetFromMiddle(scrollEl, header));
   installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), columnPositions);
   let touchTarget: DropTarget | null = null;
-  installTouchCardDrag(scrollEl, {
+  if (!selection.active) installTouchCardDrag(scrollEl, {
     start: (id) => { draggingId = id; dragStartedAt = Date.now(); },
     move: (x, y) => {
       clearIndicators(root.ownerDocument);
@@ -376,8 +503,8 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   for (const task of hidden ? cards.slice(0, limit) : cards) c.append(card(task, model, host));
   if (capped) c.append(moreToggle(hidden, cards.length - limit, () => host.onToggleRow(moreKey(rowId))));
   // Done fills itself by completing tasks, so it gets no add button.
-  if (column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, host));
-  addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
+  if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, host));
+  if (!host.selection) addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
   return c;
 }
 
@@ -530,6 +657,7 @@ function moreToggle(collapsed: boolean, extra: number, onClick: () => void): HTM
 }
 
 function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
+  if (host.selection) return selectionCard(task, model, host);
   const c = el('div', 'tt-card');
   c.dataset.id = task.id;
   c.dataset.boardFocus = `card:${task.id}`;
@@ -620,7 +748,14 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   c.addEventListener('click', (e) => {
     // Links and tags inside the rendered text keep their own behaviour.
     if ((e.target as HTMLElement).closest('a')) return;
+    if (host.onSelectCard && !task.parentId && (e.metaKey || e.ctrlKey || e.shiftKey)) {
+      e.preventDefault(); e.stopPropagation(); host.onSelectCard(task, e.shiftKey); return;
+    }
     host.onEdit(task);
+  });
+  c.addEventListener('mousedown', (e) => {
+    if (host.onSelectCard && !task.parentId && e.button === 0 && (e.metaKey || e.ctrlKey || e.shiftKey) &&
+      !(e.target as Element).closest('a, button, input, textarea, .tt-subtasks')) e.preventDefault();
   });
   c.addEventListener('dragstart', (e) => {
     if ((e.target as Element).closest('.tt-card-drag-handle') || c.closest('.tt-touch-dragging')) {
@@ -642,6 +777,45 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     clearIndicators(c.ownerDocument);
     host.onDragEnd();
   });
+  return c;
+}
+
+/** Selection uses separate controls, never the task's completion checkbox or drag handle. */
+function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
+  const selection = host.selection!;
+  const c = el('div', 'tt-card tt-selection-card'); c.dataset.id = task.id;
+  const selected = selection.has(task);
+  c.classList.toggle('is-selected', selected);
+  const check = el('button', 'tt-select-card'); check.type = 'button'; check.setAttribute('role', 'checkbox');
+  check.setAttribute('aria-checked', String(selected)); check.setAttribute('aria-label', `Select ${task.text}`);
+  check.dataset.boardFocus = `select-card:${task.id}`; check.disabled = selection.busy || !!task.parentId;
+  host.icon(check, selected ? 'check-square' : 'square');
+  const main = el('div', 'tt-card-main'); const text = el('div', 'tt-card-text'); host.renderText(text, task);
+  main.append(check, text); c.append(main);
+  const meta = el('div', 'tt-card-meta', host.sourceLabel(task)); appendBadges(meta, task, model, host); c.append(meta);
+  const labels = model.config.labels.filter((label) => taskLabels(task.raw, model.config.slug).includes(label.id));
+  const bars = el('div', 'tt-card-labels');
+  for (const label of labels) {
+    const bar = el('span', 'tt-card-label'); bar.style.backgroundColor = label.color;
+    bar.setAttribute('role', 'img'); bar.setAttribute('aria-label', labelDescription(label)); bars.append(bar);
+  }
+  if (labels.length) c.prepend(bars);
+  const children = model.subtasks[task.id]?.length ?? 0;
+  if (children) c.append(el('span', 'tt-selection-detail', `${children} subtasks`));
+  c.addEventListener('click', (event) => {
+    if ((event.metaKey || event.ctrlKey) && (event.target as Element).closest('a')) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (!selection.busy && !task.parentId) selection.toggle(task, event.shiftKey);
+  }, true);
+  c.addEventListener('mousedown', (event) => {
+    if (event.button === 0 && event.shiftKey && !(event.target as Element).closest('a')) event.preventDefault();
+  });
+  check.onkeydown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault(); event.stopPropagation();
+      if (!selection.busy && !task.parentId) selection.toggle(task, event.shiftKey);
+    }
+  };
   return c;
 }
 

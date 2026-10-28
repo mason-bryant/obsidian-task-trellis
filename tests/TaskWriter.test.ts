@@ -327,3 +327,56 @@ it('preserves mixed line endings between multiple edits, and does not rewrite sk
   expect(files['a.md']).toBe('- [ ] first #tt/house/doing\r\nText\n- [ ] second #tt/house/doing\nTail\r\n');
   await saved.action?.undo(); expect(files['a.md']).toBe(content);
 });
+
+it('bulk edits return fresh snapshots for successive edits, preserve children, and undo multiple notes', async () => {
+  const files = {'a.md':'- [ ] Parent\n  - [ ] Child\n','b.md':'- [ ] Other\n'};
+  const selected = [task('a.md',0,'- [ ] Parent'),task('b.md',0,'- [ ] Other')];
+  const writer = new TaskWriter(fakeApp(files));
+  const first = await writer.applyEdits(selected,new Map(selected.map(t=>[t.id,{labels:{mode:'add' as const,ids:['red']}}])),'house',undefined,true);
+  expect(first.writtenTasks).toHaveLength(2);
+  expect(files['a.md']).toContain('\n  - [ ] Child\n');
+  const next=first.writtenTasks!;
+  const second=await writer.applyEdits(next,new Map(next.map(t=>[t.id,{due:'2026-11-01',priority:'high' as const}])),'house',undefined,true);
+  expect(second.skippedIds).toEqual([]);
+  expect(files['b.md']).toContain('📅 2026-11-01');
+  expect(taskLabels(files['b.md'],'house')).toEqual(['red']);
+  await second.action!.undo();expect(files['b.md']).not.toContain('📅');
+  await first.action!.undo();expect(files).toEqual({'a.md':'- [ ] Parent\n  - [ ] Child\n','b.md':'- [ ] Other\n'});
+});
+
+it('bulk snapshots account for recurrence insertions above other selected tasks',async()=>{
+  const files={'a.md':'- [ ] Repeat\n- [ ] Other\n'};
+  const writer=new TaskWriter(fakeApp(files,{editTaskLineModal:async s=>s,executeToggleTaskDoneCommand:(line)=> line.includes('Repeat') ? '- [x] Repeat\n- [ ] Next repeat' : line.replace('[ ]','[x]')}));
+  const selected=[task('a.md',0,'- [ ] Repeat'),task('a.md',1,'- [ ] Other')];
+  const result=await writer.applyEdits(selected,new Map(selected.map(t=>[t.id,{closed:true,column:'done'}])),'house',undefined,true);
+  expect(result.writtenTasks!.map(t=>[t.line,t.closed]).sort()).toEqual([[0,true],[2,true]]);
+  const next=result.writtenTasks!;
+  const relabel=await writer.applyEdits(next,new Map(next.map(t=>[t.id,{labels:{mode:'add' as const,ids:['red']}}])),'house',undefined,true);
+  expect(relabel.skippedIds).toEqual([]);expect(files['a.md'].split('\n')[1]).toBe('- [ ] Next repeat');
+});
+
+it('bulk partial failures retain successful writes and make only those notes undoable',async()=>{
+  const files={'a.md':'- [ ] A\n','b.md':'- [ ] B\n'};const app=fakeApp(files);
+  const process=app.vault.process.bind(app.vault);
+  app.vault.process=async(file,fn)=>{if(file.path==='b.md')throw new Error('Read only');return process(file,fn);};
+  const selected=[task('a.md',0,'- [ ] A'),task('b.md',0,'- [ ] B')];
+  const result=await new TaskWriter(app).applyEdits(selected,new Map(selected.map(t=>[t.id,{priority:'high' as const}])),'house',undefined,true);
+  expect(result.appliedIds).toEqual(['a.md:0']);expect(result.skippedIds).toEqual(['b.md:0']);
+  expect(result.writtenTasks).toHaveLength(1);expect(result.action!.paths).toEqual(['a.md']);
+  await result.action!.undo();expect(files).toEqual({'a.md':'- [ ] A\n','b.md':'- [ ] B\n'});
+});
+
+it('successive bulk edits keep duplicate task identities and Undo preserves later note edits',async()=>{
+  const raw='- [ ] Same',source=`${raw}\n${raw}\n${raw}\n`;
+  const files={'a.md':source,'b.md':'- [ ] Other\n'};
+  const writer=new TaskWriter(fakeApp(files));
+  const selected=[...([0,2].map(line=>({...task('a.md',line,raw),twins:2,duplicateSource:source}))),task('b.md',0,'- [ ] Other')];
+  const labeled=await writer.applyEdits(selected,new Map(selected.map(t=>[t.id,{labels:{mode:'add' as const,ids:['red']}}])),'house',undefined,true);
+  const next=labeled.writtenTasks!;
+  expect(next.filter(t=>t.path==='a.md').every(t=>t.twins===1)).toBe(true);
+  const dated=await writer.applyEdits(next,new Map(next.map(t=>[t.id,{due:'2026-11-02'}])),'house',undefined,true);
+  expect(dated.skippedIds).toEqual([]);expect(files['a.md'].split('\n')[1]).toBe(raw);
+  files['a.md']+='Later edit from another device\n';const external=files['a.md'];
+  expect(await dated.action!.undo()).toBe(false);
+  expect(files['a.md']).toBe(external);expect(files['b.md']).toContain('#tt/house/label/red');expect(files['b.md']).not.toContain('📅');
+});

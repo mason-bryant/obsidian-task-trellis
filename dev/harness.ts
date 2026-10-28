@@ -1,3 +1,5 @@
+import { planBulk, type BulkResult } from '../src/core/bulkTriage.ts';
+import { renderBulkEditor } from '../src/ui/renderBulkEditor.ts';
 import './browserDOM.ts';
 import { uiElement } from '../src/ui/dom.ts';
 import { promptText } from './promptText.ts';
@@ -19,7 +21,7 @@ import { renderBoardSettings, type Section } from '../src/ui/renderBoardSettings
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
 import { parseTaskLine, setClosedFallback, setPlacement } from '../src/core/taskLine.ts';
-import { isDragging, renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
+import { clearBulkSelection, isDragging, renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 
 const today = todayISO();
 const d = (n: number) => addDays(today, n);
@@ -118,6 +120,27 @@ const host: RenderHost = {
     dialog.showModal();
     renderBoardNameEditor(body, chrome.header, config.name, previewIcon, async (name) => { config.name = name; render(); }, close);
   },
+  onBulkAction: (selected, kind) => new Promise((resolve) => {
+    const dialog = uiElement(document, 'dialog');
+    const body = uiElement(document, 'div'); body.className = 'modal-content';
+    dialog.append(body); document.body.append(dialog);
+    const chrome = prepareEditorModal(dialog);
+    let busy = false;
+    let result: BulkResult | null = null;
+    dialog.oncancel = (event) => { if (busy) event.preventDefault(); };
+    dialog.onclose = () => { chrome.destroy(); dialog.remove(); resolve(result); };
+    renderBulkEditor(body, chrome.header, config, kind, selected.length, previewIcon, async (action) => {
+      const before = JSON.stringify(files);
+      const edits = planBulk(selected, config, today, action);
+      write(edits);
+      const current = tasks();
+      result = { tasks: selected.flatMap((t) => current.find((next) => next.id === t.id) ?? []), message: `${selected.length} updated.` };
+      host.undo = { label: `${selected.length} tasks updated`, run: () => { clearBulkSelection(document.getElementById('board')!); Object.assign(files, JSON.parse(before) as typeof files); host.undo = undefined; render(); } };
+      render();
+      await Promise.resolve();
+    }, () => { if (!busy) dialog.close(); }, (value) => { busy = value; });
+    dialog.showModal();
+  }),
   onColumnWidthsChange: (widths) => { config.columnWidths = widths; },
   onLabels: (task) => {
     const dialog = uiElement(document, 'dialog'); dialog.className = 'tt-label-modal';
