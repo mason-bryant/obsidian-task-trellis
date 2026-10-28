@@ -246,11 +246,13 @@ export class BoardView extends FileView {
         void this.plugin.toggleView(this.board.config.slug, option);
         this.render();
       },
-      onSetHideCompletedSubtasks: (hide) => {
-        const file = this.file;
-        if (!file) return;
-        void this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[FM.hideCompletedSubtasks] = hide; })
-          .catch((error: unknown) => { console.error('[Task Trellis] saving board setting failed', error); new Notice('Task Trellis: could not save the board setting.'); });
+      onSubtasksMenu: (anchor, select, onClose) => {
+        const menu = new Menu();
+        menu.addItem((item) => item.setTitle('Collapse all subtasks').setIcon('fold-vertical').onClick(() => select(true)));
+        menu.addItem((item) => item.setTitle('Expand all subtasks').setIcon('unfold-vertical').onClick(() => select(false)));
+        menu.onHide(onClose);
+        const bounds = anchor.getBoundingClientRect();
+        menu.showAtPosition({ x: bounds.left, y: bounds.bottom });
       },
       onSetQuickFilters: (ids) => {
         if (!this.board) return;
