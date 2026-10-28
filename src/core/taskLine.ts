@@ -200,6 +200,23 @@ export function movePlacementsToEnd(line: string): string {
   return appendAtEnd(line.replace(placementRe(), ''), tags);
 }
 
+/**
+ * Replaces the description, keeping the fields and tags after it. Null when the description isn't
+ * the start of the line's text (a field or label in front of it), or `text` is empty or has
+ * Task Trellis tags, since those would change the task's placement rather than its text.
+ */
+export function replaceTaskText(line: string, text: string): string | null {
+  const m = TASK_LINE_RE.exec(line);
+  const current = parseTaskLine(line)?.text;
+  const next = text.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+  if (!m || !current || !next || new RegExp(`(^|\\s)#${TAG_PREFIX}\\/`, 'u').test(next)) return null;
+  const body = m[4]!;
+  const marker = /^(?:<!-- task-trellis-request:[A-Za-z0-9_-]{1,128} -->\s*)?/.exec(body)![0];
+  const rest = body.slice(marker.length);
+  if (!rest.startsWith(current)) return null;
+  return `${m[1]}${m[2]}${m[3]}${marker}${next}${rest.slice(current.length)}`;
+}
+
 /** Completes or reopens a task without the Tasks plugin: flips the checkbox and adds or removes `✅`. */
 export function setClosedFallback(line: string, closed: boolean, today: ISODate): string {
   const m = TASK_LINE_RE.exec(line);

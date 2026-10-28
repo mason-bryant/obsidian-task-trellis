@@ -60,6 +60,11 @@ type HeadingSpec = { level?: number; text: string };
  * end of the note; an empty `heading` appends to the end.
  */
 export function insertUnderHeading(content: string, heading: string, newLines: string[]): string {
+  return insertUnderHeadingAt(content, heading, newLines).content;
+}
+
+/** `insertUnderHeading`, with the index of the line where `newLines` start. */
+export function insertUnderHeadingAt(content: string, heading: string, newLines: string[]): { content: string; at: number } {
   const lines = content.split(/\r?\n/);
   const spec = parseHeadingSpec(heading);
   const all = headings(lines);
@@ -71,14 +76,17 @@ export function insertUnderHeading(content: string, heading: string, newLines: s
     let last = (next ? next.index : lines.length) - 1;
     while (last > found.index && lines[last]!.trim() === '') last--;
     lines.splice(last + 1, 0, ...newLines);
-    return joinEditedLines(content, lines);
+    return { content: joinEditedLines(content, lines), at: last + 1 };
   }
 
   const endsWithNewline = lines.length > 1 && lines[lines.length - 1] === '';
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === '') lines.pop();
   const tail = spec ? [`${'#'.repeat(spec.level ?? 2)} ${heading.replace(/^#+\s*/, '').trim()}`, ...newLines] : newLines;
   const out = lines.length > 0 ? [...lines, '', ...tail] : tail;
-  return joinEditedLines(content, endsWithNewline || lines.length === 0 ? [...out, ''] : out);
+  return {
+    content: joinEditedLines(content, endsWithNewline || lines.length === 0 ? [...out, ''] : out),
+    at: out.length - newLines.length,
+  };
 }
 
 function parseHeadingSpec(heading: string): HeadingSpec | null {

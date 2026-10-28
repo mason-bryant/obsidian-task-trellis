@@ -4,7 +4,7 @@ import { setTaskLabels } from '../core/labels.ts';
 import { Notice, TFile, type App, type WorkspaceLeaf } from 'obsidian';
 import { applyEdit, taskId, type BoardTask, type TaskEdit } from '../core/board.ts';
 import { todayISO } from '../core/dates.ts';
-import { insertSubtask, promoteSubtask } from '../core/subtasks.ts';
+import { insertSubtaskAt, promoteSubtask } from '../core/subtasks.ts';
 import { dedupeFields, movePlacementsToEnd, parseTaskLine, setClosedFallback, normalizeRequestMarker } from '../core/taskLine.ts';
 
 const TASKS_PLUGIN_ID = 'obsidian-tasks-plugin';
@@ -151,20 +151,39 @@ export class TaskWriter {
 
   /** Adds `line` as the parent's last subtask, indented the way the editor would (Settings → Editor → Indent using tabs). */
   async insertSubtask(parent: BoardTask, line: string): Promise<boolean> {
-    const file = this.app.vault.getAbstractFileByPath(parent.path);
-    let found = false;
-    if (file instanceof TFile) {
-      await this.app.vault.process(file, (content) => {
-        const at = locate(content.split(/\r?\n/), parent);
-        found = at >= 0;
-        return found ? insertSubtask(content, at, line, this.indentUnit()) : content;
-      });
-    }
+    const found = (await this.insertSubtasks(parent, [line])).at >= 0;
     if (!found) new Notice('Task Trellis: that task changed since the board loaded, so the subtask was not added. Try again.');
     return found;
   }
 
-  private indentUnit(): string {
+  /**
+   * Adds `lines[0]` as the parent's last subtask and the rest as its own subtasks, in one write. `at`
+   * is the first added line, or -1 when the parent changed and nothing was written.
+   */
+  async insertSubtasks(parent: BoardTask, lines: string[]): Promise<{ at: number; action: UndoAction | null }> {
+    const file = this.app.vault.getAbstractFileByPath(parent.path);
+    let at = -1;
+    const changes: FileChange[] = [];
+    if (file instanceof TFile) {
+      await this.app.vault.process(file, (content) => {
+        const parentAt = locate(content.split(/\r?\n/), parent);
+        if (parentAt < 0) return content;
+        let after: string;
+        ({ content: after, at } = insertSubtaskAt(content, parentAt, lines[0]!, this.indentUnit()));
+        for (let i = 1; i < lines.length; i++) after = insertSubtaskAt(after, at, lines[i]!, this.indentUnit()).content;
+        changes.push({ file, before: content, after });
+        return after;
+      });
+    }
+    return { at, action: this.undoFor(changes) };
+  }
+
+  /** Undo for a write made outside the writer, such as a new task; see `undoFor`. */
+  undoWrite(file: TFile, before: string, after: string): UndoAction | null {
+    return before === after ? null : this.undoFor([{ file, before, after }]);
+  }
+
+  indentUnit(): string {
     const vault = this.app.vault as unknown as { getConfig?(key: string): unknown };
     const size = vault.getConfig?.('tabSize');
     return vault.getConfig?.('useTab') === false ? ' '.repeat(typeof size === 'number' ? size : 4) : '\t';

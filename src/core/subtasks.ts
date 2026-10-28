@@ -14,6 +14,11 @@ export function indentWidth(line: string): number {
  * under it, indented like its existing subtasks, or one `indentUnit` deeper than the parent.
  */
 export function insertSubtask(content: string, parentIndex: number, line: string, indentUnit: string): string {
+  return insertSubtaskAt(content, parentIndex, line, indentUnit).content;
+}
+
+/** `insertSubtask`, with the index of the added line. */
+export function insertSubtaskAt(content: string, parentIndex: number, line: string, indentUnit: string): { content: string; at: number } {
   const lines = content.split(/\r?\n/);
   const parent = lines[parentIndex]!;
   const depth = indentWidth(parent);
@@ -29,7 +34,7 @@ export function insertSubtask(content: string, parentIndex: number, line: string
   }
   const lead = childLead ?? LEAD_RE.exec(parent)![0] + indentUnit;
   lines.splice(last + 1, 0, lead + line.trimStart());
-  return joinEditedLines(content, lines);
+  return { content: joinEditedLines(content, lines), at: last + 1 };
 }
 
 /** Index of the last line nested under line `index`; blank lines count only inside the block. */

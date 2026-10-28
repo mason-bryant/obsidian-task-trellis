@@ -10,4 +10,6 @@ The optional **Also rename board tags** action scans all ordinary Markdown notes
 
 The **Tasks** community plugin is optional: it provides the task editor and recurring-task behavior when available. Task Trellis reads its `setCreatedDate` preference from `<vault>/<configDir>/plugins/obsidian-tasks-plugin/data.json`. Without Tasks, cards open the source note and new tasks use a plain text prompt. The **Daily notes** core plugin is needed only when the destination is today's daily note; choosing a specific note works without it. If **Templater** is enabled, Task Trellis waits briefly for template processing so newly added tasks survive it. These integrations operate inside the vault.
 
+The `task-trellis:` [command line commands](agents.md) run only when a program on this computer invokes Obsidian's command line interface, which is off until you turn it on. They read and write the open vault the same way the board does and send nothing elsewhere; what an agent does with their output is up to that agent.
+
 The board index enumerates vault paths to discover tasks and board notes; it does not send those paths elsewhere. **Copy shortcut URL** writes the generated URL to the clipboard only after you click it. Task Trellis never reads the clipboard.

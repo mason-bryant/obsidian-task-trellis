@@ -36,6 +36,7 @@ import { TaskIndex } from './src/obsidian/TaskIndex.ts';
 import { TaskWriter, type UndoAction } from './src/obsidian/TaskWriter.ts';
 import { QuickAdd } from './src/obsidian/QuickAdd.ts';
 import { ShortcutActions } from './src/obsidian/ShortcutActions.ts';
+import { CliCommands } from './src/obsidian/CliCommands.ts';
 import { DEFAULT_SETTINGS, normalizeSettings, TaskTrellisSettingTab, type TaskTrellisSettings } from './src/settings.ts';
 
 type ViewRegistryHost = {
@@ -65,6 +66,9 @@ export default class TaskTrellisPlugin extends Plugin {
   private syncTimer: number | null = null;
   private configTimer: number | null = null;
   private stopped = false;
+  private markIndexed = (): void => undefined;
+  /** Settles once the first index rebuild has read the vault, or the plugin unloads. */
+  readonly indexed = new Promise<void>((resolve) => { this.markIndexed = resolve; });
 
   async onload(): Promise<void> {
     this.stopped = false;
@@ -74,6 +78,7 @@ export default class TaskTrellisPlugin extends Plugin {
       this.stopped = true;
       if (this.configTimer !== null) window.clearTimeout(this.configTimer);
       if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
+      this.markIndexed();
     });
     this.settings = normalizeSettings(await this.loadData());
     if (this.stopped) return;
@@ -90,6 +95,7 @@ export default class TaskTrellisPlugin extends Plugin {
     this.registerObsidianProtocolHandler('task-trellis-create', (params) => {
       this.app.workspace.onLayoutReady(() => { void shortcuts.handle(params); });
     });
+    new CliCommands(this).register();
     this.boardNavigation = new BoardNavigation(this.app.workspace, VIEW_TYPE_BOARD);
 
     this.registerBoardView();
@@ -132,6 +138,7 @@ export default class TaskTrellisPlugin extends Plugin {
       this.index.attach(this);
       this.registerBoardWatchers();
       await this.index.rebuild();
+      this.markIndexed();
       if (!this.stopped) {
         this.boards.syncCommands();
         await this.ensureBoardList();

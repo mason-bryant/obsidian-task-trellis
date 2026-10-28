@@ -6,13 +6,16 @@ import type { BoardModel, BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
 import { taskMatchesBoard } from '../core/filters.ts';
-import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, type NewTaskFields } from '../core/newTask.ts';
+import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, type NewTaskFields } from '../core/newTask.ts';
 import { parseTaskLine, setDueDate, normalizeRequestMarker } from '../core/taskLine.ts';
 import type { ShortcutTask } from '../core/shortcut.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
 
 type DailyNotes = { getDailyNote(): Promise<TFile | null> };
+
+/** A task written by `addLines`: the note before and after, and the task's line (-1 when it can no longer be found). */
+export type AddedLines = { file: TFile; at: number; duplicate: boolean; before: string; after: string; uncertain?: boolean; warning?: string };
 
 type AppInternals = {
   internalPlugins?: { getEnabledPluginById?(id: string): unknown };
@@ -112,7 +115,21 @@ export class QuickAdd {
   /** URL capture uses explicit date/column inputs, never an interactive task editor. */
   async addFromShortcut(config: BoardConfig, request: ShortcutTask, column: string): Promise<{ duplicate: boolean; uncertain?: boolean; warning?: string }> {
     if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
-    const dest = destinationFor(config, this.defaultDestination());
+    // The URL's date is authoritative, including an omitted date meaning no due date.
+    const line = setDueDate(buildNewTaskLine(request.text, {
+      created: await this.createdDate(), placement: { slug: config.slug, column },
+    }), request.due);
+    const { duplicate, uncertain, warning } = await this.addLines(config, destinationFor(config, this.defaultDestination()), [line], request.requestId);
+    return { duplicate, ...(uncertain ? { uncertain } : {}), ...(warning ? { warning } : {}) };
+  }
+
+  /**
+   * Writes a finished task line, with any lines that go under it, without an editor (URL capture and
+   * the CLI). Refuses an existing note whose filters would hide the task, so nothing is added there.
+   * `at` is the task's line in the note.
+   */
+  async addLines(config: BoardConfig, dest: NewTaskDestination, lines: string[], requestId?: string): Promise<AddedLines> {
+    if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
     if (dest.kind === 'note') {
       const path = normalizePath(dest.note.endsWith('.md') ? dest.note : `${dest.note}.md`);
       if (this.plugin.isExcludedFromIndex(path)) throw new Error('The destination note is excluded from task indexing. Change the board’s new-task destination.');
@@ -122,31 +139,41 @@ export class QuickAdd {
     if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
     const { file, created } = target;
     if (this.plugin.isExcludedFromIndex(file.path)) throw new Error('The destination note is excluded from task indexing.');
-    // The URL's date is authoritative, including an omitted date meaning no due date.
-    const line = setDueDate(buildNewTaskLine(request.text, {
-      created: await this.createdDate(), placement: { slug: config.slug, column },
-    }), request.due);
+    const line = lines[0]!;
     const cache = this.app.metadataCache.getFileCache(file);
     const filtered = !taskMatchesBoard({ path: file.path, tags: parseTaskLine(line)?.tags ?? [] }, config, cache?.frontmatter, noteTags(cache));
     if (filtered && !created) throw new Error('The board’s filters would hide this task. Adjust its text/tags or new-task destination; no task was added.');
-    const marker = request.requestId ? `<!-- task-trellis-request:${request.requestId} -->` : '';
-    const savedLine = normalizeRequestMarker(marker ? `${line} ${marker}` : line);
+    const marker = requestId ? `<!-- task-trellis-request:${requestId} -->` : '';
+    const saved = [normalizeRequestMarker(marker ? `${line} ${marker}` : line), ...lines.slice(1)];
     let duplicate = false;
+    let at = -1;
+    let before = '', after = '';
     await this.app.vault.process(file, (content) => {
       if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
-      if (marker && content.includes(marker)) { duplicate = true; return content; }
-      return insertUnderHeading(content, dest.heading, [savedLine]);
+      before = after = content;
+      if (marker && content.includes(marker)) {
+        duplicate = true;
+        at = content.split(/\r?\n/).findIndex((l) => l.includes(marker));
+        return content;
+      }
+      ({ content: after, at } = insertUnderHeadingAt(content, dest.heading, saved));
+      return after;
     });
     if (created && !duplicate) {
-      try { await this.keepThroughTemplater(file, dest.heading, savedLine); }
-      catch { return { duplicate, uncertain: true, warning: 'The task was written, but template processing could not be verified. Check the destination note before retrying. Sync is not confirmed.' }; }
+      try { await this.keepThroughTemplater(file, dest.heading, saved); }
+      catch { return { file, at, duplicate, before, after, uncertain: true, warning: 'The task was written, but template processing could not be verified. Check the destination note before retrying. Sync is not confirmed.' }; }
+      // Templater may have rewritten the note around the task.
+      if (this.templaterOn()) {
+        const current = (await this.app.vault.read(file)).split(/\r?\n/);
+        if (current[at] !== saved[0]) at = current.indexOf(saved[0]!);
+      }
     }
     const latestCache = this.app.metadataCache.getFileCache(file);
     const hasFilters = config.includeTags.length + config.excludeTags.length + config.includeFolders.length +
       config.excludeFolders.length + config.propertyFilters.length + config.excludedPropertyFilters.length > 0;
     const visibilityUnknown = created && hasFilters && !latestCache;
     const hidden = !taskMatchesBoard({ path: file.path, tags: parseTaskLine(line)?.tags ?? [] }, config, latestCache?.frontmatter, noteTags(latestCache));
-    return { duplicate, warning: hidden || visibilityUnknown ? 'The task may be hidden by this board’s filters; check the destination note and its properties. Sync is not confirmed.' : undefined };
+    return { file, at, duplicate, before, after, warning: hidden || visibilityUnknown ? 'The task may be hidden by this board’s filters; check the destination note and its properties. Sync is not confirmed.' : undefined };
   }
 
   /** The Tasks modal when available (prefilled with the text and due date), else a plain prompt. */
@@ -181,7 +208,7 @@ export class QuickAdd {
     }
     await this.app.vault.process(file, (content) => insertUnderHeading(content, dest.heading, [line]));
     if (created) {
-      void this.keepThroughTemplater(file, dest.heading, line).catch((error: unknown) => {
+      void this.keepThroughTemplater(file, dest.heading, [line]).catch((error: unknown) => {
         console.error('Task Trellis: could not preserve the new task after template processing.', error);
         new Notice('Task Trellis: template processing may have replaced the new task. Check the destination note.');
       });
@@ -236,8 +263,8 @@ export class QuickAdd {
    * Templater rewrites a new note from what it reads ~300 ms after creation. The task is written
    * before that, so it normally survives; if the rewrite dropped it, add it again.
    */
-  private async keepThroughTemplater(file: TFile, heading: string, line: string): Promise<void> {
-    if (this.stopped || !(this.app as unknown as AppInternals).plugins?.enabledPlugins?.has(TEMPLATER_ID)) return;
+  private async keepThroughTemplater(file: TFile, heading: string, lines: string[]): Promise<void> {
+    if (this.stopped || !this.templaterOn()) return;
     const workspace = this.app.workspace as unknown as Events;
     await new Promise<void>((resolve) => {
       let timer = 0;
@@ -255,15 +282,19 @@ export class QuickAdd {
     });
     if (this.stopped) return;
     const content = await this.app.vault.read(file);
-    if (!this.stopped && !content.split(/\r?\n/).includes(line)) {
+    if (!this.stopped && !content.split(/\r?\n/).includes(lines[0]!)) {
       await this.app.vault.process(file, (c) =>
-        this.stopped || c.split(/\r?\n/).includes(line) ? c : insertUnderHeading(c, heading, [line]),
+        this.stopped || c.split(/\r?\n/).includes(lines[0]!) ? c : insertUnderHeading(c, heading, lines),
       );
     }
   }
 
+  private templaterOn(): boolean {
+    return (this.app as unknown as AppInternals).plugins?.enabledPlugins?.has(TEMPLATER_ID) === true;
+  }
+
   /** Follows the Tasks setting for created dates (`➕`); none when Tasks isn't installed. */
-  private async createdDate(): Promise<string | undefined> {
+  async createdDate(): Promise<string | undefined> {
     try {
       const raw = await this.app.vault.adapter.read(`${this.app.vault.configDir}/plugins/obsidian-tasks-plugin/data.json`);
       return (JSON.parse(raw) as { setCreatedDate?: unknown }).setCreatedDate === true ? todayISO() : undefined;
