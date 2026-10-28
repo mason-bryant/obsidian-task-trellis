@@ -466,6 +466,7 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-quick-filter-colors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .tt-quick-filter-colors[hidden] { display: none; }
 .tt-filter-context-note, .tt-filter-match-note { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.tt-filter-context-note { font-weight: 300; font-style: italic; }
 .tt-filter-match-note { color: var(--text-accent); }
 .tt-subtask.tt-filter-match { border-inline-start: 2px solid var(--interactive-accent); padding-inline-start: 8px; }
 .tt-filter-ancestors { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--background-modifier-border); }
