@@ -76,6 +76,19 @@ function board() {
 }
 
 describe('bulk board interactions',()=>{
+  it('Select column adds to an existing selection without toggling or duplicating earlier cards', () => {
+    const f = board();
+    const doing = task('- [ ] Doing task #tt/house/doing/100', 4);
+    f.draw([f.a, f.b, doing]); f.click('Select'); f.click('Select A');
+    f.click('Select Doing column');
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('2 selected');
+    expect(f.root.querySelector('[aria-label="Select A"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(f.root.querySelector('[aria-label="Select Doing task"]')?.getAttribute('aria-checked')).toBe('true');
+    f.click('Select Doing column');
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('2 selected');
+    f.click('Select Backlog column');
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('3 selected');
+  });
   it('uses separate selection controls, keeps completion/edit handlers untouched, and exits with Escape',()=>{
     const f=board();f.click('Select');f.click('Select A');
     expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');

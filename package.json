@@ -1,6 +1,6 @@
 {
   "name": "obsidian-task-trellis",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Manage tasks across your notes with configurable kanban boards, due-date rows, colored labels, and mobile task capture.",
   "main": "main.js",
   "private": true,
