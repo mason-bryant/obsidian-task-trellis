@@ -10,11 +10,12 @@ import { TaskIndex } from '../src/obsidian/TaskIndex.ts';
 import { Events, notices, TFile } from './mocks/obsidian.ts';
 import { buildBoard, type BoardModel, type DropTarget } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import type { RenderHost } from '../src/ui/renderBoard.ts';
+import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 import type TaskTrellisPlugin from '../main.ts';
 import type { App, CachedMetadata, WorkspaceLeaf } from 'obsidian';
 
 type ViewUnderTest = {
+  contentEl: HTMLElement;
   model: BoardModel; board: { config: ReturnType<typeof parseBoardConfig>['config']; warnings: string[] };
   pending: Map<string, {raw: string; from: string}>;
   undoAction: {label: string; action: UndoAction} | null;
@@ -42,6 +43,42 @@ function fixture(content = '- [ ] same\n- [ ] same\n') {
   return { view, plugin, index, writer, vault, file, ready, get content() { return content; }, setContent(value: string) { content = value; } };
 }
 beforeEach(() => { notices.length = 0; drag.active = false; });
+it('real Undo clears selected snapshots while leaving selection mode open', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  const task = f.index.all()[0]!;
+  await f.view.drop(task.id, { rowId: f.view.model.rows[0]!.id, index: 0, columnId: 'doing' });
+  const host: RenderHost = {
+    renderText: (el, t) => { el.textContent = t.text; }, icon: vi.fn(), sourceLabel: () => 'Tasks',
+    isCollapsed: () => false, onToggleRow: vi.fn(), onSetSubtasksCollapsed: vi.fn(),
+    onDrop: vi.fn(), onToggle: vi.fn(), onEdit: vi.fn(), onOpenSource: vi.fn(), onDragEnd: vi.fn(),
+    onAddTask: vi.fn(), onAddSubtask: vi.fn(), onBulkAction: vi.fn(),
+  };
+  const root = f.view.contentEl; document.body.replaceChildren(root);
+  const draw = () => renderBoard(root, f.view.model, host, { warnings: [], info: [] });
+  draw();
+  root.querySelector<HTMLButtonElement>('[data-board-focus="select"]')!.click();
+  root.querySelector<HTMLButtonElement>('.tt-select-card')!.click();
+  expect(root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
+  await f.view.undo(); draw();
+  expect(f.content).toBe('- [ ] original\n');
+  expect(root.classList.contains('tt-board--selecting')).toBe(true);
+  expect(root.querySelector('.tt-bulk-count')?.textContent).toBe('0 selected');
+  expect(root.querySelector('.tt-select-card')?.getAttribute('aria-checked')).toBe('false');
+});
+
+it('mixed label selection updates only the main task and reports the unchanged subtask', async () => {
+  const f = fixture('- [ ] Main\n- [ ] Independent child\n'); await f.ready();
+  const selected = f.index.all(); selected[1] = { ...selected[1]!, parentId: 'Tasks.md:9' };
+  vi.spyOn(f.index, 'currentSnapshot').mockImplementation((task) => task);
+  const view = f.view as unknown as { applyBulk(tasks: typeof selected, action: import('../src/core/bulkTriage.ts').BulkAction, slug: string): Promise<import('../src/core/bulkTriage.ts').BulkResult> };
+  const result = await view.applyBulk(selected, { kind: 'labels', mode: 'add', ids: ['green'] }, 'house');
+  expect(f.content.split('\n')[0]).toContain('#tt/house/label/green');
+  expect(f.content.split('\n')[1]).toBe('- [ ] Independent child');
+  expect(result.message).toBe('1 updated; 1 subtask left unchanged, because subtasks don’t have labels.');
+  expect(result.tasks).toHaveLength(2);
+  await f.view.undo();
+  expect(f.content).toBe('- [ ] Main\n- [ ] Independent child\n');
+});
 it('two rapid drops on duplicate lines use refreshed snapshots and leave no phantom preview', async () => {
   const f = fixture(); await f.ready();
   const task = f.index.all()[0]!; const rowId = f.view.model.rows[0]!.id;

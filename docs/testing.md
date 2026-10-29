@@ -2,6 +2,8 @@
 
 # Community readiness test report
 
+The latest unreleased-branch check is the [October 28 pre-release report](qa/pre-release-2026-10-28.md): 609 application tests, 8 shortcut tests, browser layout measurements, native desktop checks and native iPhone checks through Mirroring. Its remaining gaps are recorded separately; the historical results below are not claims about that candidate.
+
 Updated October 27, 2026 for version **0.1.16**. The original readiness review covered 0.1.10; version-specific follow-ups and maintainer confirmations are recorded below. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
 
 ## Changes made during this review

@@ -15,6 +15,11 @@ assert.match(manifest.version, version, 'Version must be x.y.z, without a v pref
 assert.match(manifest.minAppVersion, version, 'Minimum app version must be x.y.z.');
 assert.equal(manifest.version, pkg.version, 'Manifest and package versions must agree.');
 assert.equal(versions[manifest.version], manifest.minAppVersion, 'versions.json must map this version to minAppVersion.');
+const notesPath = `docs/releases/${manifest.version}.md`;
+const notes = await readFile(notesPath, 'utf8').catch(() => '');
+assert(notes.trim(), `${notesPath} is required. Write release notes before packaging or publishing.`);
+assert(notes.split(/\r?\n/)[0] === `# Task Trellis ${manifest.version}`, `${notesPath} must start with the matching version heading.`);
+assert(notes.split(/\r?\n/).slice(1).join('\n').trim(), `${notesPath} must describe the release, not just contain a heading.`);
 for (const [release, minimum] of Object.entries(versions)) {
   assert.match(release, version);
   assert.match(minimum, version);

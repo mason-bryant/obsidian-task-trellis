@@ -1,7 +1,7 @@
 {
   "id": "task-trellis",
   "name": "Task Trellis",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "minAppVersion": "1.13.7",
   "description": "Manage tasks across your notes with configurable kanban boards, due-date rows, colored labels, and mobile task capture.",
   "author": "Mason Bryant",

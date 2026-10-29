@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -15,9 +15,12 @@ function fixture() {
   }
   const notices = ['LICENSE', 'THIRD_PARTY_NOTICES.txt'].map((file) => readFileSync(join(root, file), 'utf8')).join('\n');
   writeFileSync(join(root, 'main.js'), `/*! ${notices} */\nmodule.exports = {};`);
+  const version = (JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')) as { version: string }).version;
+  mkdirSync(join(root, 'docs/releases'), { recursive: true });
+  writeFileSync(join(root, `docs/releases/${version}.md`), `# Task Trellis ${version}\n\nTest release with validation details.\n`);
   return {
     root,
-    version: (JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')) as { version: string }).version,
+    version,
     run: (tag?: string, args: string[] = []) => spawnSync(process.execPath, [resolve('scripts/check-release.mjs'), ...args], {
       cwd: root, encoding: 'utf8',
       env: { ...process.env, GITHUB_REF_TYPE: tag ? 'tag' : '', GITHUB_REF_NAME: tag ?? '' },
@@ -26,6 +29,17 @@ function fixture() {
 }
 
 describe('release checks', () => {
+  it.each(['missing', 'empty', 'wrong version', 'heading only'])('rejects %s release notes before packaging', (kind) => {
+    const { root, run, version } = fixture();
+    const file = join(root, `docs/releases/${version}.md`);
+    if (kind === 'missing') rmSync(file);
+    else writeFileSync(file, kind === 'empty' ? '' : kind === 'heading only' ? `# Task Trellis ${version}\n` : '# Task Trellis 99.0.0\n\nWrong release.');
+    const result = run(version, ['--package']);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(`docs/releases/${version}.md`);
+    expect(existsSync(join(root, 'dist/task-trellis'))).toBe(false);
+  });
+
   it('packages only the three install assets, with licenses embedded in the bundle', () => {
     const { root, run, version } = fixture();
     const result = run(version, ['--package']);

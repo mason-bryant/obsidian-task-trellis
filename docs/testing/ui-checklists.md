@@ -64,7 +64,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Tasks without labels, renamed labels, hidden filters, the overflow menu and one chosen column.
 - Modifier-click, ranges within a column, Select all with collapsed rows, clicking away to stop selecting, and selection kept while the bulk editor is open.
 - Partial writes, edits made after selecting, selection kept after an edit, and Undo.
-- Tests: [quickFilterHierarchy](../../tests/quickFilterHierarchy.test.ts), [quickFilters](../../tests/quickFilters.test.ts), [quickFilterMenu](../../tests/quickFilterMenu.test.ts), [bulkTriage](../../tests/bulkTriage.test.ts), [filters](../../tests/filters.test.ts) and [BoardView](../../tests/BoardView.test.ts). No test yet covers Select column with cards already selected, Undo clearing the selection, or the status for selected tasks outside the view.
+- Tests: [quickFilterHierarchy](../../tests/quickFilterHierarchy.test.ts), [quickFilters](../../tests/quickFilters.test.ts), [quickFilterMenu](../../tests/quickFilterMenu.test.ts), [bulkTriage](../../tests/bulkTriage.test.ts), [filters](../../tests/filters.test.ts) and [BoardView](../../tests/BoardView.test.ts). These include adding a column to an existing selection, Undo clearing selected snapshots, the status for selected tasks outside the view, and a mixed main-task/subtask label edit followed by Undo.
 
 ## Feedback and recovery
 

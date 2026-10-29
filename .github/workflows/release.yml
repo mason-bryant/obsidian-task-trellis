@@ -40,4 +40,4 @@ jobs:
         run: >-
           gh release create "$RELEASE_TAG"
           dist/task-trellis/main.js dist/task-trellis/manifest.json dist/task-trellis/styles.css
-          --verify-tag --title "$RELEASE_TAG" --generate-notes
+          --verify-tag --title "$RELEASE_TAG" --notes-file "docs/releases/$RELEASE_TAG.md"

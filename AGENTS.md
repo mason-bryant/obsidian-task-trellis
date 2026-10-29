@@ -8,6 +8,7 @@ Task Trellis should look and behave the same way wherever the same kind of thing
 - Run native tests only in a disposable vault, with synthetic tasks. Never commit vault files, local paths, tokens or generated bundles.
 - Avoid desktop-only APIs: the plugin also runs in Obsidian mobile.
 - Don't push a version tag unless the maintainer asks: pushing one publishes a release. See the [release checklist](docs/releasing.md).
+- Every version bump must include `docs/releases/<version>.md`, starting with `# Task Trellis <version>`. Describe user-visible changes, compatibility/migration notes, and actual validation with remaining gaps. Follow [the release-note guide](docs/releases/README.md); packaging rejects missing or mismatched notes and publishing uses this file as the GitHub release description.
 - Before a pull request, run the checks from [CONTRIBUTING.md](CONTRIBUTING.md):
 
   ```bash
