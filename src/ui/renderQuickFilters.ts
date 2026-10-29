@@ -34,9 +34,11 @@ export function renderQuickFilters(root: HTMLElement, config: BoardConfig, activ
       button.dataset.boardFocus = `quick-menu:${mode}`;
       const count = overflow.filter((f) => active.includes(f.id)).length;
       button.append(icon('list-filter'));
-      const label = uiElement(doc, 'span'); label.textContent = `${limit ? 'More filters' : 'Filters'}${count ? ` (${count})` : ''}`; button.append(label);
-      button.setAttribute('aria-label', `Quick filters${count ? ` (${count} active in menu)` : ''}`);
-      button.setAttribute('aria-pressed', String(count > 0));
+      const menuName = limit ? 'More filters' : 'Filters';
+      const label = uiElement(doc, 'span'); label.textContent = `${menuName}${count ? ` (${count})` : ''}`; button.append(label);
+      // Speech control users say the visible text, so the name starts with it. It opens a menu rather than toggling.
+      button.setAttribute('aria-label', `${menuName}${count ? ` (${count} on)` : ''}`);
+      button.classList.toggle('is-active', count > 0);
       button.setAttribute('aria-haspopup', 'menu'); button.setAttribute('aria-expanded', 'false');
       const close = () => {
         const current = root.querySelector<HTMLButtonElement>(`[data-board-focus="quick-menu:${mode}"]`);

@@ -85,7 +85,8 @@ describe('quick filter overflow', () => {
   it('keeps colors, checked state, active count, toggling and dismissal focus', () => {
     const ui = toolbar({ 'quick-filters-menu': true, 'quick-filters-visible': 2 }, ['first', 'third']);
     const trigger = ui.trigger('desktop')!;
-    expect(trigger.textContent).toBe('More filters (1)'); expect(trigger.getAttribute('aria-pressed')).toBe('true');
+    expect(trigger.textContent).toBe('More filters (1)'); expect(trigger.getAttribute('aria-label')).toBe('More filters (1 on)');
+    expect(trigger.hasAttribute('aria-pressed')).toBe(false); expect(trigger.classList.contains('is-active')).toBe(true);
     trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     trigger.click(); expect(ui.menu).toHaveBeenCalledTimes(1);
     const [, items, select, close] = ui.menu.mock.calls[0]!;

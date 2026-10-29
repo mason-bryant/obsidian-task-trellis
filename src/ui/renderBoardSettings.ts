@@ -1,6 +1,6 @@
 import { uiElement, isComposing } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
-import { installQuickFilterReorder } from './reorderQuickFilters.ts';
+import { installRowReorder } from './reorderRows.ts';
 import { quickFilterColors } from './quickFilterColors.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { labelDescription } from '../core/labels.ts';
@@ -278,7 +278,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       const show = quickCheck('Show on board', `${key}-show`, quick.show, (v) => { quick.show = v; });
       const name = quick.name.trim() || `quick filter ${i + 1}`;
       const drag = iconButton('grip-vertical', `Reorder ${name}`, () => undefined);
-      drag.classList.add('tt-quick-filter-drag'); drag.dataset.focus = `${key}-drag`;
+      drag.classList.add('tt-reorder-grip'); drag.dataset.focus = `${key}-drag`;
       drag.title = 'Drag to reorder. Or use the up and down arrow keys.';
       drag.setAttribute('aria-description', 'Drag to reorder, or use the arrow, home and end keys.');
       const actions = el('div', 'tt-quick-filter-actions');
@@ -312,7 +312,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(item);
     });
     const status = el('div', 'tt-reorder-status'); status.setAttribute('role', 'status'); body.append(status);
-    attach(installQuickFilterReorder(body, (from, to) => {
+    attach(installRowReorder(body, '.tt-quick-filter-editor', (from, to) => {
       const [moved] = list.splice(from, 1); list.splice(to, 0, moved!);
       redraw(`quick-${to}-drag`);
       const announcement = root.querySelector('.tt-reorder-status');
@@ -357,7 +357,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     if (section === 'columns') {
       heading(body, 'Shape your workflow', 'Arrange columns from left to right. Renaming a column updates its task tags.');
       draft.columns.forEach((column, i) => {
-        const row = el('div', 'tt-settings-row');
+        const row = el('div', 'tt-column-editor');
         const name = input(column.label, `Column ${i + 1} name`, (v) => column.label = v); name.dataset.focus = `column-${i}`;
         name.addEventListener('input', () => {
           for (const menu of root.querySelectorAll<HTMLSelectElement>('select')) {
@@ -366,17 +366,27 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
             if (option) option.textContent = name.value || '(unnamed)';
           }
         });
-        const move = (to: number) => {
-          [draft.columns[i], draft.columns[to]] = [draft.columns[to]!, draft.columns[i]!];
-          const swap = (at: number) => at === i ? to : at === to ? i : at;
-          draft.doneIndex = swap(draft.doneIndex); draft.undatedIndex = swap(draft.undatedIndex); redraw(`column-${to}`);
-        };
-        row.append(name, iconButton('arrow-up', `Move ${column.label} up`, () => move(i - 1), i === 0), iconButton('arrow-down', `Move ${column.label} down`, () => move(i + 1), i === draft.columns.length - 1), iconButton('trash-2', `Remove ${column.label} column`, () => {
+        const label = column.label.trim() || `column ${i + 1}`;
+        const drag = iconButton('grip-vertical', `Reorder ${label}`, () => undefined);
+        drag.classList.add('tt-reorder-grip'); drag.dataset.focus = `column-${i}-drag`;
+        drag.title = 'Drag to reorder. Or use the up and down arrow keys.';
+        drag.setAttribute('aria-description', 'Drag to reorder, or use the arrow, home and end keys.');
+        row.append(name, iconButton('trash-2', `Remove ${label} column`, () => {
           draft.columns.splice(i, 1); const shift = (at: number) => at === i ? -1 : at > i ? at - 1 : at;
           draft.doneIndex = shift(draft.doneIndex); draft.undatedIndex = shift(draft.undatedIndex); redraw(`column-${Math.max(0, i - 1)}`);
-        }, draft.columns.length === 1));
+        }, draft.columns.length === 1), drag);
         body.append(row);
       });
+      const status = el('div', 'tt-reorder-status'); status.setAttribute('role', 'status'); body.append(status);
+      attach(installRowReorder(body, '.tt-column-editor', (from, to) => {
+        const [moved] = draft.columns.splice(from, 1); draft.columns.splice(to, 0, moved!);
+        // The Done and No due date columns follow their column to its new place.
+        const follow = (at: number) => at === from ? to : from < to && at > from && at <= to ? at - 1 : from > to && at >= to && at < from ? at + 1 : at;
+        draft.doneIndex = follow(draft.doneIndex); draft.undatedIndex = follow(draft.undatedIndex);
+        redraw(`column-${to}-drag`);
+        const announcement = root.querySelector('.tt-reorder-status');
+        if (announcement) announcement.textContent = `${moved!.label.trim() || 'Column'} moved to position ${to + 1} of ${draft.columns.length}.`;
+      }));
       const add = button('Add column', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.onclick = () => { draft.columns.push({ label: '' }); redraw(`column-${draft.columns.length - 1}`); }; body.append(add);
       for (const c of original.columns.filter((c) => !draft.columns.some((d) => d.originalId === c.id))) {
         const n = host.countTagged(c.id); if (n) body.append(el('p', 'tt-help', `Removing ${c.label}: ${n} tasks will use the first column.`));

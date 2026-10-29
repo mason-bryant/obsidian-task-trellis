@@ -35,5 +35,5 @@ Menus use Obsidian's public `Menu` API.
 - Toolbar quick filters and their menu trigger: [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts). Color squares: [quickFilterColors.ts](../../src/ui/quickFilterColors.ts).
 - Card actions, the Subtasks button and selection controls: [renderBoard.ts](../../src/ui/renderBoard.ts).
 - The Subtasks, Move to… and quick-filter menus: [BoardView.ts](../../src/obsidian/BoardView.ts).
-- Add label and the pencil: [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts). The column and quick-filter grips, copy, trash and Add quick filter: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts), with dragging in [reorderQuickFilters.ts](../../src/ui/reorderQuickFilters.ts).
+- Add label and the pencil: [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts). The column and quick-filter grips, copy, trash and Add quick filter: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts), with dragging in [reorderRows.ts](../../src/ui/reorderRows.ts).
 - Editor headers: [editorHeader.ts](../../src/ui/editorHeader.ts).

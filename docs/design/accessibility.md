@@ -27,4 +27,4 @@
 
 - Focus after a redraw: `renderBoard` in [renderBoard.ts](../../src/ui/renderBoard.ts) refocuses the control whose `data-board-focus` key matches the one that had focus. Menu triggers find their current button the same way.
 - Label text contrast: [labels.ts](../../src/core/labels.ts). Focus outlines, 44px sizing and reduced motion: [styles.css](../../styles.css).
-- Keyboard reordering and its announcement: [reorderQuickFilters.ts](../../src/ui/reorderQuickFilters.ts) and [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts). Column separators: [columnResize.ts](../../src/ui/columnResize.ts). The touch drag copy is hidden and inert: [touchCardDrag.ts](../../src/ui/touchCardDrag.ts).
+- Keyboard reordering and its announcement: [reorderRows.ts](../../src/ui/reorderRows.ts) and [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts). Column separators: [columnResize.ts](../../src/ui/columnResize.ts). The touch drag copy is hidden and inert: [touchCardDrag.ts](../../src/ui/touchCardDrag.ts).

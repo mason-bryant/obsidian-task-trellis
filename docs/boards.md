@@ -6,7 +6,7 @@ A board is a note in the boards folder (`Task Trellis/` by default, set in the p
 
 Open the **Task Trellis boards** sidebar from the ribbon icon or the **Show boards sidebar** command. It lists your boards and offers **Create new board**. Selecting a board focuses its existing tab, including one in another window, or opens it if needed.
 
-Use **Settings → Columns** to name your workflow stages, **Dates** to choose the planning window, **Filters** to decide which tasks appear, **Quick filters** for toolbar toggles that narrow the board, **Appearance** for how subtasks and overdue cards look, and **New tasks** to choose where captured tasks are saved. For filter examples, see [Choose which tasks appear](filters.md).
+Use **Settings → Columns** to name your workflow stages and drag the grip at a column’s right edge to put them in order (or focus it and use the arrow keys), **Dates** to choose the planning window, **Filters** to decide which tasks appear, **Quick filters** for toolbar toggles that narrow the board, **Appearance** for how subtasks and overdue cards look, and **New tasks** to choose where captured tasks are saved. For filter examples, see [Choose which tasks appear](filters.md).
 
 ## Rename a board
 
