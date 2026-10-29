@@ -91,3 +91,28 @@ it('names each card and subtask action after its task, and lets the keyboard edi
   row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   expect(host.onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: walls.id }));
 });
+
+it('keeps an opened composer above the phone keyboard as it opens, and below the column header', async () => {
+  const viewport = Object.assign(new EventTarget(), { offsetTop: 0, height: 700 });
+  Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
+  try {
+    draw();
+    const list = root.querySelector<HTMLElement>('.tt-scroll')!;
+    const rect = (top: number, height: number) => () => ({ top, bottom: top + height, left: 0, right: 300, width: 300, height, x: 0, y: top, toJSON: () => ({}) });
+    list.getBoundingClientRect = rect(100, 600);
+    root.querySelector<HTMLElement>('.tt-col-header')!.getBoundingClientRect = rect(100, 40);
+    root.querySelector<HTMLButtonElement>('.tt-add-button')!.click();
+    const box = root.querySelector<HTMLElement>('.tt-add-box')!;
+    // The box follows the list's scrolling, starting 520px down the screen.
+    box.getBoundingClientRect = () => rect(520 - list.scrollTop, 120)();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(box.querySelector('.tt-add-input'));
+    expect(list.scrollTop).toBe(0);
+    viewport.height = 400; viewport.dispatchEvent(new Event('resize'));
+    expect(box.getBoundingClientRect().bottom).toBe(392);
+    viewport.height = 150; viewport.dispatchEvent(new Event('resize'));
+    expect(box.getBoundingClientRect().top).toBe(148);
+  } finally {
+    Reflect.deleteProperty(window, 'visualViewport');
+  }
+});

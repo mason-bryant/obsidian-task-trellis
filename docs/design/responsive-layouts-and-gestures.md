@@ -14,7 +14,7 @@
 - There's enough scrollable space below the last card for it and its actions to clear Obsidian's floating toolbar and the safe area. Padding outside the scrolling element doesn't count.
 - Column headers and row labels stay in view while scrolling. The column and scroll position survive board refreshes.
 - With several columns showing, dragging a column header's edge resizes that column like a spreadsheet, and the other columns keep their widths. A click without movement changes nothing, and a failed save restores the previous widths. Double-click or Home resets all widths. The arrow keys resize the focused separator, with Shift for bigger steps. There's no resizing at 600px or narrower, or when one column is chosen.
-- Editors keep their header reachable when the phone keyboard opens; see [editing and saving](editing-and-saving.md).
+- Editors keep their header reachable when the phone keyboard opens; see [editing and saving](editing-and-saving.md). An opened inline composer scrolls into the space between the column header and the keyboard, including while the keyboard opens.
 - On touch screens, text fields use at least 16px text, so iOS doesn't zoom the page when one is focused.
 
 ## Exceptions

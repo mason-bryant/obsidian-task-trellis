@@ -675,6 +675,23 @@ function addBox(
 
   box.append(actions, input);
   refresh();
+  // A phone's keyboard covers the bottom of the screen as it opens. Keep the whole box between the
+  // sticky column header and the keyboard, whatever the app's scrolling does on its own.
+  const viewport = box.ownerDocument.defaultView?.visualViewport;
+  const keepVisible = () => {
+    const scroller = box.closest<HTMLElement>('.tt-scroll');
+    if (!viewport || !scroller || !box.contains(box.ownerDocument.activeElement)) return;
+    const list = verticalScroller(scroller);
+    const rect = box.getBoundingClientRect();
+    const header = list.querySelector('.tt-col-header')?.getBoundingClientRect().height ?? 0;
+    const top = Math.max(list.getBoundingClientRect().top, viewport.offsetTop) + header + 8;
+    const bottom = viewport.offsetTop + viewport.height - 8;
+    // Too tall for the space left, it shows its top: the buttons and the start of the text.
+    const by = rect.bottom > bottom ? Math.min(rect.bottom - bottom, rect.top - top) : rect.top < top ? rect.top - top : 0;
+    if (by) list.scrollTop += by;
+  };
+  input.addEventListener('focus', () => { keepVisible(); viewport?.addEventListener('resize', keepVisible); });
+  input.addEventListener('blur', () => viewport?.removeEventListener('resize', keepVisible));
   // Clicks inside the box shouldn't reach the cell or card.
   box.addEventListener('click', (e) => e.stopPropagation());
   // Right after the redraw that attaches it, before the next keystroke arrives.

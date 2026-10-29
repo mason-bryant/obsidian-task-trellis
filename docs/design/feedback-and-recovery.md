@@ -23,6 +23,7 @@ None recorded.
 
 ## Where it lives
 
+- The spinner and busy label of a saving editor: `setBusy` in [editorHeader.ts](../../src/ui/editorHeader.ts).
 - Card move previews, notices for task actions and the Undo action: [BoardView.ts](../../src/obsidian/BoardView.ts). The Undo bar and the bulk status line: [renderBoard.ts](../../src/ui/renderBoard.ts).
 - Writes, snapshot checks, Undo and the notices for skipped tasks: [TaskWriter.ts](../../src/obsidian/TaskWriter.ts).
 - Board rename: progress and errors in [renderBoardNameEditor.ts](../../src/ui/renderBoardNameEditor.ts), shown by [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts). Snapshots, applying and restoring in [BoardTagRename.ts](../../src/obsidian/BoardTagRename.ts), with the restore dialog in [RestoreBoardRenameModal.ts](../../src/obsidian/RestoreBoardRenameModal.ts).
