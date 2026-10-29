@@ -204,3 +204,9 @@ it('keeps the date field disabled after a failed remove-date save',async()=>{
   await vi.waitFor(()=>expect(root.querySelector('[role="alert"]')?.textContent).toBe('Disk full'));
   expect(save).toHaveBeenCalledWith({kind:'due',date:null});expect(date.disabled).toBe(true);expect(mode.disabled).toBe(false);
 });
+
+it.each([[1,'Apply to 1 task'],[3,'Apply to 3 tasks']])('names the apply button for %i selected',(count,name)=>{
+  const root=document.createElement('div'),header=document.createElement('div');document.body.replaceChildren(header,root);
+  renderBulkEditor(root,header,config,'due',count,vi.fn(),vi.fn(),vi.fn(),vi.fn());
+  expect(header.querySelector('.tt-editor-save')?.getAttribute('aria-label')).toBe(name);
+});

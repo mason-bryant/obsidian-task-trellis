@@ -37,6 +37,8 @@ export type RenderHost = {
   /** Adds a task to a cell; `detailed` opens the full editor first. */
   onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<boolean> | boolean;
   onAddSubtask(parent: BoardTask, text: string, detailed: boolean): Promise<boolean> | boolean;
+  /** Keeps text whose save failed after its composer was closed; `retry` saves it again. */
+  onUnsavedText?(text: string, retry: (text: string) => Promise<boolean>): void;
   /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
   onSettings?(section?: Section): void;
@@ -590,8 +592,9 @@ function addBox(
     const text = draft.text.trim();
     if (!text && !detailed) return;
     draft.saving = true; draft.refresh?.();
+    let saved = false;
     try {
-      const saved = await onSubmit(text, detailed);
+      saved = !!await onSubmit(text, detailed);
       if (saved && composer === draft) draft.text = '';
     } catch {
       // Hosts display the cause; keep the draft even if an unexpected host failure escapes.
@@ -599,6 +602,8 @@ function addBox(
     } finally {
       draft.saving = false;
       if (composer === draft) draft.refresh?.();
+      // Closed while saving: the box can't keep the text, so the host does. A detailed add keeps its own.
+      else if (!saved && !detailed) host.onUnsavedText?.(text, async (retry) => !!await onSubmit(retry, false));
     }
   };
   input.addEventListener('keydown', (e) => {

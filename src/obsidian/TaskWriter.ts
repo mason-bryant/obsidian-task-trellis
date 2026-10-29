@@ -91,7 +91,7 @@ export class TaskWriter {
     const applied = new Set(result.appliedIds);
     result.skippedIds = [...edits.keys()].filter((id) => !applied.has(id));
     // BoardView explains a subtask that couldn't move out.
-    if (result.skippedIds.length && !(promote && result.failedPaths.includes(promote.subtask.path))) new Notice(`Task Trellis: ${result.skippedIds.length} task(s) could not be updated. Check the affected notes and try again.`);
+    if (result.skippedIds.length && !(promote && result.failedPaths.includes(promote.subtask.path))) new Notice(`Task Trellis: ${result.skippedIds.length === 1 ? '1 task' : `${result.skippedIds.length} tasks`} could not be updated. Check the affected notes and try again.`);
     result.action = this.undoFor(changes);
     return result;
   }
@@ -234,7 +234,7 @@ export class TaskWriter {
           return change.before;
         });
       }
-      if (skipped) new Notice(`Task Trellis: ${skipped} note(s) changed after this action and were not undone.`);
+      if (skipped) new Notice(`Task Trellis: ${skipped === 1 ? '1 note' : `${skipped} notes`} changed after this action and ${skipped === 1 ? 'was' : 'were'} not undone.`);
       return skipped === 0;
     } };
   }

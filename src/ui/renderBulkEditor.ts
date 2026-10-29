@@ -66,5 +66,5 @@ export function renderBulkEditor(root: HTMLElement, header: HTMLElement, config:
       busy = false; busyChanged(false); chrome.setBusy(false);
       controls.forEach(({ input, disabled }) => { input.disabled = disabled; });
     });
-  }, close, `Apply to ${count} tasks`);
+  }, close, `Apply to ${count} ${count === 1 ? 'task' : 'tasks'}`);
 }

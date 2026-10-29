@@ -15,6 +15,7 @@ import { clearBulkSelection, disposeBoardSelection, isDragging, renderBoard, typ
 import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
+import { recoverDraft } from './recoverDraft.ts';
 import { noteTags } from './noteTags.ts';
 import type { UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
@@ -138,6 +139,12 @@ export class BoardView extends FileView {
       if (!isDragging() && !isColumnResizing(this.contentEl)) this.render();
     });
     this.cancelRender = () => win.cancelAnimationFrame(frame);
+  }
+
+  /** Redraws now, or once a drag or column resize ends: redrawing mid-gesture would cancel it. */
+  private renderWhenIdle(): void {
+    if (isDragging() || isColumnResizing(this.contentEl)) this.queueRender();
+    else this.render();
   }
 
   private render(): void {
@@ -294,6 +301,7 @@ export class BoardView extends FileView {
         try { return await this.plugin.quickAdd.addSubtask(this.plugin.index.currentSnapshot(parent), text, detailed); }
         catch (error) { console.error('[Task Trellis] subtask failed', error); new Notice('Task Trellis: could not save the subtask. Your text has been kept; try again.'); return false; }
       },
+      onUnsavedText: (text, retry) => recoverDraft(this.app, text, retry),
       // A bottom sheet on phones.
       onMoveMenu: (task, choices, evt) => {
         const menu = new Menu();
@@ -446,7 +454,7 @@ export class BoardView extends FileView {
       if (from !== undefined) this.pending.set(id, { raw, from });
     }
     const owned = new Map([...edits.keys()].map((id) => [id, this.pending.get(id)]));
-    this.render();
+    this.renderWhenIdle();
     try {
       const result = await this.plugin.writer.applyEdits(tasks, edits, slug, promote ?? undefined);
       if (promote && result.failedPaths.includes(promote.subtask.path)) {
@@ -460,12 +468,12 @@ export class BoardView extends FileView {
       for (const id of result.skippedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
       await this.plugin.index.refresh(tasks.map((task) => task.path));
       for (const id of result.appliedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
-      this.render();
+      this.renderWhenIdle();
     } catch (err) {
       console.error('[Task Trellis] write failed', err);
       new Notice('Task Trellis: could not update the task. See the console for details.');
       for (const id of edits.keys()) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
-      this.render();
+      this.renderWhenIdle();
     }
   }
 }

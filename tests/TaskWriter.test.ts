@@ -233,7 +233,7 @@ describe('Undo', () => {
     const edited = files['a.md'];
     expect(await action.action!.undo()).toBe(false);
     expect(files['a.md']).toBe(edited);
-    expect(notices.at(-1)).toContain('were not undone');
+    expect(notices.at(-1)).toBe('Task Trellis: 1 note changed after this action and was not undone.');
   });
 
   it('does not write through a stale file reference after a note is replaced', async () => {

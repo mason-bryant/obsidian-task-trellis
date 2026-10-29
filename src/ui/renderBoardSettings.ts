@@ -409,7 +409,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       heading(body, 'Choose how cards look', 'Saved in the board note, so they follow the board to other devices.');
       body.append(check('Sort completed subtasks to end of list', draft.sortCompletedSubtasks, (v) => { draft.sortCompletedSubtasks = v; }));
       body.append(check('Hide completed subtasks', draft.hideCompletedSubtasks, (v) => { draft.hideCompletedSubtasks = v; }));
-      body.append(el('p', 'tt-help', 'The board toolbar has a button for this too. A completed subtask with open subtasks stays visible.'));
+      body.append(el('p', 'tt-help', 'A completed subtask with open subtasks stays visible.'));
       body.append(check('Add red bar to overdue tasks', draft.overdueBar, (v) => { draft.overdueBar = v; }));
       body.append(field('Open notes and links in', select('Open notes and links in', [['popup', 'Pop-up editor'], ['tab', 'A tab']], draft.openLinks, (v) => { draft.openLinks = v === 'tab' ? 'tab' : 'popup'; }),
         "A card's note and the links in its text. The pop-up editor edits the note without leaving the board. Cmd/Ctrl-click always opens a new tab."));

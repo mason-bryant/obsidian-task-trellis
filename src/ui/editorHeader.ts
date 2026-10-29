@@ -35,3 +35,8 @@ export function prepareEditorModal(modal: HTMLElement): { header: HTMLElement; d
   resize(); viewport?.addEventListener('resize', resize); viewport?.addEventListener('scroll', resize);
   return { header, destroy() { viewport?.removeEventListener('resize', resize); viewport?.removeEventListener('scroll', resize); header.remove(); } };
 }
+
+/** Whether an editor's header is busy saving, when Escape and clicks outside mustn't close it. */
+export function editorBusy(modal: HTMLElement): boolean {
+  return modal.querySelector('.tt-editor-header')?.getAttribute('aria-busy') === 'true';
+}
