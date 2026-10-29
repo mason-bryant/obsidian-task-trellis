@@ -1,8 +1,12 @@
 import { uiElement } from './dom.ts';
 
-/** Pointer capture supports mouse, pen and touch without making the editor itself draggable. */
-export function installQuickFilterReorder(body: HTMLElement, move: (from: number, to: number) => void): () => void {
-  const rows = [...body.querySelectorAll<HTMLElement>('.tt-quick-filter-editor')];
+/**
+ * Reorders the rows of a settings list, such as columns or quick filters, by the `.tt-reorder-grip`
+ * on each row's right edge, or by its arrow, Home and End keys. Pointer capture supports mouse, pen
+ * and touch without making the rows themselves draggable.
+ */
+export function installRowReorder(body: HTMLElement, rowSelector: string, move: (from: number, to: number) => void): () => void {
+  const rows = [...body.querySelectorAll<HTMLElement>(rowSelector)];
   const view = body.ownerDocument.defaultView!;
   type Box = { top: number; height: number; left: number; width: number };
   let drag: {
@@ -56,9 +60,9 @@ export function installQuickFilterReorder(body: HTMLElement, move: (from: number
     view.cancelAnimationFrame(frame);
     if (!current) return;
     current.placeholder?.remove();
-    body.classList.remove('tt-quick-filter-reordering');
+    body.classList.remove('tt-reordering');
     rows.forEach((row) => {
-      row.classList.remove('tt-quick-filter--dragging', 'tt-quick-filter--shifting');
+      row.classList.remove('tt-reorder-row--dragging', 'tt-reorder-row--shifting');
       row.style.removeProperty('transform');
     });
     if (current.handle.hasPointerCapture(current.id)) current.handle.releasePointerCapture(current.id);
@@ -67,7 +71,7 @@ export function installQuickFilterReorder(body: HTMLElement, move: (from: number
   };
   const cleanups: Array<() => void> = [];
   rows.forEach((row, from) => {
-    const handle = row.querySelector<HTMLElement>('.tt-quick-filter-drag')!;
+    const handle = row.querySelector<HTMLElement>('.tt-reorder-grip')!;
     const down = (event: PointerEvent) => {
       if (drag || !event.isPrimary || event.button !== 0) return;
       event.preventDefault(); event.stopPropagation();
@@ -93,12 +97,12 @@ export function installQuickFilterReorder(body: HTMLElement, move: (from: number
       if (!drag.moved) {
         drag.moved = true;
         const placeholder = uiElement(body.ownerDocument, 'div');
-        placeholder.className = 'tt-quick-filter-drop-slot';
+        placeholder.className = 'tt-reorder-slot';
         placeholder.setAttribute('aria-hidden', 'true');
         drag.placeholder = placeholder;
         body.append(placeholder);
-        body.classList.add('tt-quick-filter-reordering');
-        rows.forEach((item, index) => item.classList.add(index === from ? 'tt-quick-filter--dragging' : 'tt-quick-filter--shifting'));
+        body.classList.add('tt-reordering');
+        rows.forEach((item, index) => item.classList.add(index === from ? 'tt-reorder-row--dragging' : 'tt-reorder-row--shifting'));
       }
       target();
     };

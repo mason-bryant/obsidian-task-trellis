@@ -6,7 +6,7 @@ A board is a note in the boards folder (`Task Trellis/` by default, set in the p
 
 Open the **Task Trellis boards** sidebar from the ribbon icon or the **Show boards sidebar** command. It lists your boards and offers **Create new board**. Selecting a board focuses its existing tab, including one in another window, or opens it if needed.
 
-Use **Settings → Columns** to name your workflow stages, **Dates** to choose the planning window, **Filters** to decide which tasks appear, **Quick filters** for toolbar toggles that narrow the board, **Appearance** for how subtasks and overdue cards look, and **New tasks** to choose where captured tasks are saved. For filter examples, see [Choose which tasks appear](filters.md).
+Use **Settings → Columns** to name your workflow stages and drag the grip at a column’s right edge to put them in order (or focus it and use the arrow keys), **Dates** to choose the planning window, **Filters** to decide which tasks appear, **Quick filters** for toolbar toggles that narrow the board, **Appearance** for how subtasks and overdue cards look, and **New tasks** to choose where captured tasks are saved. For filter examples, see [Choose which tasks appear](filters.md).
 
 ## Rename a board
 
@@ -24,7 +24,7 @@ Before writing, Task Trellis saves full snapshots of affected notes in **Task Tr
 
 ## Property reference
 
-On desktop and tablet multi-column layouts, drag a column header's right boundary to resize it. Other columns keep their widths. Widths are saved with the board and survive reopening or renaming a column. Double-click a boundary to return all columns to equal, responsive widths. Keyboard users can focus a boundary and press Left/Right (10 pixels), Shift+Left/Right (50 pixels), or Home to reset all widths. Escape cancels an active drag. Phone single-column layouts keep their full-width pages.
+On desktop and tablet multi-column layouts, drag a column header's right boundary to resize it. Other columns keep their widths. Widths are saved with the board and survive reopening or renaming a column. Double-click a boundary to return all columns to equal, responsive widths. Keyboard users can focus a boundary and press Left/Right (10 pixels), Shift+Left/Right (50 pixels), or Home to reset all widths. Escape cancels an active drag. Boards 600px wide or narrower, and a single column chosen in the column picker, keep full-width columns and can’t be resized.
 
 These properties are stored in the board note. The settings form handles the usual configuration; you do not need to edit YAML to get started.
 
@@ -34,7 +34,7 @@ These properties are stored in the board note. The settings form handles the usu
 | `labels` | Six unnamed colors | Board-specific label definitions, managed through a card’s tag icon. |
 | `previous-label-scheme` | none | Exact previous colors keyed by label ID, managed by the color scheme picker. |
 | `columns` | Backlog, Doing, Waiting, Done | Columns, left to right. |
-| `column-widths` | automatic | Optional column-ID-to-pixel-width map, managed by dragging header boundaries. Widths are limited to 240–1000 pixels; phone layouts ignore them. |
+| `column-widths` | automatic | Optional column-ID-to-pixel-width map, managed by dragging header boundaries. Widths are limited to 240–1000 pixels; boards 600px wide or narrower ignore them. |
 | `done-column` | `Done` if there is one | Column kept in step with the checkbox. Leave empty for none. Listed newest completed first. |
 | `limit-done` | true | Cap the completed cards shown in each row of the Done column. |
 | `done-limit` | 5 | How many completed cards show per row before the rest go behind "more". |

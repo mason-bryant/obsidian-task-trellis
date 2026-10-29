@@ -16,11 +16,11 @@ it('opens first-run settings at New tasks and updates advice without resetting t
   };
   const form = renderBoardSettings(root, draft, config, host);
   expect(root.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('New tasks');
-  expect(root.querySelector('[role="status"]')?.textContent).toBe('Choose a note');
+  expect(root.querySelector('.tt-destination-advice')?.textContent).toBe('Choose a note');
   const input = root.querySelector<HTMLInputElement>('input[aria-label="Note path"]')!;
   input.focus(); input.value = 'Tasks/Inbox.md'; input.dispatchEvent(new Event('input', { bubbles: true }));
   expect(document.activeElement).toBe(input);
-  expect(root.querySelector('[role="status"]')?.textContent).toBe('Destination: Tasks/Inbox.md');
+  expect(root.querySelector('.tt-destination-advice')?.textContent).toBe('Destination: Tasks/Inbox.md');
   root.querySelector<HTMLButtonElement>('button[aria-label="Save changes"]')!.click();
   expect(host.onSave).toHaveBeenCalledOnce();
   form.destroy();

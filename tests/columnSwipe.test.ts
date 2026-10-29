@@ -7,6 +7,7 @@ let card: HTMLButtonElement;
 let enabled: boolean;
 let captured: number | null;
 let time: number;
+let swipe: ReturnType<typeof installColumnSwipe>;
 function pointer(type: string, x: number, y: number, options: Record<string, unknown> = {}, target: HTMLElement = card) {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperties(event, Object.fromEntries(Object.entries({
@@ -33,7 +34,7 @@ beforeEach(() => {
   scroller.hasPointerCapture = vi.fn((id) => captured === id);
   scroller.releasePointerCapture = vi.fn(() => { captured = null; });
   window.matchMedia = vi.fn().mockReturnValue({ matches: false });
-  installColumnSwipe(scroller, () => enabled, () => [0, 400, 800, 1200]);
+  swipe = installColumnSwipe(scroller, () => enabled, () => [0, 400, 800, 1200]);
 });
 
 describe('touch column paging', () => {
@@ -151,5 +152,29 @@ describe('touch column paging', () => {
     card.dispatchEvent(new Event('dragstart', { bubbles: true }));
     pointer('pointermove', 100, 300);
     expect(scroller.scrollLeft).toBe(400);
+  });
+});
+
+describe('paging without touch', () => {
+  function wheel(deltaX: number, deltaY = 0, at = time += 16) {
+    const event = new WheelEvent('wheel', { deltaX, deltaY, bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'timeStamp', { value: at });
+    card.dispatchEvent(event);
+    return event;
+  }
+  it('pages once per sideways trackpad swipe, ignoring its momentum, and leaves vertical scrolling alone', () => {
+    expect(wheel(0, 30).defaultPrevented).toBe(false);
+    expect(wheel(25).defaultPrevented).toBe(true); expect(scroller.scrollTo).not.toHaveBeenCalled();
+    wheel(25); expect(scroller.scrollTo).toHaveBeenLastCalledWith({ left: 800, behavior: 'smooth' });
+    for (let i = 0; i < 10; i++) wheel(30);
+    expect(scroller.scrollTo).toHaveBeenCalledTimes(1);
+    time += 400; wheel(-50);
+    expect(scroller.scrollTo).toHaveBeenLastCalledWith({ left: 400, behavior: 'smooth' });
+  });
+  it('pages from the indicator buttons, stopping at either end, and only on a one-column board', () => {
+    swipe.page(-1); expect(scroller.scrollLeft).toBe(0);
+    swipe.page(-1); expect(scroller.scrollLeft).toBe(0);
+    enabled = false; swipe.page(1); wheel(80);
+    expect(scroller.scrollLeft).toBe(0);
   });
 });

@@ -2,6 +2,8 @@
 
 Start with a [bug report or feature request](https://github.com/mason-bryant/obsidian-task-trellis/issues/new/choose) for substantial changes. Describe the user problem and include a minimal example using fictional tasks.
 
+Before changing anything users see, read the relevant [UX rules](docs/design/README.md): the same kind of thing should look and behave the same everywhere. Record any intentional difference under that document's Exceptions in the same change. The [testing rules](docs/testing/README.md) say what to check, including the screens around the one you changed, and how to report it.
+
 See [development](docs/development.md) for the browser preview. Use Node 22.13+ and run:
 
 ```sh

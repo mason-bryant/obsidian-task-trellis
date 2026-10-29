@@ -57,7 +57,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
         const summary = uiElement(doc, 'p'); summary.textContent = `${preview.tagCount} task tag changes across ${preview.paths.length} notes (including board settings).`;
         const list = uiElement(doc, 'ul');
         for (const path of preview.paths) { const item = uiElement(doc, 'li'); item.textContent = path; list.append(item); }
-        const recovery = uiElement(doc, 'p'); recovery.textContent = 'A recovery copy of these notes will be saved in Task Trellis recovery before applying. Use the “restore board rename” command to restore it. Later edits can require manual recovery.';
+        const recovery = uiElement(doc, 'p'); recovery.textContent = 'A recovery copy of these notes will be saved in Task Trellis recovery before applying. Run Task Trellis: Restore board rename from the command palette to restore it. Later edits can require manual recovery.';
         previewBox.replaceChildren(title, summary, list, recovery);
         if (preview.referencePaths.length) {
           const warning = uiElement(doc, 'p'); warning.textContent = `Other references to check manually (queries, prose or note properties): ${preview.referencePaths.join(', ')}`;

@@ -27,6 +27,7 @@ export class BoardSettingsModal extends Modal {
     private file: TFile,
     private config: BoardConfig,
     private initialSection: Section = 'columns',
+    private onClosed?: () => void,
   ) {
     super(app);
     this.draft = draftFromConfig(config);
@@ -126,6 +127,7 @@ export class BoardSettingsModal extends Modal {
     this.contentEl.empty();
     const afterClose = this.afterClose; this.afterClose = null;
     afterClose?.();
+    this.onClosed?.();
   }
 }
 

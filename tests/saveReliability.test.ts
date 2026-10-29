@@ -6,11 +6,11 @@ import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { boardNameError } from '../src/core/boardName.ts';
 
 const model = buildBoard([], parseBoardConfig('Review', {}).config, '2026-10-25', () => undefined);
-function setup(save: RenderHost['onAddTask']) {
+function setup(save: RenderHost['onAddTask'], extra: Partial<RenderHost> = {}) {
   const root = document.createElement('div'); document.body.replaceChildren(root);
   const host: RenderHost = { renderText: () => {}, icon: () => {}, sourceLabel: () => '', isCollapsed: () => false,
     onToggleRow: () => {}, onSetSubtasksCollapsed: () => {}, onDrop: () => {}, onToggle: () => {}, onEdit: () => {},
-    onOpenSource: () => {}, onDragEnd: () => {}, onAddTask: save, onAddSubtask: () => false };
+    onOpenSource: () => {}, onDragEnd: () => {}, onAddTask: save, onAddSubtask: () => false, ...extra };
   const draw = () => renderBoard(root, model, host, { warnings: [], info: [] }); draw();
   root.querySelector<HTMLButtonElement>('.tt-add-button')!.click();
   const input = () => root.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
@@ -40,6 +40,25 @@ it('an old successful save cannot clear a replacement draft', async () => {
   ui.root.querySelector<HTMLButtonElement>('.tt-add-cancel')!.click();
   ui.root.querySelector<HTMLButtonElement>('.tt-add-button')!.click(); ui.type('Newer draft');
   finish(true); await Promise.resolve(); expect(ui.input().value).toBe('Newer draft');
+});
+it.each([false, 'throw'])('hands the text to the host when the composer closed before its save failed (%s)', async (failure) => {
+  let fail!: () => void;
+  const save = vi.fn((_target: unknown, _text: string, _detailed: boolean) => new Promise<boolean>((resolve, reject) => {
+    fail = () => { if (failure === 'throw') reject(new Error('Disk full')); else resolve(false); };
+  }));
+  const onUnsavedText = vi.fn();
+  const ui = setup(save, { onUnsavedText }); ui.enter();
+  ui.root.querySelector<HTMLButtonElement>('.tt-add-cancel')!.click();
+  fail(); await vi.waitFor(() => expect(onUnsavedText).toHaveBeenCalledWith('Keep my draft', expect.any(Function)));
+  save.mockResolvedValueOnce(true);
+  await expect(onUnsavedText.mock.calls[0]![1]('Keep my draft, fixed')).resolves.toBe(true);
+  expect(save).toHaveBeenLastCalledWith(expect.anything(), 'Keep my draft, fixed', false);
+});
+it('keeps a failed draft in the open composer rather than handing it over', async () => {
+  const onUnsavedText = vi.fn();
+  const ui = setup(async () => false, { onUnsavedText }); ui.enter();
+  await vi.waitFor(() => expect(ui.input().readOnly).toBe(false));
+  expect(onUnsavedText).not.toHaveBeenCalled(); expect(ui.input().value).toBe('Keep my draft');
 });
 it.each([{ isComposing: true }, { keyCode: 229 }])('does not submit IME confirmation %j', (event) => {
   const save = vi.fn(() => true); const ui = setup(save); ui.enter(event);

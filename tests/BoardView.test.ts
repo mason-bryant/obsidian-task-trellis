@@ -2,6 +2,8 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 vi.mock('../src/obsidian/BoardSettingsModal.ts', () => ({ BoardSettingsModal: class {} }));
 vi.mock('../src/obsidian/LabelPickerModal.ts', () => ({ LabelPickerModal: class {} }));
+const drag = vi.hoisted(() => ({ active: false }));
+vi.mock('../src/ui/renderBoard.ts', async (importOriginal) => ({ ...await importOriginal<typeof import('../src/ui/renderBoard.ts')>(), isDragging: () => drag.active }));
 import { BoardView } from '../src/obsidian/BoardView.ts';
 import { TaskWriter, type UndoAction } from '../src/obsidian/TaskWriter.ts';
 import { TaskIndex } from '../src/obsidian/TaskIndex.ts';
@@ -39,7 +41,7 @@ function fixture(content = '- [ ] same\n- [ ] same\n') {
   const ready = async () => { await index.refresh([file.path]); view.render(); };
   return { view, plugin, index, writer, vault, file, ready, get content() { return content; }, setContent(value: string) { content = value; } };
 }
-beforeEach(() => { notices.length = 0; });
+beforeEach(() => { notices.length = 0; drag.active = false; });
 it('two rapid drops on duplicate lines use refreshed snapshots and leave no phantom preview', async () => {
   const f = fixture(); await f.ready();
   const task = f.index.all()[0]!; const rowId = f.view.model.rows[0]!.id;
@@ -48,6 +50,32 @@ it('two rapid drops on duplicate lines use refreshed snapshots and leave no phan
   expect(f.content.split('\n')[1]).toBe('- [ ] same');
   expect(f.view.pending.size).toBe(0);
   expect(notices.filter((n) => n.includes('could not'))).toEqual([]);
+});
+it('a drop that finishes while another card is being dragged waits for that drag to end before redrawing', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  const task = f.index.all()[0]!; vi.mocked(f.view.render).mockClear();
+  const queued = vi.fn(); (f.view as unknown as { queueRender(): void }).queueRender = queued;
+  drag.active = true;
+  await f.view.drop(task.id, { rowId: f.view.model.rows[0]!.id, index: 0, columnId: 'doing' });
+  expect(f.content).toContain('#tt/house/doing'); expect(f.view.render).not.toHaveBeenCalled(); expect(queued).toHaveBeenCalled();
+});
+it('a failed Undo says changes may already be undone, and how many notes to check', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  f.view.undoAction = { label: 'Task moved', action: { paths: ['a.md', 'b.md'], undo: async () => { throw new Error('Disk full'); } } };
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await f.view.undo();
+  expect(notices.at(-1)).toBe('Task Trellis: could not finish undoing. Some changes may already be undone; check the affected 2 notes.');
+});
+it('a label change leaves subtask cards alone, keeps them selected and says why', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  const subtask = { ...f.index.all()[0]!, parentId: 'Tasks.md:9' };
+  // The fixture's index has no subtasks, so hand back the subtask as its own snapshot.
+  vi.spyOn(f.index, 'currentSnapshot').mockImplementation((task) => task);
+  const run = (f.view as unknown as { applyBulk(t: unknown[], a: unknown, slug: string): Promise<{ tasks: unknown[]; message: string }> }).applyBulk.bind(f.view);
+  const result = await run([subtask], { kind: 'labels', mode: 'add', ids: ['green'] }, 'house');
+  expect(f.content).toBe('- [ ] original\n');
+  expect(result.message).toBe('0 updated; 1 subtask left unchanged, because subtasks don’t have labels.');
+  expect(result.tasks).toEqual([expect.objectContaining({ id: subtask.id })]);
 });
 it('a skipped write removes its preview even if other writes succeeded', async () => {
   const f = fixture('- [ ] original\n'); await f.ready();

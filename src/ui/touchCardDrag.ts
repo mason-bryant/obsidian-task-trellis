@@ -44,6 +44,17 @@ columnPositions: () => number[] = () => []): void {
     edge.since = time + 250;
     update();
   };
+  // A board wider than the screen scrolls sideways near its side edges; a one-column board pages instead.
+  const scrollSideways = () => {
+    if (!drag || columnPositions().length >= 2 || scroller.scrollWidth <= scroller.clientWidth) return;
+    const box = scroller.getBoundingClientRect();
+    const speed = drag.x < box.left + 36 ? -Math.min(12, (box.left + 36 - drag.x) / 4) :
+      drag.x > box.right - 36 ? Math.min(12, (drag.x - box.right + 36) / 4) : 0;
+    // As with paging, only after an outward movement: the handle already sits at the right edge.
+    if (!speed || Math.sign(speed) * (drag.x - drag.startX) < 16) return;
+    scroller.scrollLeft += speed;
+    update();
+  };
   const autoScroll = (time: number) => {
     if (!drag?.ghost) return;
     if (!scroller.isConnected) { finish(false); return; }
@@ -55,6 +66,7 @@ columnPositions: () => number[] = () => []): void {
     const speed = drag.y < top ? -Math.min(12, (top - drag.y) / 4) :
       drag.y > bottom ? Math.min(12, (drag.y - bottom) / 4) : 0;
     if (speed) { vertical.scrollTop += speed; update(); }
+    scrollSideways();
     pageAtEdge(time);
     frame = view.requestAnimationFrame(autoScroll);
   };

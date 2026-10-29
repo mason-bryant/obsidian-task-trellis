@@ -85,7 +85,7 @@ describe('quick-filter task hierarchy', () => {
     expect(cards(m)).toEqual([c]);
     expect(m.quickContext?.parents[c.id]).toEqual([p]);
     expect(m.rowOf[p.id]).toBeUndefined();
-    expect(triageCards(m)).toEqual([]);
+    expect(triageCards(m)).toEqual([c]);
     expect(cards(model([p, c], [overdue], { 'exclude-folders': ['Work.md'] }))).toEqual([]);
   });
 
@@ -186,6 +186,31 @@ describe('quick-filter context UI', () => {
     expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
     f.button('Clear').click(); f.button('Select Doing column').click();
     expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('0 selected');
+  });
+
+  it('keeps a selected task that became context-only after an edit, and lets it be unticked', async () => {
+    const before = task(0, 'Paint kitchen 📅 2026-10-20 #tt/house/doing/10');
+    const after = task(0, 'Paint kitchen 📅 2026-11-20 #tt/house/doing/10');
+    const childOf = (p: BoardTask) => task(1, 'Call contractor 📅 2026-10-26', p);
+    const f = ui(model([before, childOf(before)]));
+    f.button('Select').click(); f.button('Select Paint kitchen').click();
+    f.host.onBulkAction = vi.fn(async () => { f.draw(model([after, childOf(after)])); return { tasks: [after], message: '1 updated.' }; });
+    f.button('Priority').click();
+    await vi.waitFor(() => expect(f.root.querySelector('.tt-bulk-status')?.textContent).toBe('1 updated. 1 selected task now shows only for context.'));
+    const check = f.button('Select Paint kitchen');
+    expect(check.disabled).toBe(false); expect(check.getAttribute('aria-checked')).toBe('true');
+    check.click();
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('0 selected');
+    expect(f.button('Select Paint kitchen').disabled).toBe(true);
+  });
+
+  it('selects a subtask shown as a card of its own, like any card', () => {
+    const p = task(0, 'Outside project'), c = task(1, 'Scoped call #work 📅 2026-10-26', p);
+    const f = ui(model([p, c], [overdue], { 'include-tags': ['work'] }));
+    f.button('Select').click();
+    expect(f.root.querySelector<HTMLButtonElement>(`[data-id="${c.id}"] .tt-select-card`)!.disabled).toBe(false);
+    f.button('Select all 1 matching tasks').click();
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
   });
 
   it('reveals matching descendant cards past cell limits', () => {

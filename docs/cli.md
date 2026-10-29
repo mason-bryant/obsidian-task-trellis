@@ -90,7 +90,7 @@ JSON results start with `"ok": true`, or are `{"ok": false, "error": "…"}` wit
 }
 ```
 
-`skipped` lists tasks left alone because they changed since they were read. `dry-run` returns `"dryRun": true` and the lines that would be written, without writing them: `changes` with their ids, or for `add`, `destination` and `lines`.
+`skipped` lists tasks left alone because they changed since they were read. A `bulk` label change also leaves subtask cards alone, because subtasks don’t have labels; their ids are listed in `unchanged`, with a `warning`. `dry-run` returns `"dryRun": true` and the lines that would be written, without writing them: `changes` with their ids, or for `add`, `destination` and `lines`.
 
 `task-trellis:undo` undoes only the last change made through the commands, not changes made on a board. It leaves alone any note that changed again since, and says so. Undoing an add into a note it created leaves the note in place rather than deleting it: empty, or with what its template added.
 

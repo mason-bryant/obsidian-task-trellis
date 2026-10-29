@@ -2,6 +2,8 @@
 
 # Develop Task Trellis
 
+For changes users will see, start with the [UX rules](design/README.md). The [testing rules](testing/README.md) say how to check a change and report what was tested. [AGENTS.md](../AGENTS.md) summarizes the repository's rules for coding agents.
+
 Use Node.js 22.13 or a newer supported even-numbered release (CI tests Node.js 22 and 24). This is a development requirement; it does not change the plugin's minimum Obsidian version. The Moment override keeps the Obsidian API packages' development dependency patched; Moment is not bundled in the plugin.
 
 ```bash
@@ -22,6 +24,15 @@ Every pull request runs lint, the full test suite, TypeScript checking, the prod
 To try it in a vault, copy `main.js`, `manifest.json` and `styles.css` into `<vault>/.obsidian/plugins/task-trellis/` and enable **Task Trellis** under Community plugins.
 
 See [Release and submission checklist](releasing.md) for publishing requirements. Screenshot sources and capture notes are in [images/README.md](images/README.md).
+
+## UI code
+
+Task rules and transformations are in `src/core`, rendering and interaction in `src/ui`, and Obsidian persistence and navigation in `src/obsidian`. `main.ts` sets up the plugin and keeps each board's view state, such as active quick filters, collapsed rows and Compact. The browser harness runs the real renderers with an in-memory host. When a renderer or helper already does what you need, use it rather than writing a copy that will drift.
+
+- Create DOM nodes in the document of the window they will appear in, using the helpers in `src/ui/dom.ts`, so pop-out windows keep their own focus, geometry and menus. `renderBoard.ts` and `renderBoardSettings.ts` are the exception: they are shared with the harness, and their `el()` creates nodes in the main `document`, which the destination document adopts when the node is inserted. Don't copy that into code that needs the owning window before inserting a node.
+- Use public Obsidian APIs available in the manifest's `minAppVersion`. Don't import undocumented internals to imitate a built-in screen.
+- Scope CSS to its component, with explicit state classes. Don't style a shared noun across surfaces: `.tt-quick-filter` is the toolbar button and `.tt-quick-filter-editor` is the settings row, and the editor's container, border, spacing and drag layout must never reach the toolbar. Container queries follow the component's own width. A hidden responsive alternative must not leave a second set of controls reachable by keyboard.
+- A change to broad button, flex, width, overflow or containment rules needs a check on every surface it reaches; see the [UI checklists](testing/ui-checklists.md).
 
 ## Repeatable readiness checks
 

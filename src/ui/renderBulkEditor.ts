@@ -58,7 +58,7 @@ export function renderBulkEditor(root: HTMLElement, header: HTMLElement, config:
     if (busy) return;
     let next: BulkAction;
     try { next = action(); } catch (e) { error.textContent = e instanceof Error ? e.message : 'Check your choices.'; return; }
-    busy = true; busyChanged(true); chrome.setBusy(true); error.textContent = '';
+    busy = true; busyChanged(true); chrome.setBusy(true, 'Applying changes…'); error.textContent = '';
     const controls = [...root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')].map((input) => ({ input, disabled: input.disabled }));
     controls.forEach(({ input }) => { input.disabled = true; });
     void save(next).then(() => { busyChanged(false); close(); }).catch((e: unknown) => {
@@ -66,5 +66,5 @@ export function renderBulkEditor(root: HTMLElement, header: HTMLElement, config:
       busy = false; busyChanged(false); chrome.setBusy(false);
       controls.forEach(({ input, disabled }) => { input.disabled = disabled; });
     });
-  }, close, `Apply to ${count} tasks`);
+  }, close, `Apply to ${count} ${count === 1 ? 'task' : 'tasks'}`);
 }

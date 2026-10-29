@@ -1,9 +1,10 @@
 /**
  * Keep vertical scrolling native (touch-action: pan-y pinch-zoom in CSS), while
- * deliberate horizontal gestures drag between adjacent columns. All listeners
- * belong to the scroller, so replacing a board also disposes of its gesture state.
+ * deliberate horizontal gestures drag between adjacent columns. A sideways trackpad swipe, or
+ * `page` from the page indicator's buttons, moves one column too. All listeners belong to the
+ * scroller, so replacing a board also disposes of its gesture state.
  */
-export function installColumnSwipe(scroller: HTMLElement, enabled: () => boolean, positions: () => number[]): void {
+export function installColumnSwipe(scroller: HTMLElement, enabled: () => boolean, positions: () => number[]): { page(direction: number): void } {
   type Gesture = {
     id: number; x: number; y: number; left: number; index: number; stops: number[];
     axis: 'pending' | 'horizontal' | 'vertical'; samples: { x: number; time: number }[];
@@ -11,6 +12,16 @@ export function installColumnSwipe(scroller: HTMLElement, enabled: () => boolean
   let gesture: Gesture | null = null;
   let suppressClick = false;
   const view = scroller.ownerDocument.defaultView!;
+  const settle = (cancelled: boolean): ScrollBehavior =>
+    cancelled || view.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
+  const nearest = (stops: number[]) => stops.reduce((best, stop, i) =>
+    Math.abs(stop - scroller.scrollLeft) < Math.abs(stops[best]! - scroller.scrollLeft) ? i : best, 0);
+  const page = (direction: number) => {
+    const stops = positions();
+    if (!enabled() || stops.length < 2) return;
+    const index = Math.max(0, Math.min(stops.length - 1, nearest(stops) + direction));
+    scroller.scrollTo({ left: stops[index]!, behavior: settle(false) });
+  };
 
   const finish = (cancelled: boolean) => {
     const current = gesture;
@@ -27,8 +38,7 @@ export function installColumnSwipe(scroller: HTMLElement, enabled: () => boolean
       const direction = Math.sign(advance && Math.abs(velocity) >= 0.5 ? velocity : distance);
       const index = Math.max(0, Math.min(current.stops.length - 1, current.index + (advance ? direction : 0)));
       scroller.classList.remove('tt-scroll--swiping');
-      scroller.scrollTo({ left: current.stops[index]!,
-        behavior: cancelled || view.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+      scroller.scrollTo({ left: current.stops[index]!, behavior: settle(cancelled) });
     }
     if (scroller.hasPointerCapture(current.id)) scroller.releasePointerCapture(current.id);
   };
@@ -40,8 +50,7 @@ export function installColumnSwipe(scroller: HTMLElement, enabled: () => boolean
       (event.target as Element).closest('.tt-card-drag-handle, input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
     const stops = positions();
     if (stops.length < 2) return;
-    const index = stops.reduce((best, stop, i) =>
-      Math.abs(stop - scroller.scrollLeft) < Math.abs(stops[best]! - scroller.scrollLeft) ? i : best, 0);
+    const index = nearest(stops);
     // Stop an unfinished page animation before interpreting the next gesture.
     scroller.scrollTo({ left: stops[index]!, behavior: 'instant' });
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, left: stops[index]!, index, stops,
@@ -93,4 +102,19 @@ export function installColumnSwipe(scroller: HTMLElement, enabled: () => boolean
     event.preventDefault();
     event.stopImmediatePropagation();
   }, true);
+  // A sideways trackpad swipe pages once. Its momentum keeps sending wheel events, which belong to
+  // the same swipe until they pause.
+  let wheel = { total: 0, last: -Infinity, paged: false };
+  scroller.addEventListener('wheel', (event) => {
+    if (gesture || !enabled() || Math.abs(event.deltaX) <= Math.abs(event.deltaY) || positions().length < 2) return;
+    event.preventDefault();
+    if (event.timeStamp - wheel.last > 150) wheel = { total: 0, last: event.timeStamp, paged: false };
+    wheel.last = event.timeStamp;
+    if (wheel.paged) return;
+    wheel.total += event.deltaX;
+    if (Math.abs(wheel.total) < 40) return;
+    wheel.paged = true;
+    page(Math.sign(wheel.total));
+  }, { passive: false });
+  return { page };
 }

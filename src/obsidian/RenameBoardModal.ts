@@ -2,7 +2,7 @@ import { Modal, Notice, setIcon, type App, type TFile } from 'obsidian';
 import { BoardTagRename, type RenamePlan } from './BoardTagRename.ts';
 import { boardNameError } from '../core/boardName.ts';
 import { parseBoardConfig } from '../core/boardConfig.ts';
-import { prepareEditorModal } from '../ui/editorHeader.ts';
+import { editorBusy, prepareEditorModal } from '../ui/editorHeader.ts';
 import { renderBoardNameEditor } from '../ui/renderBoardNameEditor.ts';
 
 /** Rename only the note, preserving its tag namespace and Obsidian's link-update preferences. */
@@ -47,7 +47,7 @@ export class RenameBoardModal extends Modal {
       async (name) => {
         if (migration?.busy) throw new Error('Another board rename is running.');
         await renameBoard(this.app, this.file, originalPath, name);
-      }, () => this.close(), migration ? {
+      }, () => super.close(), migration ? {
         preview: async (name) => { plan = await migration.preview(this.file, originalPath, name); return plan; },
         apply: async () => {
           if (!plan) throw new Error('Preview the changes first.');
@@ -56,5 +56,7 @@ export class RenameBoardModal extends Modal {
         },
       } : undefined);
   }
+  /** Escape and clicks outside can't interrupt a rename being written; the editor closes itself when it's done. */
+  close(): void { if (!editorBusy(this.modalEl)) super.close(); }
   onClose(): void { this.chrome?.destroy(); this.chrome = null; this.contentEl.empty(); }
 }

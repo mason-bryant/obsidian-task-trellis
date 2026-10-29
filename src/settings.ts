@@ -74,8 +74,8 @@ export class TaskTrellisSettingTab extends PluginSettingTab {
       },
       {
         name: 'Add new tasks to',
-        desc: plugin.quickAdd.dailyNotesAvailable() ? "Today's daily note uses the Daily notes plugin and its template. Boards can override this." : 'The core Daily notes plugin is off. Select a specific note, or enable Daily notes.',
-        render: (setting) => { setting.addDropdown((dropdown) => dropdown.addOption('daily', "Today's daily note").addOption('note', 'A specific note').setValue(settings.newTaskKind).onChange(async (value) => {
+        desc: plugin.quickAdd.dailyNotesAvailable() ? 'Today’s daily note uses the Daily notes plugin and its template. Boards can override this.' : 'The core Daily notes plugin is off. Select a specific note, or enable Daily notes.',
+        render: (setting) => { setting.addDropdown((dropdown) => dropdown.addOption('daily', 'Today’s daily note').addOption('note', 'A specific note').setValue(settings.newTaskKind).onChange(async (value) => {
           settings.newTaskKind = value === 'note' ? 'note' : 'daily'; await plugin.saveSettings(); this.update();
         })); },
       },

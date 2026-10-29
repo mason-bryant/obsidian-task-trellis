@@ -65,6 +65,25 @@ describe('one column at a time', () => {
     } finally { style.remove(); }
   });
 
+  it('pages with Previous column and Next column buttons beside the dots', () => {
+    const style = document.createElement('style');
+    style.textContent = '.tt-scroll { --tt-column-paging: 1; }';
+    document.head.append(style);
+    const scrollTo = vi.fn();
+    Element.prototype.scrollTo = scrollTo;
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false });
+    try {
+      draw();
+      const previous = root.querySelector<HTMLButtonElement>('[aria-label="Previous column"]')!;
+      const next = root.querySelector<HTMLButtonElement>('[aria-label="Next column"]')!;
+      expect(previous.getAttribute('aria-disabled')).toBe('true'); expect(next.getAttribute('aria-disabled')).toBe('false');
+      expect(root.querySelector('.tt-pager')?.hasAttribute('aria-hidden')).toBe(false);
+      expect(root.querySelector('.tt-pager-dots')?.getAttribute('aria-hidden')).toBe('true');
+      previous.click(); expect(scrollTo).not.toHaveBeenCalled();
+      next.click(); expect(scrollTo).toHaveBeenCalledOnce();
+    } finally { style.remove(); }
+  });
+
   it('keeps Obsidian swipe exclusion on task targets after redraws, without excluding the toolbar', () => {
     // Obsidian's mobile recognizer walks ancestors looking for a truthy ignoreSwipe.
     // Verify the integration boundary for nested hits and rebuilt board content.

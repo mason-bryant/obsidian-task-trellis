@@ -6,7 +6,7 @@ import { isComposing } from './src/ui/dom.ts';
 import type { ViewOption } from './src/ui/renderBoard.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
-import { prepareEditorModal, renderEditorHeader } from './src/ui/editorHeader.ts';
+import { editorBusy, prepareEditorModal, renderEditorHeader, type EditorHeader } from './src/ui/editorHeader.ts';
 import { around } from 'monkey-around';
 import {
   setIcon,
@@ -144,7 +144,7 @@ export default class TaskTrellisPlugin extends Plugin {
         await this.ensureBoardList();
         try {
           const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
-          if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Use the “restore board rename” command to review it.', 12000);
+          if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', 12000);
         } catch { new Notice('Task Trellis: a board rename recovery record could not be read. Check the Task Trellis recovery folder.'); }
       }
     });
@@ -384,10 +384,23 @@ export default class TaskTrellisPlugin extends Plugin {
       path,
       'This note is a Task Trellis board. Its properties are the board settings; open Board settings (the gear icon) in the board view to change them.\n',
     );
-    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-      Object.assign(fm, newBoardFrontmatter(slug));
-    });
-    await this.openBoard(file);
+    // The note exists from here on, so a later failure must not suggest creating it again.
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        Object.assign(fm, newBoardFrontmatter(slug));
+      });
+    } catch (error) {
+      console.error('[Task Trellis] board settings failed', error);
+      new Notice(`Task Trellis: created ${path}, but its board settings could not be saved. Open it from the boards sidebar and check its settings.`);
+      return true;
+    }
+    try {
+      await this.openBoard(file);
+    } catch (error) {
+      console.error('[Task Trellis] opening the new board failed', error);
+      new Notice(`Task Trellis: created ${path}, but the board could not be opened. Open it from the boards sidebar.`);
+      return true;
+    }
     new BoardSettingsModal(this.app, this, file, parseBoardConfig(name, newBoardFrontmatter(slug)).config, 'destination').open();
     return true;
   }
@@ -429,16 +442,18 @@ class NewBoardModal extends Modal {
 
   onOpen(): void {
     this.setTitle('New Task Trellis board');
-    let busy = false;
+    let header: EditorHeader | null = null;
     const submit = async () => {
-      if (busy) return;
+      if (editorBusy(this.modalEl)) return;
       const name = this.name.trim();
       const error = boardNameError(this.name);
       if (error) { new Notice(error); return; }
-      busy = true;
-      try { if (await this.onSubmit(name)) this.close(); }
+      header?.setBusy(true, 'Creating board…');
+      let created = false;
+      try { created = await this.onSubmit(name); }
       catch (error) { console.error('[Task Trellis] board creation failed', error); new Notice('Task Trellis: could not create the board. Your name has been kept; check the folder and try again.'); }
-      finally { busy = false; }
+      finally { header?.setBusy(false); }
+      if (created) this.close();
     };
     new Setting(this.contentEl).setName('Board name').addText((text) => {
       text.setPlaceholder('House projects').onChange((v) => (this.name = v));
@@ -448,7 +463,12 @@ class NewBoardModal extends Modal {
       window.setTimeout(() => text.inputEl.focus(), 0);
     });
     this.chrome = prepareEditorModal(this.modalEl);
-    renderEditorHeader(this.chrome.header, 'New board', setIcon, () => void submit(), () => this.close(), 'Create board');
+    header = renderEditorHeader(this.chrome.header, 'New board', setIcon, () => void submit(), () => this.close(), 'Create board');
+  }
+
+  /** Escape and clicks outside wait until the board is created. */
+  close(): void {
+    if (!editorBusy(this.modalEl)) super.close();
   }
 
   onClose(): void {

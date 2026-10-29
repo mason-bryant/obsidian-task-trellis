@@ -45,7 +45,7 @@ export class BoardListView extends ItemView {
       label.createSpan({ text: file.basename });
       if (names.get(file.basename)! > 1) label.createSpan({ text: file.parent?.path ?? '', cls: 'tt-board-list-folder' });
       button.addEventListener('click', () => {
-        void this.plugin.openBoard(file).catch(() => new Notice('Task Trellis: could not open this board.'));
+        void this.plugin.openBoard(file).catch(() => new Notice('Task Trellis: could not open this board. Check that its note still exists, then try again.'));
       });
       if (focusedPath === file.path) button.focus();
     }

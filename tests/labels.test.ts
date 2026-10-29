@@ -131,7 +131,7 @@ it('numbers new labels after every number used, including deleted ones the count
 it('warns when a manually configured column conflicts with the label namespace', () => {
   const parsed = parseBoardConfig('Home', { columns: ['Backlog', 'Label', 'Doing'] });
   expect(parsed.config.columns.map((c) => c.id)).toEqual(['backlog', 'doing']);
-  expect(parsed.warnings).toContain('"Label" is reserved for label tags. Rename this column.');
+  expect(parsed.warnings).toContain('“Label” is reserved for label tags. Rename this column.');
 });
 
 it('allocates creates from the fresh counter even when the proposed ID now belongs to another label', async () => {

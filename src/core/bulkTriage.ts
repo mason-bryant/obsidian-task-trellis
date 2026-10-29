@@ -12,10 +12,13 @@ export type BulkAction =
   | { kind: 'priority'; priority: Priority | null };
 export type BulkResult = { tasks: BoardTask[]; message: string };
 
-/** Only independently editable main cards, including cards beyond a collapsed row or a limit. */
+/**
+ * Every card, including cards beyond a collapsed row or a limit, and a subtask shown as a card of its
+ * own because its parent isn't on the board. Not parents shown only for context.
+ */
 export function triageCards(model: BoardModel, column = ''): BoardTask[] {
   return model.rows.flatMap((row) => model.columns.filter((c) => !column || c.id === column)
-    .flatMap((c) => model.cells[row.id]?.[c.id] ?? [])).filter((task) => !task.parentId && !model.quickContext?.contextOnly.has(task.id));
+    .flatMap((c) => model.cells[row.id]?.[c.id] ?? [])).filter((task) => !model.quickContext?.contextOnly.has(task.id));
 }
 
 export function planBulk(tasks: BoardTask[], config: BoardConfig, today: string, action: BulkAction): Map<string, TaskEdit> {
@@ -23,7 +26,8 @@ export function planBulk(tasks: BoardTask[], config: BoardConfig, today: string,
   if (action.kind === 'due' && action.date !== null && (!isISODate(action.date) ||
     new Date(`${action.date}T12:00:00Z`).toISOString().slice(0, 10) !== action.date)) throw new Error('Choose a valid due date.');
   if (action.kind === 'labels' && (!action.ids.length || action.ids.some((id) => !config.labels.some((l) => l.id === id)))) throw new Error('Choose existing board labels.');
-  return new Map(tasks.filter((task) => !task.parentId).map((task): [string, TaskEdit] => {
+  // Subtasks don't have labels, even when shown as cards; every other change edits their own line.
+  return new Map(tasks.filter((task) => action.kind !== 'labels' || !task.parentId).map((task): [string, TaskEdit] => {
     switch (action.kind) {
       case 'due': return [task.id, { due: action.date }];
       case 'priority': return [task.id, { priority: action.priority }];

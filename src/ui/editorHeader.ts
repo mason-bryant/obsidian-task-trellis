@@ -1,5 +1,6 @@
 import { uiElement } from './dom.ts';
-export type EditorHeader = { setBusy(busy: boolean): void };
+/** `label`, while busy, shows the spinner on Save and a status line under the header, such as "Applying changes…". */
+export type EditorHeader = { setBusy(busy: boolean, label?: string): void };
 
 /** Save on the left, dismiss on the right, outside the editor's scrolling fields. */
 export function renderEditorHeader(root: HTMLElement, title: string, icon: (el: HTMLElement, name: string) => void,
@@ -15,10 +16,20 @@ export function renderEditorHeader(root: HTMLElement, title: string, icon: (el: 
   const heading = uiElement(doc, 'div'); heading.className = 'tt-editor-title'; heading.textContent = title;
   heading.setAttribute('role', 'heading'); heading.setAttribute('aria-level', '2');
   const close = button('cancel', save ? 'Cancel' : 'Close', cancel);
-  header.append(confirm, heading, close); root.replaceChildren(header);
-  return { setBusy(busy) {
+  const progress = uiElement(doc, 'p'); progress.className = 'tt-editor-progress'; progress.hidden = true;
+  progress.setAttribute('role', 'status'); progress.setAttribute('aria-atomic', 'true');
+  header.append(confirm, heading, close); root.replaceChildren(header, progress);
+  let named: string | null = null;
+  return { setBusy(busy, label) {
     header.setAttribute('aria-busy', String(busy));
     header.querySelectorAll('button').forEach((button) => { button.disabled = busy; });
+    const working = busy && !!label;
+    confirm.classList.toggle('tt-editor-saving', working);
+    progress.hidden = !working; progress.textContent = working ? label : '';
+    // Without a label the save button keeps whatever name its editor gave it.
+    if (!save) return;
+    if (working) { named ??= confirm.getAttribute('aria-label'); confirm.setAttribute('aria-label', label); }
+    else if (named !== null) { confirm.setAttribute('aria-label', named); named = null; }
   } };
 }
 
@@ -34,4 +45,9 @@ export function prepareEditorModal(modal: HTMLElement): { header: HTMLElement; d
   };
   resize(); viewport?.addEventListener('resize', resize); viewport?.addEventListener('scroll', resize);
   return { header, destroy() { viewport?.removeEventListener('resize', resize); viewport?.removeEventListener('scroll', resize); header.remove(); } };
+}
+
+/** Whether an editor's header is busy saving, when Escape and clicks outside mustn't close it. */
+export function editorBusy(modal: HTMLElement): boolean {
+  return modal.querySelector('.tt-editor-header')?.getAttribute('aria-busy') === 'true';
 }

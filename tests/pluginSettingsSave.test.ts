@@ -34,3 +34,22 @@ it.each(['partial', 'board-write', 'success'])('column rename handles %s without
     if (mode === 'partial') expect(writeBoard).not.toHaveBeenCalled();
   }
 });
+
+it.each([
+  ['settings', 'Task Trellis: created Boards/House.md, but its board settings could not be saved. Open it from the boards sidebar and check its settings.'],
+  ['open', 'Task Trellis: created Boards/House.md, but the board could not be opened. Open it from the boards sidebar.'],
+])('a new board that fails to finish (%s) is reported as created, not as a failure to retry', async (step, message) => {
+  const { notices } = await import('./mocks/obsidian.ts');
+  const create = vi.fn(async (path: string) => new TFile(path));
+  const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
+  Object.assign(plugin, {
+    settings: { boardsFolder: 'Boards' }, boards: { boards: () => [] },
+    app: { vault: { getFolderByPath: () => ({}), getAbstractFileByPath: () => null, create },
+      fileManager: { processFrontMatter: async () => { if (step === 'settings') throw new Error('Disk full'); } } },
+    openBoard: async () => { throw new Error('No leaf'); },
+  });
+  const createBoard = (plugin as unknown as { createBoard(name: string): Promise<boolean> }).createBoard.bind(plugin);
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await expect(createBoard('House')).resolves.toBe(true);
+  expect(create).toHaveBeenCalledOnce(); expect(notices.at(-1)).toBe(message);
+});

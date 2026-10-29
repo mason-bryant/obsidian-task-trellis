@@ -1,5 +1,5 @@
 import { Modal, Notice, setIcon, type App } from 'obsidian';
-import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
+import { editorBusy, prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
 import { BoardTagRename } from './BoardTagRename.ts';
 
 export class RestoreBoardRenameModal extends Modal {
@@ -20,8 +20,8 @@ export class RestoreBoardRenameModal extends Modal {
     const header = renderEditorHeader(this.chrome.header, 'Restore board rename', setIcon, entries.length ? () => {
       const entry = entries[Number(select.value)];
       if (busy || !entry) return;
-      busy = true; select.disabled = true; header.setBusy(true); error.textContent = '';
-      void this.service.restore(entry.path).then(() => { new Notice('Task Trellis: board rename restored.'); this.close(); })
+      busy = true; select.disabled = true; header.setBusy(true, 'Restoring board rename…'); error.textContent = '';
+      void this.service.restore(entry.path).then(() => { new Notice('Task Trellis: board rename restored.'); super.close(); })
         .catch((reason: unknown) => { error.textContent = reason instanceof Error ? reason.message : 'Could not restore this rename.'; })
         .finally(() => { busy = false; select.disabled = false; header.setBusy(false); });
     } : null, () => this.close(), 'Restore selected rename');
@@ -39,5 +39,7 @@ export class RestoreBoardRenameModal extends Modal {
     select.addEventListener('change', show); show();
     const error = this.contentEl.createEl('p', {attr: {role: 'alert'}});
   }
+  /** Escape and clicks outside can't interrupt a restore being written. */
+  close(): void { if (!editorBusy(this.modalEl)) super.close(); }
   onClose(): void { this.closed = true; this.chrome?.destroy(); this.chrome = null; this.contentEl.empty(); }
 }

@@ -108,7 +108,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
   const seen = new Set<string>();
   for (const c of columns) {
     if (!c.id) errors.push(`Column "${c.label || '(empty)'}" needs a name with letters or numbers.`);
-    else if (c.id === 'label') errors.push('"Label" is reserved for label tags. Choose another column name.');
+    else if (c.id === 'label') errors.push('“Label” is reserved for label tags. Choose another column name.');
     else if (seen.has(c.id)) errors.push(`Two columns are both named "${c.label}".`);
     seen.add(c.id);
   }

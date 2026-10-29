@@ -37,8 +37,10 @@ export type RenderHost = {
   /** Adds a task to a cell; `detailed` opens the full editor first. */
   onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<boolean> | boolean;
   onAddSubtask(parent: BoardTask, text: string, detailed: boolean): Promise<boolean> | boolean;
-  /** Offers a card's "Move to…" choices, applying the one picked like a drop. Without it cards have no ⋯ button. */
-  onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent): void;
+  /** Keeps text whose save failed after its composer was closed; `retry` saves it again. */
+  onUnsavedText?(text: string, retry: (text: string) => Promise<boolean>): void;
+  /** Offers a card's "Move to…" choices, applying the one picked like a drop; calls onClose when dismissed. Without it cards have no ⋯ button. */
+  onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent, onClose?: (moved: boolean) => void): void;
   onSettings?(section?: Section): void;
   onRename?(): void;
   onColumnWidthsChange?(widths: Record<string, number>): Promise<void> | void;
@@ -94,6 +96,16 @@ export function isDragging(): boolean {
   return draggingId !== null && Date.now() - dragStartedAt < STALE_DRAG_MS;
 }
 
+/** Focuses the first of `keys` that names a control on the board, finding it by its focus key. */
+function focusBoardControl(root: HTMLElement, ...keys: string[]): boolean {
+  const controls = [...root.querySelectorAll<HTMLElement>('[data-board-focus]')];
+  for (const key of keys) {
+    const control = controls.find((el) => el.dataset.boardFocus === key);
+    if (control) { control.focus({ preventScroll: true }); return true; }
+  }
+  return false;
+}
+
 /**
  * Plain DOM so the harness can run it without Obsidian. A redraw gives focus back to an open add
  * box only if the board had it, so one set off by typing in a note leaves the cursor there.
@@ -101,13 +113,18 @@ export function isDragging(): boolean {
 export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes: RenderNotes): void {
   renderInputs.set(root, { model, host, notes });
   redrawHadFocus = root.contains(root.ownerDocument.activeElement);
-  const focusKey = redrawHadFocus ? (root.ownerDocument.activeElement as HTMLElement)?.dataset.boardFocus : undefined;
+  const focused = redrawHadFocus ? root.ownerDocument.activeElement as HTMLElement | null : null;
+  const focusKey = focused?.dataset.boardFocus;
+  const focusTask = focused?.closest<HTMLElement>('[data-id]')?.dataset.id;
   // An explicitly focused control keeps focus even when a draft input is redrawn.
   if (focusKey) redrawHadFocus = false;
   try {
     drawBoard(root, model, host, notes);
-    if (focusKey) [...root.querySelectorAll<HTMLElement>('[data-board-focus]')]
-      .find((el) => el.dataset.boardFocus === focusKey)?.focus({ preventScroll: true });
+    if (focusKey) {
+      // A control that left with its task falls back to the task's card, then to a card the action changed.
+      const fallbacks = [focusKey, ...focusTask ? [`card:${focusTask}`, `subtask:${focusTask}`] : [], ...[...host.highlightIds ?? []].map((id) => `card:${id}`)];
+      focusBoardControl(root, ...fallbacks);
+    }
   } finally {
     redrawHadFocus = null;
   }
@@ -203,7 +220,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     }
   };
   const selectCard = (task: BoardTask, range: boolean) => {
-    if (selection.busy || task.parentId || model.quickContext?.contextOnly.has(task.id)) return;
+    if (selection.busy || (model.quickContext?.contextOnly.has(task.id) && !selection.has(task))) return;
     const byId = new Map(triageCards(model, columnOf(task, config)).map((t) => [t.id, t]));
     const ordered = [...grid.querySelectorAll<HTMLElement>('.tt-card')].flatMap((c) => {
       const t = byId.get(c.dataset.id ?? ''); return t ? [t] : [];
@@ -283,7 +300,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       (name) => hostIcon(host, name), (ids) => host.onSetQuickFilters?.(ids), host.onQuickFiltersMenu));
   }
   if (host.onSettings) {
-    const settings = el('button', 'tt-toolbar-button'); settings.type = 'button';
+    const settings = el('button', 'tt-toolbar-button'); settings.type = 'button'; settings.dataset.boardFocus = 'settings';
     settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = () => host.onSettings?.(); tools.append(settings);
   }
   if (host.onBulkAction) {
@@ -320,7 +337,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   }
   if (host.undo) {
     const undo = el('div', 'tt-undo'); undo.setAttribute('role', 'status');
-    const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.onclick = () => host.undo?.run();
+    const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.dataset.boardFocus = 'undo'; action.onclick = () => host.undo?.run();
     undo.append(el('span', '', host.undo.label), action); root.insertBefore(undo, scrollEl);
   }
   if (selection.active) {
@@ -358,8 +375,15 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       actions.append(b);
     }
     const visible = new Set(matching.map((task) => `${task.id}\0${task.raw}`));
-    const outside = selection.tasks.filter((task) => !visible.has(`${task.id}\0${task.raw}`)).length;
-    const status = el('span', 'tt-bulk-status', selection.busy ? 'Choose changes in the dialog…' : selection.message || (outside ? `${outside} selected tasks are outside the current view.` : 'Select cards, or select all matching tasks including collapsed rows.'));
+    const context = model.quickContext?.contextOnly;
+    const asContext = selection.tasks.filter((task) => context?.has(task.id)).length;
+    const outside = selection.tasks.filter((task) => !context?.has(task.id) && !visible.has(`${task.id}\0${task.raw}`)).length;
+    const away = [
+      outside === 1 ? '1 selected task is outside the current view.' : outside ? `${outside} selected tasks are outside the current view.` : '',
+      asContext === 1 ? '1 selected task now shows only for context.' : asContext ? `${asContext} selected tasks now show only for context.` : '',
+    ].filter(Boolean).join(' ');
+    const status = el('span', 'tt-bulk-status', selection.busy ? 'Choose changes in the dialog…'
+      : [selection.message.replace(/[^.!?…]$/, '$&.'), away].filter(Boolean).join(' ') || 'Select cards, or select all matching tasks including collapsed rows.');
     status.setAttribute('role', 'status'); bar.append(status);
     root.insertBefore(bar, scrollEl);
   }
@@ -408,7 +432,8 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const toggle = el('button', 'tt-row-toggle clickable-icon');
     toggle.setAttribute('aria-expanded', String(!collapsed));
     toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${row.label}`);
-    toggle.append(chevron());
+    toggle.dataset.boardFocus = `row:${row.id}`;
+    toggle.append(chevron(host));
     const label = el('span', 'tt-row-label');
     label.append(el('span', 'tt-row-title', row.label));
     if (row.detail) label.append(el('span', 'tt-row-detail', row.detail));
@@ -425,7 +450,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       rest.style.gridColumn = barSpans[1];
       // Its own label, shown when a column right of the No due date column is the only one in view.
       rest.classList.toggle('tt-row-bar--now', row.kind === 'now');
-      rest.append(sticky.cloneNode(true));
+      const copy = sticky.cloneNode(true) as HTMLElement;
+      copy.querySelector<HTMLElement>('.tt-row-toggle')!.dataset.boardFocus = `row-rest:${row.id}`;
+      rest.append(copy);
       rest.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).closest('.tt-row-sticky')) toggleRow(row.id);
       });
@@ -458,7 +485,8 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       end: () => host.onDragEnd(),
     });
   }
-  const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length) : null;
+  let swipe: ReturnType<typeof installColumnSwipe> | null = null;
+  const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length, host, (direction) => swipe?.page(direction)) : null;
   if (pages) root.insertBefore(pages.bar, scrollEl);
   if (scroll) {
     verticalScroller(scrollEl).scrollTop = scroll.top;
@@ -474,7 +502,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const columnPositions = () =>
     [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].map((header) =>
       scrollEl.scrollLeft + offsetFromMiddle(scrollEl, header));
-  installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), columnPositions);
+  swipe = installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), columnPositions);
   let touchTarget: DropTarget | null = null;
   if (!selection.active) installTouchCardDrag(scrollEl, {
     start: (id) => { draggingId = id; dragStartedAt = Date.now(); },
@@ -508,7 +536,7 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   const capped = limit !== null && cards.length > limit && !cards.some((task) => model.quickContext?.branches.has(task.id));
   const hidden = capped && host.isCollapsed(moreKey(rowId));
   for (const task of hidden ? cards.slice(0, limit) : cards) c.append(card(task, model, host));
-  if (capped) c.append(moreToggle(hidden, cards.length - limit, () => host.onToggleRow(moreKey(rowId))));
+  if (capped) c.append(moreToggle(hidden, cards.length - limit, `more:${rowId}:${column.id}`, host, () => host.onToggleRow(moreKey(rowId))));
   // Done fills itself by completing tasks, so it gets no add button.
   if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, host));
   if (!host.selection) addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
@@ -533,16 +561,20 @@ function addTask(target: { rowId: string; columnId: string }, slug: string, host
     const icon = el('span', 'tt-add-icon');
     host.icon(icon, 'plus');
     b.append(icon, el('span', '', 'Add task'));
+    b.dataset.boardFocus = `add:${key}`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       composer = { key, text: '' };
       showBox();
     });
+    // Closing with X or Escape hands focus back; closing because focus moved elsewhere leaves it there.
+    const hadFocus = wrap.contains(wrap.ownerDocument.activeElement);
     wrap.replaceChildren(b);
+    if (hadFocus) b.focus({ preventScroll: true });
   };
   const showBox = () =>
     wrap.replaceChildren(
-      addBox(key, 'New task. Enter to add, ⌘/Ctrl+Enter for details', host, (text, detailed) => host.onAddTask(target, text, detailed), showButton),
+      addBox(key, 'New task. Enter to add, ⌘/Ctrl+Enter for details', 'Add task', host, (text, detailed) => host.onAddTask(target, text, detailed), showButton),
     );
 
   if (composer?.key === key) showBox();
@@ -557,6 +589,7 @@ function addTask(target: { rowId: string; columnId: string }, slug: string, host
 function addBox(
   key: string,
   placeholder: string,
+  saveLabel: string,
   host: RenderHost,
   onSubmit: (text: string, detailed: boolean) => Promise<boolean> | boolean,
   onClose: () => void,
@@ -590,8 +623,9 @@ function addBox(
     const text = draft.text.trim();
     if (!text && !detailed) return;
     draft.saving = true; draft.refresh?.();
+    let saved = false;
     try {
-      const saved = await onSubmit(text, detailed);
+      saved = !!await onSubmit(text, detailed);
       if (saved && composer === draft) draft.text = '';
     } catch {
       // Hosts display the cause; keep the draft even if an unexpected host failure escapes.
@@ -599,6 +633,8 @@ function addBox(
     } finally {
       draft.saving = false;
       if (composer === draft) draft.refresh?.();
+      // Closed while saving: the box can't keep the text, so the host does. A detailed add keeps its own.
+      else if (!saved && !detailed) host.onUnsavedText?.(text, async (retry) => !!await onSubmit(retry, false));
     }
   };
   input.addEventListener('keydown', (e) => {
@@ -622,7 +658,7 @@ function addBox(
 
   const actions = el('div', 'tt-add-actions');
   const add = el('button', 'tt-editor-save');
-  add.setAttribute('aria-label', 'Add task');
+  add.setAttribute('aria-label', saveLabel);
   host.icon(add, 'check');
   add.type = 'button';
   add.addEventListener('click', () => void submit(false));
@@ -639,6 +675,23 @@ function addBox(
 
   box.append(actions, input);
   refresh();
+  // A phone's keyboard covers the bottom of the screen as it opens. Keep the whole box between the
+  // sticky column header and the keyboard, whatever the app's scrolling does on its own.
+  const viewport = box.ownerDocument.defaultView?.visualViewport;
+  const keepVisible = () => {
+    const scroller = box.closest<HTMLElement>('.tt-scroll');
+    if (!viewport || !scroller || !box.contains(box.ownerDocument.activeElement)) return;
+    const list = verticalScroller(scroller);
+    const rect = box.getBoundingClientRect();
+    const header = list.querySelector('.tt-col-header')?.getBoundingClientRect().height ?? 0;
+    const top = Math.max(list.getBoundingClientRect().top, viewport.offsetTop) + header + 8;
+    const bottom = viewport.offsetTop + viewport.height - 8;
+    // Too tall for the space left, it shows its top: the buttons and the start of the text.
+    const by = rect.bottom > bottom ? Math.min(rect.bottom - bottom, rect.top - top) : rect.top < top ? rect.top - top : 0;
+    if (by) list.scrollTop += by;
+  };
+  input.addEventListener('focus', () => { keepVisible(); viewport?.addEventListener('resize', keepVisible); });
+  input.addEventListener('blur', () => viewport?.removeEventListener('resize', keepVisible));
   // Clicks inside the box shouldn't reach the cell or card.
   box.addEventListener('click', (e) => e.stopPropagation());
   // Right after the redraw that attaches it, before the next keystroke arrives.
@@ -651,11 +704,12 @@ function addBox(
 }
 
 /** "▸ 3 more" under a capped Done cell, or "▾ Show fewer" once it is open. */
-function moreToggle(collapsed: boolean, extra: number, onClick: () => void): HTMLElement {
+function moreToggle(collapsed: boolean, extra: number, focusKey: string, host: RenderHost, onClick: () => void): HTMLElement {
   const b = el('button', `tt-more${collapsed ? ' is-collapsed' : ''}`);
   b.type = 'button';
+  b.dataset.boardFocus = focusKey;
   b.setAttribute('aria-expanded', String(!collapsed));
-  b.append(chevron(), el('span', '', collapsed ? `${extra} more` : 'Show fewer'));
+  b.append(chevron(host), el('span', '', collapsed ? `${extra} more` : 'Show fewer'));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     onClick();
@@ -756,7 +810,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   c.addEventListener('click', (e) => {
     // Links and tags inside the rendered text keep their own behaviour.
     if ((e.target as HTMLElement).closest('a')) return;
-    if (host.onSelectCard && !task.parentId && (e.metaKey || e.ctrlKey || e.shiftKey)) {
+    if (host.onSelectCard && (e.metaKey || e.ctrlKey || e.shiftKey)) {
       e.preventDefault(); e.stopPropagation();
       if (!model.quickContext?.contextOnly.has(task.id)) host.onSelectCard(task, e.shiftKey);
       return;
@@ -764,7 +818,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     host.onEdit(task);
   });
   c.addEventListener('mousedown', (e) => {
-    if (host.onSelectCard && !task.parentId && e.button === 0 && (e.metaKey || e.ctrlKey || e.shiftKey) &&
+    if (host.onSelectCard && e.button === 0 && (e.metaKey || e.ctrlKey || e.shiftKey) &&
       !(e.target as Element).closest('a, button, input, textarea, .tt-subtasks')) e.preventDefault();
   });
   c.addEventListener('dragstart', (e) => {
@@ -795,8 +849,9 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   const selection = host.selection!;
   const c = el('div', 'tt-card tt-selection-card'); c.dataset.id = task.id;
   appendFilterContext(c, task, model, host);
-  const selectable = !task.parentId && !model.quickContext?.contextOnly.has(task.id);
   const selected = selection.has(task);
+  // A parent shown only for context can't be picked, but one that became context after an edit can be unticked.
+  const selectable = selected || !model.quickContext?.contextOnly.has(task.id);
   c.classList.toggle('is-selected', selected);
   const check = el('button', 'tt-select-card'); check.type = 'button'; check.setAttribute('role', 'checkbox');
   check.setAttribute('aria-checked', String(selected)); check.setAttribute('aria-label', `Select ${task.text}`);
@@ -873,6 +928,7 @@ function taskMain(task: BoardTask, host: RenderHost): HTMLElement {
   box.type = 'checkbox';
   box.checked = task.closed;
   box.setAttribute('aria-label', `${task.closed ? 'Reopen' : 'Complete'} ${task.text}`);
+  box.dataset.boardFocus = `check:${task.id}`;
   box.addEventListener('click', (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -939,6 +995,16 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
     if ((e.target as HTMLElement).closest('a')) return;
     host.onEdit(task);
   });
+  // Reachable from the keyboard like a card: Enter edits it.
+  row.tabIndex = 0; row.setAttribute('role', 'group'); row.setAttribute('aria-label', task.text);
+  row.dataset.boardFocus = `subtask:${task.id}`;
+  row.setAttribute('aria-description', 'Press Enter to edit or open the source.');
+  row.setAttribute('aria-keyshortcuts', 'Enter');
+  row.addEventListener('keydown', (e) => {
+    if (e.target !== row || e.key !== 'Enter') return;
+    e.preventDefault(); e.stopPropagation();
+    host.onEdit(task);
+  });
   // Dragged out of its card, it becomes a card of its own (see planPromotion).
   row.draggable = !row.querySelector('.tt-add-input');
   row.addEventListener('dragstart', (e) => {
@@ -999,13 +1065,18 @@ function subtaskBox(parent: BoardTask, slug: string, section: HTMLElement, host:
   const box = addBox(
     subtaskBoxKey(parent, slug),
     'New subtask. Enter to add, ⌘/Ctrl+Enter for details',
+    'Add subtask',
     host,
     (text, detailed) => host.onAddSubtask(parent, text, detailed),
     () => {
       const owner = box.parentElement;
+      const root = box.closest<HTMLElement>('.tt-board');
+      // Closing with X or Escape hands focus back; closing because focus moved elsewhere leaves it there.
+      const hadFocus = box.contains(box.ownerDocument.activeElement);
       box.remove();
       if (owner) updateComposerDragState(owner);
       if (!section.hasChildNodes()) section.remove();
+      if (hadFocus) [...root?.querySelectorAll<HTMLElement>('.tt-add-subtask') ?? []].find((el) => el.dataset.addSubtask === parent.id)?.focus({ preventScroll: true });
     },
   );
   return box;
@@ -1027,7 +1098,7 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], model: BoardModel
   const label = `${action} (${done} of ${subtasks.length} done)`;
   b.dataset.boardFocus = `subtasks-${task.id}`;
   b.setAttribute('aria-label', label);
-  b.append(chevron(), el('span', '', `${done}/${subtasks.length}`));
+  b.append(chevron(host), el('span', '', `${done}/${subtasks.length}`));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     if (model.quickContext?.branches.has(task.id)) host.quickDisclosure?.toggle(task.id);
@@ -1047,7 +1118,9 @@ function updateComposerDragState(owner: HTMLElement): void {
 function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel, host: RenderHost): HTMLElement {
   const b = el('button', 'clickable-icon tt-card-icon tt-add-subtask');
   b.type = 'button';
-  b.setAttribute('aria-label', 'Add subtask');
+  b.setAttribute('aria-label', `Add subtask to ${task.text}`);
+  // Not a focus key: a redraw it causes hands focus to the box it opens.
+  b.dataset.addSubtask = task.id;
   host.icon(b, 'list-plus');
   b.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1083,6 +1156,7 @@ function moveButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   const destination = model.rows[rowIndex(target.rowId)]!;
   const label = `${destination.kind === 'now' ? 'Move into Due now' : 'Defer'}${destination.dropDate ? ` · due ${shortLabel(destination.dropDate)}` : ''}`;
   b.setAttribute('aria-label', label);
+  b.dataset.boardFocus = `move:${task.id}`;
   // Out of the No due date column it's a sideways move.
   const icon =
     model.config.undatedColumn && model.rowOf[task.id] === 'none'
@@ -1100,13 +1174,25 @@ function moveButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
 function moveMenuButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const b = el('button', 'clickable-icon tt-card-icon tt-card-more');
   b.type = 'button';
-  b.setAttribute('aria-label', 'Move to…');
+  b.setAttribute('aria-label', `Move ${task.text} to…`);
   b.setAttribute('aria-haspopup', 'menu');
+  b.setAttribute('aria-expanded', 'false');
+  const key = `move-menu:${task.id}`;
+  b.dataset.boardFocus = key;
   host.icon(b, 'more-horizontal');
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     const choices = moveChoices(model, task);
-    if (choices) host.onMoveMenu?.(task, choices, e);
+    if (!choices || !host.onMoveMenu) return;
+    const root = b.closest<HTMLElement>('.tt-board');
+    b.setAttribute('aria-expanded', 'true');
+    host.onMoveMenu(task, choices, e, (moved) => {
+      // A move can redraw the board while the menu is open, so find the current button and card.
+      if (!root) return;
+      const current = [...root.querySelectorAll<HTMLElement>('[data-board-focus]')].find((el) => el.dataset.boardFocus === key);
+      current?.setAttribute('aria-expanded', 'false');
+      focusBoardControl(root, ...moved ? [`card:${task.id}`, key] : [key]);
+    });
   });
   return b;
 }
@@ -1115,18 +1201,30 @@ function moveMenuButton(task: BoardTask, model: BoardModel, host: RenderHost): H
  * A dot per column and "2 / 4", following the scroll position. styles.css shows it only when the
  * board is narrow enough to show one column at a time.
  */
-function pager(scroller: HTMLElement, count: number): { bar: HTMLElement; update(): void } {
+function pager(scroller: HTMLElement, count: number, host: RenderHost, page: (direction: number) => void): { bar: HTMLElement; update(): void } {
   const bar = el('div', 'tt-pager');
-  bar.setAttribute('aria-hidden', 'true');
   const dots = el('span', 'tt-pager-dots');
   for (let i = 0; i < count; i++) dots.append(el('span', 'tt-pager-dot'));
   const text = el('span', 'tt-pager-text');
-  bar.append(dots, text);
+  dots.setAttribute('aria-hidden', 'true'); text.setAttribute('aria-hidden', 'true');
+  // Paging without touch. aria-disabled, not disabled, so a button keeps focus at either end.
+  const step = (direction: number, label: string, glyph: string) => {
+    const b = el('button', 'clickable-icon tt-pager-button'); b.type = 'button';
+    b.setAttribute('aria-label', label); b.dataset.boardFocus = `page:${direction}`;
+    host.icon(b, glyph);
+    b.addEventListener('click', () => { if (b.getAttribute('aria-disabled') !== 'true') page(direction); });
+    return b;
+  };
+  const previous = step(-1, 'Previous column', 'chevron-left');
+  const next = step(1, 'Next column', 'chevron-right');
+  bar.append(previous, dots, text, next);
   const update = () => {
     const headers = [...scroller.querySelectorAll<HTMLElement>('.tt-col-header')];
     const index = Math.max(0, headers.indexOf(columnInView(scroller)!));
     [...dots.children].forEach((dot, i) => dot.classList.toggle('is-active', i === index));
     text.textContent = `${index + 1} / ${count}`;
+    previous.setAttribute('aria-disabled', String(index === 0));
+    next.setAttribute('aria-disabled', String(index === count - 1));
   };
   let queued = false;
   scroller.addEventListener('scroll', () => {
@@ -1232,16 +1330,12 @@ function findTask(model: BoardModel, id: string): BoardTask | undefined {
   return undefined;
 }
 
-function chevron(): SVGElement {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('class', 'tt-chevron');
-  svg.setAttribute('aria-hidden', 'true');
-  const path = document.createElementNS(ns, 'path');
-  path.setAttribute('d', 'M6 9l6 6 6-6');
-  svg.append(path);
-  return svg;
+/** Obsidian's chevron; CSS turns it to point right while its list is collapsed. */
+function chevron(host: RenderHost): HTMLElement {
+  const icon = el('span', 'tt-chevron');
+  icon.setAttribute('aria-hidden', 'true');
+  host.icon(icon, 'chevron-down');
+  return icon;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {

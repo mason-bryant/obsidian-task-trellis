@@ -98,14 +98,15 @@
 }
 
 .tt-chevron {
+  display: inline-flex;
+  flex: none;
+  transition: transform 120ms ease;
+}
+
+.tt-chevron svg {
   width: 16px;
   height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 120ms ease;
+  stroke-width: 1.8;
 }
 
 .tt-row-bar.is-collapsed .tt-chevron {
@@ -280,7 +281,7 @@
   color: var(--text-normal);
 }
 
-.tt-subtask-toggle .tt-chevron {
+.tt-subtask-toggle .tt-chevron svg {
   width: 12px;
   height: 12px;
 }
@@ -461,7 +462,7 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   border: 1px solid var(--background-modifier-border); background: var(--background-primary);
   color: var(--text-normal); font-size: var(--font-ui-small); box-shadow: none;
 }
-.tt-toolbar-button[aria-pressed='true'] { color: var(--text-accent); border-color: var(--interactive-accent); }
+.tt-toolbar-button[aria-pressed='true'], .tt-quick-filter-menu.is-active { color: var(--text-accent); border-color: var(--interactive-accent); }
 .tt-subtasks-menu { min-width: 32px; flex: none; }
 .tt-quick-filter-colors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .tt-quick-filter-colors[hidden] { display: none; }
@@ -549,8 +550,6 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-field .tt-help { margin: 0; }
 .tt-input { box-sizing: border-box; min-height: 36px; width: 100%; border: 1px solid var(--background-modifier-border); border-radius: 7px; padding: 7px 10px; background-color: var(--background-primary); color: var(--text-normal); font: inherit; }
 .tt-settings input[type='number'] { width: 100%; max-width: 160px; }
-.tt-settings-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
-.tt-settings-row > input { flex: 1; min-width: 0; }
 .tt-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border: 0; padding: 4px; border-radius: 6px; background: transparent; color: var(--text-muted); box-shadow: none; cursor: pointer; }
 .tt-icon-button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .tt-icon-button:disabled { opacity: .35; cursor: default; }
@@ -652,6 +651,14 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   }
 }
 
+/* Touch screens: 44px targets in settings and on the column picker too. */
+@media (pointer: coarse) {
+  .tt-icon-button, .tt-chip .tt-icon-button { width: 44px; height: 44px; }
+  .tt-settings-tab, .tt-board-tools .tt-column-picker { min-height: 44px; }
+}
+.is-mobile :is(.tt-icon-button, .tt-chip .tt-icon-button) { width: 44px; height: 44px; }
+.is-mobile :is(.tt-settings-tab, .tt-board-tools .tt-column-picker) { min-height: 44px; }
+
 .tt-subtask-controls > .tt-add-subtask { opacity: 1; }
 
 /*
@@ -668,6 +675,12 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-pager-dots { display: inline-flex; gap: 5px; }
 .tt-pager-dot { width: 6px; height: 6px; border-radius: 3px; background: var(--background-modifier-border-hover); transition: width 150ms ease, background-color 150ms ease; }
 .tt-pager-dot.is-active { width: 16px; background: var(--interactive-accent); }
+.tt-pager-button { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 28px; padding: 2px; border-radius: 6px; color: var(--text-muted); }
+.tt-pager-button:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.tt-pager-button svg { width: 16px; height: 16px; stroke-width: 1.8; }
+.tt-pager-button[aria-disabled='true'] { opacity: .35; cursor: default; }
+@media (pointer: coarse) { .tt-pager-button { min-width: 44px; min-height: 44px; } }
+.is-mobile .tt-pager-button { min-width: 44px; min-height: 44px; }
 @container trellis (max-width: 600px) {
   /* cqw counts a vertical scrollbar in (desktop Obsidian's take up room), which would shift each column. */
   /* Keep WebKit's native vertical scrolling on a different element from paging.
@@ -875,16 +888,17 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 .tt-rename-option { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .tt-rename-preview { overflow-wrap: anywhere; }
 .tt-rename-preview ul { max-height: 180px; overflow-y: auto; padding-left: 24px; }
-.tt-rename-progress:not([hidden]) { display: flex; align-items: center; gap: 8px; }
-.tt-rename-progress::before, .tt-rename-saving::before {
+.tt-rename-progress:not([hidden]), .tt-editor-progress:not([hidden]) { display: flex; align-items: center; gap: 8px; }
+.tt-editor-progress { margin: 0 0 12px; color: var(--text-muted); font-size: var(--font-ui-small); }
+.tt-rename-progress::before, .tt-rename-saving::before, .tt-editor-progress::before, .tt-editor-saving::before {
   content: ''; display: inline-block; flex-shrink: 0; width: 18px; height: 18px;
   border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
   animation: tt-rename-spin 0.8s linear infinite;
 }
-.tt-rename-saving > svg { display: none; }
+.tt-rename-saving > svg, .tt-editor-saving > svg { display: none; }
 @keyframes tt-rename-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .tt-rename-progress::before, .tt-rename-saving::before { animation: none; }
+  .tt-rename-progress::before, .tt-rename-saving::before, .tt-editor-progress::before, .tt-editor-saving::before { animation: none; }
 }
 
 /* Pop-up note editor: the note's own editor in a modal. */
@@ -930,16 +944,19 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 .tt-quick-filter-actions { display: flex; align-items: center; gap: 4px; }
 .tt-settings .tt-quick-filter-header > .tt-quick-filter-toggle { justify-content: flex-start; min-width: 0; min-height: 44px; height: auto; margin: 0; background: transparent; box-shadow: none; }
 .tt-settings .tt-quick-filter-header .tt-icon-button { height: 44px; min-height: 44px; margin: 0; }
-/* Only the grip claims touch gestures; the rest of the editor scrolls normally. */
-.tt-settings .tt-quick-filter-editor > .tt-quick-filter-drag { position: absolute; top: 0; right: 0; bottom: 0; width: 24px; min-width: 24px; height: 100%; margin: 0; padding: 0; border-radius: 0 9px 9px 0; touch-action: none; cursor: grab; outline-offset: -2px; }
-.tt-quick-filter-reordering { position: relative; isolation: isolate; }
-.tt-quick-filter--dragging { z-index: 2; opacity: .94; background: var(--background-primary); box-shadow: 0 8px 24px rgba(0,0,0,.3); transition: none; }
-.tt-quick-filter--shifting { z-index: 1; transition: transform 160ms ease; }
-.tt-quick-filter-drop-slot { position: absolute; z-index: 0; box-sizing: border-box; pointer-events: none; border: 2px dashed var(--interactive-accent); border-radius: 10px; background: var(--background-modifier-hover); }
+/* Settings lists that reorder (columns, quick filters) share one grip and one drag style.
+ * Only the grip claims touch gestures; the rest of the row scrolls normally. */
+.tt-column-editor { position: relative; display: flex; align-items: center; gap: 8px; margin: 10px 0; padding: 8px 36px 8px 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
+.tt-column-editor > input { flex: 1; min-width: 0; }
+.tt-settings :is(.tt-quick-filter-editor, .tt-column-editor) > .tt-reorder-grip { position: absolute; top: 0; right: 0; bottom: 0; width: 24px; min-width: 24px; height: 100%; margin: 0; padding: 0; border-radius: 0 9px 9px 0; touch-action: none; cursor: grab; outline-offset: -2px; }
+.tt-reordering { position: relative; isolation: isolate; }
+.tt-reorder-row--dragging { z-index: 2; opacity: .94; background: var(--background-primary); box-shadow: 0 8px 24px rgba(0,0,0,.3); transition: none; }
+.tt-reorder-row--shifting { z-index: 1; transition: transform 160ms ease; }
+.tt-reorder-slot { position: absolute; z-index: 0; box-sizing: border-box; pointer-events: none; border: 2px dashed var(--interactive-accent); border-radius: 10px; background: var(--background-modifier-hover); }
 @media (prefers-reduced-motion: reduce) {
-  .tt-quick-filter--shifting { transition: none; }
+  .tt-reorder-row--shifting { transition: none; }
 }
-.tt-quick-filter--dragging .tt-quick-filter-drag { cursor: grabbing; }
+.tt-reorder-row--dragging .tt-reorder-grip { cursor: grabbing; }
 .tt-reorder-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @container quick-filter (max-width: 480px) {
   .tt-quick-filter-header { grid-template-columns: minmax(0, 1fr); gap: 4px 8px; }
