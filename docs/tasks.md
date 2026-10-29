@@ -34,7 +34,7 @@ Task Trellis’s label, board settings, new board, and fallback new-task editors
 
 ## Keyboard access
 
-Tab to a card and press **Enter** to edit it (or open its source without the Tasks plugin). Use **Alt+Up** / **Alt+Down** to move an open card within its current column and date row. The card’s **⋯** menu provides moves to other columns and date rows without dragging. Done cards keep their completion-date order.
+Tab to a card or subtask and press **Enter** to edit it (or open its source without the Tasks plugin). Use **Alt+Up** / **Alt+Down** to move an open card within its current column and date row. The card’s **⋯** menu provides moves to other columns and date rows without dragging. Done cards keep their completion-date order.
 
 Tab through checkboxes, label controls and action buttons to use them directly. Settings tabs also support arrow keys, Home and End. Save with the green checkmark; Cancel or Escape discards an unsaved editor draft. Label assignment checkboxes save immediately; editing a label’s name or color requires the checkmark.
 

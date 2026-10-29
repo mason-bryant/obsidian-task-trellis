@@ -279,8 +279,10 @@ const host: RenderHost = {
     return true;
   },
   // A plain list standing in for Obsidian's menu (a bottom sheet on phones).
-  onMoveMenu: (task, choices) => {
+  onMoveMenu: (task, choices, _evt, onClose) => {
     const dialog = document.getElementById('move') as HTMLDialogElement;
+    let moved = false;
+    dialog.onclose = () => onClose?.(moved);
     const list = dialog.querySelector<HTMLElement>('.move-list')!;
     list.replaceChildren();
     for (const [title, group] of [['Move to column', choices.columns], ['Move to row', choices.rows]] as const) {
@@ -295,8 +297,9 @@ const host: RenderHost = {
         item.append(choice.current ? `${choice.label} ✓` : choice.label);
         if (choice.detail) item.append(Object.assign(uiElement(document, 'span'), { className: 'tt-menu-detail', textContent: choice.detail }));
         item.onclick = () => {
-          dialog.close();
+          moved = true;
           host.onDrop(task.id, choice.target);
+          dialog.close();
         };
         list.append(item);
       }

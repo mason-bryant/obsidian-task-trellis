@@ -39,7 +39,7 @@ export class BoardView extends FileView {
   private renderedVersion = -1;
   /** Owns the markdown rendered into cards; replaced on every redraw. */
   private textScope: Component | null = null;
-  private undoAction: { label: string; action: UndoAction } | null = null;
+  private undoAction: { label: string; action: UndoAction; ids: string[] } | null = null;
   private highlightIds = new Set<string>();
   private highlightUntil = 0;
 
@@ -141,6 +141,16 @@ export class BoardView extends FileView {
     this.cancelRender = () => win.cancelAnimationFrame(frame);
   }
 
+  /** After a dialog closes, gives focus back to a board control if nothing has it, as when a redraw replaced the control. */
+  private refocus(key: string): void {
+    this.containerEl.win.setTimeout(() => {
+      const doc = this.contentEl.ownerDocument;
+      const active = doc.activeElement;
+      if (active && active !== doc.body && active.isConnected) return;
+      [...this.contentEl.querySelectorAll<HTMLElement>('[data-board-focus]')].find((el) => el.dataset.boardFocus === key)?.focus({ preventScroll: true });
+    }, 0);
+  }
+
   /** Redraws now, or once a drag or column resize ends: redrawing mid-gesture would cancel it. */
   private renderWhenIdle(): void {
     if (isDragging() || isColumnResizing(this.contentEl)) this.queueRender();
@@ -212,7 +222,7 @@ export class BoardView extends FileView {
           throw error;
         }
       },
-      onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section).open(); },
+      onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section, () => this.refocus('settings')).open(); },
       onRename: () => { if (this.file) new RenameBoardModal(this.app, this.file, this.plugin.boardRenames).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
       undo: this.undoAction ? { label: this.undoAction.label, run: () => void this.undo() } : undefined,
@@ -269,7 +279,7 @@ export class BoardView extends FileView {
         menu.addItem((item) => item.setTitle('Expand all subtasks').setIcon('unfold-vertical').onClick(() => select(false)));
         menu.onHide(onClose);
         const bounds = anchor.getBoundingClientRect();
-        menu.showAtPosition({ x: bounds.left, y: bounds.bottom });
+        menu.showAtPosition({ x: bounds.left, y: bounds.bottom }, anchor.ownerDocument);
       },
       onQuickFiltersMenu: (anchor, items, select, onClose) => {
         // Native macOS menus flatten titles to text and lose the label swatches.
@@ -287,7 +297,7 @@ export class BoardView extends FileView {
       },
       onDrop: (taskId, target) => void this.drop(taskId, target),
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {
-        this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action };
+        this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action, ids: [task.id] };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
       }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); new Notice(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task. Check that its note can be edited, then try again.`); }),
       onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); new Notice('Task Trellis: could not open the task editor, so nothing was changed. Check that the Tasks plugin is enabled, or open the task from its note link.'); }) : this.openSource(task, false),
@@ -303,8 +313,9 @@ export class BoardView extends FileView {
       },
       onUnsavedText: (text, retry) => recoverDraft(this.app, text, retry),
       // A bottom sheet on phones.
-      onMoveMenu: (task, choices, evt) => {
+      onMoveMenu: (task, choices, evt, onClose) => {
         const menu = new Menu();
+        let moved = false;
         const section = (title: string, list: MoveChoice[]) => {
           menu.addItem((item) => item.setTitle(title).setIsLabel(true));
           for (const choice of list) {
@@ -314,7 +325,7 @@ export class BoardView extends FileView {
                 if (choice.detail) f.createSpan({ cls: 'tt-menu-detail', text: choice.detail });
               }));
               if (choice.current) item.setChecked(true).setDisabled(true);
-              else item.onClick(() => void this.drop(task.id, choice.target));
+              else item.onClick(() => { moved = true; void this.drop(task.id, choice.target); });
             });
           }
         };
@@ -325,10 +336,12 @@ export class BoardView extends FileView {
         section('Move to column', choices.columns);
         menu.addSeparator();
         section('Move to row', choices.rows);
+        // Picking a choice can hide the menu before its click runs; report once both have.
+        menu.onHide(() => queueMicrotask(() => onClose?.(moved)));
         const anchor = evt.currentTarget as HTMLElement | null;
         if (evt.detail === 0 && anchor) {
           const bounds = anchor.getBoundingClientRect();
-          menu.showAtPosition({ x: bounds.left, y: bounds.bottom });
+          menu.showAtPosition({ x: bounds.left, y: bounds.bottom }, anchor.ownerDocument);
         } else menu.showAtMouseEvent(evt);
       },
     };
@@ -363,7 +376,7 @@ export class BoardView extends FileView {
       icon: (el, name) => setIcon(el, name),
       saveSelection: async (ids) => {
         const written = await this.plugin.writer.setLabels(current, slug, ids, (action) => {
-          this.undoAction = { label: 'Task labels updated', action };
+          this.undoAction = { label: 'Task labels updated', action, ids: [task.id] };
         });
         this.showWritten(current, [written.raw]);
         current = written;
@@ -399,6 +412,8 @@ export class BoardView extends FileView {
     clearBulkSelection(this.contentEl);
     try {
       await entry.action.undo();
+      // Focus follows the restored cards when Undo was pressed from the keyboard.
+      this.highlightIds = new Set(entry.ids); this.highlightUntil = Date.now() + 1000;
       const paths = new Set(entry.action.paths);
       for (const task of this.plugin.index.all()) if (paths.has(task.path)) this.pending.delete(task.id);
       await this.plugin.index.refresh(entry.action.paths);
@@ -417,7 +432,7 @@ export class BoardView extends FileView {
       const snapshots = tasks.map((task) => this.plugin.index.currentSnapshot(task));
       const edits = planBulk(snapshots, this.board.config, todayISO(), action);
       const result = await this.plugin.writer.applyEdits(snapshots, edits, slug, undefined, true);
-      if (result.action) this.undoAction = { label: `${result.appliedIds.length} tasks updated`, action: result.action };
+      if (result.action) this.undoAction = { label: `${result.appliedIds.length === 1 ? '1 task' : `${result.appliedIds.length} tasks`} updated`, action: result.action, ids: result.appliedIds };
       await this.plugin.index.refresh([...new Set(tasks.map((task) => task.path))]);
       const skipped = new Set(result.skippedIds);
       const message = `${result.appliedIds.length} updated${skipped.size ? `; ${skipped.size} skipped because they changed or could not be saved. Clear and reselect to retry.` : ''}.`;
@@ -463,7 +478,7 @@ export class BoardView extends FileView {
       }
       const action = result.action;
       if (action) {
-        this.undoAction = { label: promote ? 'Subtask moved out' : 'Task moved', action };
+        this.undoAction = { label: promote ? 'Subtask moved out' : 'Task moved', action, ids: [taskId] };
         this.highlightIds = new Set([taskId]); this.highlightUntil = Date.now() + 1000;
       }
       for (const id of result.skippedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
