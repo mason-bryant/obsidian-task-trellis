@@ -448,7 +448,7 @@ class NewBoardModal extends Modal {
       const name = this.name.trim();
       const error = boardNameError(this.name);
       if (error) { new Notice(error); return; }
-      header?.setBusy(true);
+      header?.setBusy(true, 'Creating board…');
       let created = false;
       try { created = await this.onSubmit(name); }
       catch (error) { console.error('[Task Trellis] board creation failed', error); new Notice('Task Trellis: could not create the board. Your name has been kept; check the folder and try again.'); }

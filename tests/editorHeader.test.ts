@@ -18,6 +18,20 @@ it('keeps save and cancel in a separate header, labelled, ordered and disabled d
   expect(save).toHaveBeenCalledTimes(1); expect(cancel).toHaveBeenCalledTimes(1);
 });
 
+it('shows a spinner and a busy label while a long save runs, then restores the save button', () => {
+  const root = document.createElement('div');
+  const header = renderEditorHeader(root, 'Bulk edit', vi.fn(), vi.fn(), vi.fn(), 'Apply to 2 tasks');
+  const save = root.querySelector<HTMLButtonElement>('.tt-editor-save')!;
+  const progress = root.querySelector<HTMLElement>('.tt-editor-progress')!;
+  expect(progress.hidden).toBe(true); expect(progress.getAttribute('role')).toBe('status');
+  header.setBusy(true, 'Applying changes…');
+  expect(save.classList.contains('tt-editor-saving')).toBe(true); expect(save.getAttribute('aria-label')).toBe('Applying changes…');
+  expect(progress.hidden).toBe(false); expect(progress.textContent).toBe('Applying changes…');
+  header.setBusy(false);
+  expect(save.classList.contains('tt-editor-saving')).toBe(false); expect(save.getAttribute('aria-label')).toBe('Apply to 2 tasks');
+  expect(progress.hidden).toBe(true); expect(progress.textContent).toBe('');
+});
+
 it('tracks keyboard viewport resizing and removes listeners when closed', () => {
   const viewport = Object.assign(new EventTarget(), { height: 800, offsetTop: 0 });
   vi.stubGlobal('visualViewport', viewport);

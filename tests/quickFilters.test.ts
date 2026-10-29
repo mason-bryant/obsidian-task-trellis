@@ -253,7 +253,7 @@ describe('quick filter settings', () => {
     expect(ui.control<HTMLInputElement>('Quick filter 3 name').value).toBe('Important');
     expect(ui.checkbox(2, 'Match subtasks').checked).toBe(true);
     expect(document.activeElement).toBe(ui.control('Reorder Important'));
-    expect(ui.root.querySelector('[role="status"]')?.textContent).toBe('Important moved to position 3 of 3.');
+    expect(ui.root.querySelector('.tt-reorder-status')?.textContent).toBe('Important moved to position 3 of 3.');
     expect(ui.original.quickFilters[0]!.name).toBe('High priority');
   });
 

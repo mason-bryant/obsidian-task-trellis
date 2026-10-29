@@ -20,7 +20,7 @@ export class RestoreBoardRenameModal extends Modal {
     const header = renderEditorHeader(this.chrome.header, 'Restore board rename', setIcon, entries.length ? () => {
       const entry = entries[Number(select.value)];
       if (busy || !entry) return;
-      busy = true; select.disabled = true; header.setBusy(true); error.textContent = '';
+      busy = true; select.disabled = true; header.setBusy(true, 'Restoring board rename…'); error.textContent = '';
       void this.service.restore(entry.path).then(() => { new Notice('Task Trellis: board rename restored.'); super.close(); })
         .catch((reason: unknown) => { error.textContent = reason instanceof Error ? reason.message : 'Could not restore this rename.'; })
         .finally(() => { busy = false; select.disabled = false; header.setBusy(false); });

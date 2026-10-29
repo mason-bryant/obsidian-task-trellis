@@ -433,7 +433,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     toggle.setAttribute('aria-expanded', String(!collapsed));
     toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${row.label}`);
     toggle.dataset.boardFocus = `row:${row.id}`;
-    toggle.append(chevron());
+    toggle.append(chevron(host));
     const label = el('span', 'tt-row-label');
     label.append(el('span', 'tt-row-title', row.label));
     if (row.detail) label.append(el('span', 'tt-row-detail', row.detail));
@@ -485,7 +485,8 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       end: () => host.onDragEnd(),
     });
   }
-  const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length) : null;
+  let swipe: ReturnType<typeof installColumnSwipe> | null = null;
+  const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length, host, (direction) => swipe?.page(direction)) : null;
   if (pages) root.insertBefore(pages.bar, scrollEl);
   if (scroll) {
     verticalScroller(scrollEl).scrollTop = scroll.top;
@@ -501,7 +502,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const columnPositions = () =>
     [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].map((header) =>
       scrollEl.scrollLeft + offsetFromMiddle(scrollEl, header));
-  installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), columnPositions);
+  swipe = installColumnSwipe(scrollEl, () => swipesColumns(scrollEl), columnPositions);
   let touchTarget: DropTarget | null = null;
   if (!selection.active) installTouchCardDrag(scrollEl, {
     start: (id) => { draggingId = id; dragStartedAt = Date.now(); },
@@ -535,7 +536,7 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   const capped = limit !== null && cards.length > limit && !cards.some((task) => model.quickContext?.branches.has(task.id));
   const hidden = capped && host.isCollapsed(moreKey(rowId));
   for (const task of hidden ? cards.slice(0, limit) : cards) c.append(card(task, model, host));
-  if (capped) c.append(moreToggle(hidden, cards.length - limit, `more:${rowId}:${column.id}`, () => host.onToggleRow(moreKey(rowId))));
+  if (capped) c.append(moreToggle(hidden, cards.length - limit, `more:${rowId}:${column.id}`, host, () => host.onToggleRow(moreKey(rowId))));
   // Done fills itself by completing tasks, so it gets no add button.
   if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, host));
   if (!host.selection) addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
@@ -686,12 +687,12 @@ function addBox(
 }
 
 /** "▸ 3 more" under a capped Done cell, or "▾ Show fewer" once it is open. */
-function moreToggle(collapsed: boolean, extra: number, focusKey: string, onClick: () => void): HTMLElement {
+function moreToggle(collapsed: boolean, extra: number, focusKey: string, host: RenderHost, onClick: () => void): HTMLElement {
   const b = el('button', `tt-more${collapsed ? ' is-collapsed' : ''}`);
   b.type = 'button';
   b.dataset.boardFocus = focusKey;
   b.setAttribute('aria-expanded', String(!collapsed));
-  b.append(chevron(), el('span', '', collapsed ? `${extra} more` : 'Show fewer'));
+  b.append(chevron(host), el('span', '', collapsed ? `${extra} more` : 'Show fewer'));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     onClick();
@@ -1080,7 +1081,7 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], model: BoardModel
   const label = `${action} (${done} of ${subtasks.length} done)`;
   b.dataset.boardFocus = `subtasks-${task.id}`;
   b.setAttribute('aria-label', label);
-  b.append(chevron(), el('span', '', `${done}/${subtasks.length}`));
+  b.append(chevron(host), el('span', '', `${done}/${subtasks.length}`));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     if (model.quickContext?.branches.has(task.id)) host.quickDisclosure?.toggle(task.id);
@@ -1183,18 +1184,30 @@ function moveMenuButton(task: BoardTask, model: BoardModel, host: RenderHost): H
  * A dot per column and "2 / 4", following the scroll position. styles.css shows it only when the
  * board is narrow enough to show one column at a time.
  */
-function pager(scroller: HTMLElement, count: number): { bar: HTMLElement; update(): void } {
+function pager(scroller: HTMLElement, count: number, host: RenderHost, page: (direction: number) => void): { bar: HTMLElement; update(): void } {
   const bar = el('div', 'tt-pager');
-  bar.setAttribute('aria-hidden', 'true');
   const dots = el('span', 'tt-pager-dots');
   for (let i = 0; i < count; i++) dots.append(el('span', 'tt-pager-dot'));
   const text = el('span', 'tt-pager-text');
-  bar.append(dots, text);
+  dots.setAttribute('aria-hidden', 'true'); text.setAttribute('aria-hidden', 'true');
+  // Paging without touch. aria-disabled, not disabled, so a button keeps focus at either end.
+  const step = (direction: number, label: string, glyph: string) => {
+    const b = el('button', 'clickable-icon tt-pager-button'); b.type = 'button';
+    b.setAttribute('aria-label', label); b.dataset.boardFocus = `page:${direction}`;
+    host.icon(b, glyph);
+    b.addEventListener('click', () => { if (b.getAttribute('aria-disabled') !== 'true') page(direction); });
+    return b;
+  };
+  const previous = step(-1, 'Previous column', 'chevron-left');
+  const next = step(1, 'Next column', 'chevron-right');
+  bar.append(previous, dots, text, next);
   const update = () => {
     const headers = [...scroller.querySelectorAll<HTMLElement>('.tt-col-header')];
     const index = Math.max(0, headers.indexOf(columnInView(scroller)!));
     [...dots.children].forEach((dot, i) => dot.classList.toggle('is-active', i === index));
     text.textContent = `${index + 1} / ${count}`;
+    previous.setAttribute('aria-disabled', String(index === 0));
+    next.setAttribute('aria-disabled', String(index === count - 1));
   };
   let queued = false;
   scroller.addEventListener('scroll', () => {
@@ -1300,16 +1313,12 @@ function findTask(model: BoardModel, id: string): BoardTask | undefined {
   return undefined;
 }
 
-function chevron(): SVGElement {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('class', 'tt-chevron');
-  svg.setAttribute('aria-hidden', 'true');
-  const path = document.createElementNS(ns, 'path');
-  path.setAttribute('d', 'M6 9l6 6 6-6');
-  svg.append(path);
-  return svg;
+/** Obsidian's chevron; CSS turns it to point right while its list is collapsed. */
+function chevron(host: RenderHost): HTMLElement {
+  const icon = el('span', 'tt-chevron');
+  icon.setAttribute('aria-hidden', 'true');
+  host.icon(icon, 'chevron-down');
+  return icon;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {

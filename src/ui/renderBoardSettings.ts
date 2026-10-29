@@ -443,7 +443,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     }
     const headerSlot = host.header ?? el('div', 'tt-editor-header-slot');
     const header = renderEditorHeader(headerSlot, 'Board settings', (el, name) => host.icon(el, name), () => host.onSave(), () => host.onDiscard());
-    header.setBusy(saving);
+    header.setBusy(saving, 'Saving settings…');
     const footer = el('div', 'tt-settings-footer');
     const open = button('Save & open board', 'tt-button tt-button--subtle'); open.onclick = () => host.onOpenBoard();
     open.disabled = saving;

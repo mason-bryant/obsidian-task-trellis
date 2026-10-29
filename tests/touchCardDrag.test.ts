@@ -182,6 +182,24 @@ describe('dragging into off-screen columns', () => {
     }
   });
 
+  it('scrolls a board wider than the screen sideways near its edges, after an outward movement', () => {
+    stops = [];
+    Object.defineProperties(scroller, { scrollWidth: { value: 1200 }, clientWidth: { value: 400 } });
+    pointer('pointerdown', 390, 300); pointer('pointermove', 398, 300); tick(0);
+    expect(scroller.scrollLeft).toBe(0);
+    pointer('pointermove', 399, 290); pointer('pointermove', 399, 300); tick(16);
+    expect(scroller.scrollLeft).toBe(0);
+    // Holding at the edge after only a small movement doesn't scroll; a press cancels that drag.
+    pointer('pointerdown', 380, 300);
+    pointer('pointerdown', 380, 300); pointer('pointermove', 399, 300); tick(16); tick(32);
+    expect(scroller.scrollLeft).toBeGreaterThan(0);
+    const right = scroller.scrollLeft;
+    pointer('pointermove', 5, 300); tick(48);
+    expect(scroller.scrollLeft).toBeLessThan(right);
+    expect(scroller.scrollTo).not.toHaveBeenCalled();
+    pointer('pointerup', 200, 300);
+  });
+
   it('does not navigate while the pointer is outside the board', () => {
     pointer('pointerdown', 350, 300); pointer('pointermove', 410, 300);
     tick(0); tick(1000);
