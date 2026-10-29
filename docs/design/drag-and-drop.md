@@ -1,39 +1,32 @@
-[← Shared UX guidance](README.md)
+[← UX rules](README.md)
 
 # Drag and drop
 
-## Expected behavior
+## Rules
 
-- A draggable item must visibly follow the pointer. Show the destination before release, and distinguish the moving item from stationary items.
-- Put explicit drag handles on the right edge. Handles should be narrow and flush with the item's top, bottom and right borders; reserve space so they do not cover text or actions.
-- Scrolling or clicking ordinary controls must not accidentally start a handle drag. A stationary press must not reorder anything. Claim only the active pointer; unrelated gestures must continue to work.
-- Scroll near the container edges while dragging. Cancel safely on pointer cancellation, lost capture or disposal. Remove temporary styles, placeholders, captures and animation frames when finished.
-- Persist only after a valid drop. For a draft settings list, a drop changes the draft; the editor's Save commits it. For cards, a valid drop writes through the task writer and offers Undo.
+- A dragged item visibly follows the pointer. The destination shows before release, and the moving item looks different from the items staying put.
+- Explicit drag handles sit on the right edge: narrow, and flush with the item's top, bottom and right borders. Room is reserved for them so they don't cover text or actions.
+- Scrolling, or clicking an ordinary control, never starts a handle drag. A press that doesn't move reorders nothing. A drag claims only its own pointer, so other gestures keep working.
+- Dragging near the edge of a scrolling area scrolls it. A cancelled pointer, lost capture or a closed screen cancels the drag and leaves nothing behind: no temporary styles, placeholders, pointer captures or animation frames.
+- Nothing is saved until a valid drop. In a settings list, a drop changes the draft and the editor's Save commits it. A card drop writes the note and offers Undo.
+- Moving a card can change the task. A date row sets its due date, Done completes it and leaving Done reopens it, and dragging a subtask out of its card makes it a card of its own. These follow [task behavior](../tasks.md), not just the card's place on screen.
+- In a settings list, such as columns or quick filters, the insertion point comes from the rows' original positions, so neighbors sliding aside can't make it jump. Expanded rows, unsaved edits, ids, the Done and No due date columns, and focus all survive a reorder. With a handle focused, Arrow Up and Arrow Down move the row one place and Home and End move it to either end, and the new position is announced.
+- In the one-column touch layout, holding a dragged card at the side edge reveals the next column. That takes outward movement and a short hold, so a vertical drag near the right-edge handle doesn't switch columns. An ordinary sideways swipe pages between columns without moving a task.
+- Resizing a column is a separate interaction; see [responsive layouts](responsive-layouts-and-gestures.md). A resize separator never looks or behaves like a reorder handle.
 
-## Existing implementations and intentional differences
+## Exceptions
 
-| Surface | Implementation and behavior |
-| --- | --- |
-| Board cards | [renderBoard.ts](../../src/ui/renderBoard.ts) handles desktop native drag/drop, insertion indicators, drop semantics and keyboard moves. [touchCardDrag.ts](../../src/ui/touchCardDrag.ts) provides handle-driven pointer movement with a floating inert copy. |
-| Quick-filter settings | [reorderQuickFilters.ts](../../src/ui/reorderQuickFilters.ts) moves the actual row, slides neighbors aside and draws a dashed destination slot. [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts) applies the new draft order and restores focus. |
-| Column edges | Resizing is a separate interaction: see [responsive layouts](responsive-layouts-and-gestures.md). A resize separator must not look or behave like a card reorder handle. |
+- With a mouse, a card or subtask row has no handle: you drag the whole item, with the browser's native drag and drop, as desktop users expect. The right-edge grip appears only on touch screens and in Obsidian mobile, where dragging a whole card would fight scrolling.
+- With a mouse on a one-column board, a dragged card can't reach another column. Move to… does that instead.
+- Cards and the settings lists use different controllers because they save differently: a card drop writes notes, while a list drop changes a draft. Their feedback differs too:
+  - cards show an insertion marker, while a settings list opens a gap with a dashed slot;
+  - a touch-dragged card is a floating copy, while a settings list moves the row itself;
+  - Escape cancels a settings-list drag and a column resize, but card drags have no Escape handling of their own.
 
-Quick-filter hit testing uses the original row rectangles, not the animated positions, so neighbors moving aside cannot cause the insertion target to oscillate. Preserve expanded rows, edits, stable filter IDs and focus through reordering. Arrow Up/Down moves a focused handle one position; Home/End moves it to an end. Announce its new position.
+## Where it lives
 
-Card movement has additional meaning: a date-row move changes the due date, Done changes completion, and moving a subtask out can change note hierarchy. Reuse the existing drop planning and writer; do not implement these as DOM-only moves. See [task behavior](../tasks.md).
-
-In a single-column touch layout, an outward drag held at an edge reveals the next column. The current controller requires outward movement and a dwell, preventing a vertical drag near the right-side handle from switching columns. Ordinary horizontal swiping pages columns without moving a task.
-
-The settings controller observes the active drag's move/up events in document capture because Obsidian can intercept them before they reach the handle. Keep this narrowly scoped and dispose listeners on redraw. Do not block document gestures globally.
-
-**Current differences:** board cards show insertion indicators rather than the settings list's animated opening gap. Touch card movement uses a ghost; the filter list transforms its real row. Escape cancellation exists in the settings controller; do not assume every card drag controller has the same keyboard cancellation behavior. Cards have Alt+Up/Down and Move to… alternatives.
-
-## Verify
-
-- Move first, middle and last items in both directions, including an expanded filter between collapsed ones.
-- Check pointer-following feedback, stable insertion targets, scroll edges, and reduced-motion behavior.
-- Cancel, release outside a valid destination, and redraw/dispose during a gesture; verify no write or stuck drag remains.
-- Test mouse and touch paths, keyboard alternatives, settings Save/Cancel, failed card writes and Undo.
-- Verify ordinary vertical scrolling, column paging, native sidebar gestures and main toolbar layout still work.
-
-Start with [reorder tests](../../tests/reorderQuickFilters.test.ts), [touch drag tests](../../tests/touchCardDrag.test.ts), [board view tests](../../tests/BoardView.test.ts) and [quick-filter tests](../../tests/quickFilters.test.ts). Native Obsidian testing is needed for host event interception.
+- **Card drags with a mouse:** native drag and drop of the whole card or subtask row, in [renderBoard.ts](../../src/ui/renderBoard.ts). It draws the insertion marker, works out the target cell and position, and also handles Alt+Up/Down.
+- **Card drags on touch:** the right-edge grip, in [touchCardDrag.ts](../../src/ui/touchCardDrag.ts). It moves a floating copy and scrolls near the edges: the column vertically, and a board wider than the screen sideways. In the one-column layout, holding at a side edge pages instead. The grip shows only with a coarse pointer or in Obsidian mobile.
+- **What a drop changes:** `planDrop` and `planPromotion` in [board.ts](../../src/core/board.ts). [BoardView.ts](../../src/obsidian/BoardView.ts) shows the move at once, writes it with `TaskWriter.applyEdits` and records Undo.
+- **Settings lists (columns and quick filters):** [reorderQuickFilters.ts](../../src/ui/reorderQuickFilters.ts) moves the row, slides its neighbors and draws the slot. It listens for pointer moves and releases on the document, in the capture phase, because Obsidian can catch them before they reach the handle. Each listener ignores everything but its own drag, and all of them are removed on redraw. [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts) applies the new order, restores focus and announces the position.
+- **Column resize:** [columnResize.ts](../../src/ui/columnResize.ts).

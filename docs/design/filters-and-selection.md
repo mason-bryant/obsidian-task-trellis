@@ -1,34 +1,31 @@
-[← Shared UX guidance](README.md)
+[← UX rules](README.md)
 
 # Filters and selection
 
-## Expected behavior
+## Rules
 
-Board filters define scope. Each active quick filter narrows that scope; it must never admit tasks excluded by the board. Preserve filter IDs independently of names and list positions so renaming or reordering does not lose active state.
+- Board filters decide what's on the board, and each active quick filter narrows that further. A quick filter never brings in a task that the board excludes, as a card or as a bulk target. A parent task from outside the board can appear only as a context heading above a matching subtask, without edit or complete controls.
+- Quick filters keep their ids when they're renamed or reordered, so whether they're on survives.
+- A quick filter is in one of three states: hidden from the board (Show on board off), which is never applied; shown but off; or on. A board can keep only the first few shown filters on the toolbar, in settings order, and put the rest in a menu. That's presentation only: moving an active filter into the menu doesn't turn it off. See [quick filters](../filters.md#quick-filters) for the settings.
+- Label filters use the board's label ids and colors, and No labels is a choice of its own. The same color squares appear in settings, on the toolbar and in menus. Editing a label's color updates them everywhere without changing which tasks have the label.
+- Match subtasks is off by default. When it's on, a matching subtask shows inside its parent's card, for context. A parent shown only for context has the subdued, italic context note and is never a bulk target. Results keep the task hierarchy rather than flattening it.
 
-Distinguish three states: disabled from Show on board (not applied), available but inactive, and active. Overflow placement is presentation only. Count the first N enabled filters in settings order; moving an active filter into the menu must not turn it off. See [filter documentation](../filters.md) for persisted options and matching semantics.
+### Bulk selection
 
-Label filters use the board's label IDs and palette. Support No labels as an explicit condition. Reuse the same color-square preview in settings, toolbar and menus; color editing must be reflected everywhere without changing assignments.
+- Select starts selecting. In selection mode, an accent selection square takes the place of each card's completion checkbox, so the two never appear together and selecting can't complete a task.
+- Cmd-click or Ctrl-click toggles a card, starting selection if needed. Shift-click selects the cards shown between two cards in the same column. Modifier-clicking a link still follows the link.
+- Select all includes every matching card, past collapsed rows and display limits. The column picker limits it; swiping between columns doesn't. Select column adds that column's matching cards to the selection; Clear starts over.
+- Anything shown as a card can be selected, including a subtask shown as a card of its own because its parent isn't on the board; a bulk edit changes only that task's own line. Subtasks inside a card and context-only parents can't be selected on their own.
+- Selecting ends with a click on empty board space or outside the board, Escape, or Done selecting. It stays on while a bulk editor is open or work is in progress.
+- Changing filters or the column picker clears the selection. After an edit, selected tasks stay selected even if they no longer match, and the status says so alongside the edit's result, for example "2 updated. 2 selected tasks are outside the current view." A selected task that now shows only as a parent for context stays selected too, and can still be unticked. Undo clears the selection but leaves selection mode on.
+- Bulk actions use the same checks as single edits, and report which tasks changed and which were skipped. They never quietly widen the selection or overwrite edits made since the tasks were selected.
 
-Match subtasks is opt-in and defaults off. When enabled, show matching subtasks with their parent context. A context-only parent must be visibly identified with the subdued italic context label and must not become a matching main task for bulk operations. Do not lose hierarchy merely to flatten filter results.
+## Exceptions
 
-## Bulk selection
+None recorded.
 
-- Select starts multi-selection; selection controls must not resemble task completion controls.
-- Cmd-click on Mac or Ctrl-click elsewhere toggles a main task. Shift-click selects a displayed range within the same column; link modifier behavior remains intact.
-- Select all includes matching main tasks beyond collapsed rows and display limits. The column picker constrains scope; swiping between columns does not change scope. Select column restricts selection to that column.
-- Nested subtasks and context-only parents cannot be selected independently for bulk edits.
-- Empty board space, outside clicks, Escape and Done selecting exit selection. Keep it active while a bulk editor is open or work is busy.
-- Changing filters or the column picker clears selection. After an edit, retain selected snapshots even when tasks leave the visible filter, and explain that state. Undo clears selection.
+## Where it lives
 
-Bulk actions reuse task-write validation and report applied and skipped tasks. Never silently expand a selection to every task in the vault or overwrite edits made since selection.
-
-## Reuse and verify
-
-Start with [renderBoard.ts](../../src/ui/renderBoard.ts), [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts), [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts), [renderBulkEditor.ts](../../src/ui/renderBulkEditor.ts) and the existing core filter/model logic. The [bulk triage user guide](../tasks.md#bulk-triage) explains scope and action effects.
-
-- Compare visible results, selected counts and actual written tasks, including filtered descendants and context-only ancestors.
-- Check label-less tasks, renamed labels, disabled filters, overflow and single-column overrides.
-- Check modifier-click, same-column ranges, Select all with collapsed rows, outside-click dismissal and modal preservation.
-- Verify partial writes, subsequent edits, selection retention and Undo.
-- Relevant suites: [quick-filter hierarchy](../../tests/quickFilterHierarchy.test.ts), [quick filters](../../tests/quickFilters.test.ts), [bulk triage](../../tests/bulkTriage.test.ts), [filters](../../tests/filters.test.ts) and [BoardView](../../tests/BoardView.test.ts).
+- Matching: [filters.ts](../../src/core/filters.ts), [quickFilters.ts](../../src/core/quickFilters.ts) and [quickFilterHierarchy.ts](../../src/core/quickFilterHierarchy.ts), within the board model in [board.ts](../../src/core/board.ts).
+- How many filters stay on the toolbar: the `quick-filters-menu`, `quick-filters-visible` and `quick-filters-visible-mobile` board properties, read in [boardConfig.ts](../../src/core/boardConfig.ts). The toolbar and menu groups: [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts).
+- Selection: `triageCards` and `planBulk` in [bulkTriage.ts](../../src/core/bulkTriage.ts). The selection controls, status and bulk bar are in [renderBoard.ts](../../src/ui/renderBoard.ts), and the bulk editor in [renderBulkEditor.ts](../../src/ui/renderBulkEditor.ts). The user guide's [bulk triage](../tasks.md#bulk-triage) section explains selection to users.

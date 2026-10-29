@@ -1,37 +1,39 @@
-[← Shared UX guidance](README.md)
+[← UX rules](README.md)
 
 # Buttons, icons and menus
 
-## Expected behavior
+## Rules
 
-Reuse Obsidian's line icons through the host's icon adapter. Prefer a labeled button for unfamiliar or consequential actions; compact repeated actions may use icons with accessible names and hover explanations. Do not rely on hover as the only explanation on touch screens.
+Use a labeled button for an unfamiliar or consequential action. Compact, repeated actions can be icons, with accessible names and hover explanations. On touch screens, hover can't be the only explanation. Icons are Obsidian's line icons; see [look and feel](look-and-feel.md).
 
-| Action | Convention |
+| Action | Control |
 | --- | --- |
-| Create an item | Plus icon followed by Add task, Add Label or Add quick filter; use the existing add-button treatment for that surface. |
-| Save / cancel a draft | Green check on the left, X on the right; see [editing and saving](editing-and-saving.md). |
-| Assign labels / edit a definition | Tag icon / pencil icon. |
-| Copy / remove a quick filter | Copy / trash icons with names identifying the filter. Removal changes the settings draft. |
-| Reorder | Right-edge grip, distinct from edit and remove. |
-| More card actions | Ellipsis with Move to… choices that explain date/completion consequences. |
-| All subtasks | One Subtasks menu beside Compact, containing Collapse all and Expand all. The hide-completed preference stays in settings. |
+| Create an item | A plus icon followed by Add task, Add label or Add quick filter, in that surface's add-button style |
+| Save or cancel a draft | A green check on the left and an X on the right; see [editing and saving](editing-and-saving.md) |
+| Assign labels / edit a label | The tag icon / the pencil icon |
+| Copy / remove a quick filter | Copy and trash icons, named for the filter. Removing a filter changes the settings draft. |
+| Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, and cards on touch screens |
+| More card actions | ⋯ opens Move to…, whose choices say what else the move changes, such as the due date it sets |
+| All subtasks | One Subtasks button beside Compact opens a menu with Collapse all subtasks and Expand all subtasks. Hiding completed subtasks is a setting under Appearance, not a toolbar button. |
 
-The per-card subtask count and add-subtask action share a row. Its chevron/count tooltip names the action: Hide subtasks or Show subtasks. Keep the card's scheduling arrow at the right end of the footer/action row, including when metadata wraps.
+A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks or Show subtasks.
 
-## Toggle and menu states
+### Toggles and menus
 
-Expose toggle state with `aria-pressed` or a checkbox, not just a background color. Menu triggers expose expanded state and restore focus when closed. Re-resolve the trigger after a redraw rather than focusing a detached node.
+Show a toggle's state with `aria-pressed` or a checkbox, not only a color. A menu's trigger exposes whether the menu is open, and gets focus back when the menu closes. After a redraw, find the current trigger again rather than focusing an element that was removed.
 
-Quick-filter buttons put the filter icon first, selected-label color squares next, and the chosen name last. Use [quickFilterColors.ts](../../src/ui/quickFilterColors.ts) for toolbar, menu and settings previews. The menu's checked state represents activation; being in the menu does not disable a filter. Its trigger counts active filters hidden inside it.
+A quick-filter button shows the filter icon, then the color squares of its labels, then its name. The toolbar, the menu and the settings preview draw those squares the same way. In the menu, a checkmark means the filter is on; being in the menu doesn't turn a filter off. The menu's trigger counts the active filters inside it.
 
-Use public Obsidian `Menu` APIs in [BoardView.ts](../../src/obsidian/BoardView.ts). The quick-filter menu intentionally uses a non-native menu to retain colored previews; its browser-harness equivalent is for testing, not a second production menu system.
+Menus use Obsidian's public `Menu` API.
 
-## Reuse and verify
+## Exceptions
 
-See [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts), [renderBoard.ts](../../src/ui/renderBoard.ts), [editorHeader.ts](../../src/ui/editorHeader.ts) and [styles.css](../../styles.css).
+- The quick-filter menu isn't a native menu, because native menus can't show the color squares. The browser harness has its own stand-in for testing; it isn't a second menu style.
 
-- Check long names, multiple label squares, no labels, disabled actions and active states.
-- Check toolbar wrapping and menu placement in narrow panes, light/dark themes and the user's installed theme when available.
-- Open and dismiss menus with pointer and keyboard; verify focus and checkmarks after redraw.
-- Inspect both the settings editor and main toolbar after changing either surface. Do not share their layout classes.
-- Use [quick-filter menu tests](../../tests/quickFilterMenu.test.ts), [subtask visibility tests](../../tests/subtaskVisibility.test.ts) and visual layout checks.
+## Where it lives
+
+- Toolbar quick filters and their menu trigger: [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts). Color squares: [quickFilterColors.ts](../../src/ui/quickFilterColors.ts).
+- Card actions, the Subtasks button and selection controls: [renderBoard.ts](../../src/ui/renderBoard.ts).
+- The Subtasks, Move to… and quick-filter menus: [BoardView.ts](../../src/obsidian/BoardView.ts).
+- Add label and the pencil: [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts). The column and quick-filter grips, copy, trash and Add quick filter: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts), with dragging in [reorderQuickFilters.ts](../../src/ui/reorderQuickFilters.ts).
+- Editor headers: [editorHeader.ts](../../src/ui/editorHeader.ts).

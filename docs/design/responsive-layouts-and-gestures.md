@@ -1,34 +1,29 @@
-[← Shared UX guidance](README.md)
+[← UX rules](README.md)
 
 # Responsive layouts and gestures
 
-## Expected behavior
+## Rules
 
-Base board layout on available container width, not device name. The current narrow-board breakpoint is 600px, so a narrow desktop pane gets paging too. Explicitly selecting one column also uses the single-column quick-filter count. A blank override inherits the main count; zero is an explicit choice to put all enabled filters in the menu.
+- The layout follows the board's width, not the device. At 600px or narrower, the board shows one column at a time, in a narrow desktop pane as on a phone.
+- Choosing one column in the column picker uses the one-column quick-filter count, like a narrow board. A blank one-column count uses the main count; 0 puts every shown filter in the menu.
+- Vertical scrolling stays native and steady, and a little sideways drift while scrolling doesn't move columns. A deliberate sideways touch drag follows the finger, reveals the next column partway, then settles on a column. Scrolling vertically after paging stays on that column.
+- A one-column board can change column without touch, too: a sideways trackpad swipe or the Previous column and Next column buttons beside the page dots move one column.
+- Pinch zoom and text editing keep working. Card handles take precedence over paging; see [drag and drop](drag-and-drop.md).
+- Obsidian's sidebar gestures don't take over gestures that belong to the board. The board isolates them only within itself and leaves the rest of Obsidian working. Never fix a board gesture by turning off touch behavior across the app.
+- At 600px or narrower, Add task sits above its list, clear of Obsidian's bottom toolbar. On wider boards it stays at the bottom of its cell while the cell scrolls past. Done and selection mode have no Add task.
+- There's enough scrollable space below the last card for it and its actions to clear Obsidian's floating toolbar and the safe area. Padding outside the scrolling element doesn't count.
+- Column headers and row labels stay in view while scrolling. The column and scroll position survive board refreshes.
+- With several columns showing, dragging a column header's edge resizes that column like a spreadsheet, and the other columns keep their widths. A click without movement changes nothing, and a failed save restores the previous widths. Double-click or Home resets all widths. The arrow keys resize the focused separator, with Shift for bigger steps. There's no resizing at 600px or narrower, or when one column is chosen.
+- Editors keep their header reachable when the phone keyboard opens; see [editing and saving](editing-and-saving.md).
+- On touch screens, text fields use at least 16px text, so iOS doesn't zoom the page when one is focused.
 
-Keep vertical scrolling native and steady. A small horizontal drift during vertical scrolling must not move columns. A deliberate horizontal touch gesture should track the finger, reveal the neighboring column partway, then settle on a column. Vertical scrolling after paging must retain the selected column.
+## Exceptions
 
-Use [columnSwipe.ts](../../src/ui/columnSwipe.ts) for axis detection, paging and click suppression. Its current thresholds distinguish a deliberate horizontal gesture from vertical movement, and a short flick from a slow partial drag. Preserve pinch zoom and input editing. Card handles take precedence over paging; see [drag and drop](drag-and-drop.md).
+- In Obsidian mobile, Add task sits above its list at any width, even on a wide iPad board, because Obsidian mobile's floating bottom toolbar would cover it at the bottom of the cell.
+- Obsidian mobile gets the touch styles at any width, even with a trackpad: the card drag grip, extra scroll space below the last card, editors pinned below the status bar, 16px text fields, and no buttons that appear only on hover. Its toolbar, keyboard and iOS behavior don't depend on the board's width.
 
-Obsidian's host sidebar gestures must not take over gestures belonging to the board. Keep host-event isolation local to the board and retain access to surrounding Obsidian controls. Never solve a board gesture bug by disabling touch behavior throughout the application.
+## Where it lives
 
-## Layout and persistence
-
-- Mobile Add task controls sit above their task list. Desktop cells retain their bottom placement. Done has no Add task control.
-- Leave enough scrollable bottom space to bring the final card and its actions above Obsidian's floating toolbar and the safe area. Padding outside the actual scroller is insufficient.
-- Keep headers and row labels useful while scrolling. Preserve column position and scroll state through board refreshes.
-- In multi-column layouts, use [columnResize.ts](../../src/ui/columnResize.ts) for spreadsheet-like header-edge resizing. Other columns retain their measured widths while one is resized. Resize does not apply to single-column paging.
-- A stationary resize click must not freeze flexible widths. Failed persistence restores prior widths. Double-click or Home resets widths; keyboard arrows adjust the focused separator.
-- Editor forms use the visual viewport through [editorHeader.ts](../../src/ui/editorHeader.ts), keeping primary actions reachable when the keyboard opens.
-
-## Verify
-
-Check wide desktop, tablet, a narrow desktop pane and phone width; test explicit one-column selection separately. Resize an existing board across the breakpoint rather than checking only initial render.
-
-- Scroll every column vertically, including after paging and after an index update.
-- Try slow partial swipes, flicks, diagonal movement, taps on links, pinch zoom and handle drags near edges.
-- Reach the final card above the floating toolbar, with short and long lists.
-- Check pointer resize, keyboard resize, reset and failed saves.
-- Exercise keyboard-open editors on native iOS when available; record browser-only and simulator coverage separately from device coverage.
-
-Relevant suites: [column swipe](../../tests/columnSwipe.test.ts), [narrow board](../../tests/narrowBoard.test.ts), [column resize](../../tests/columnResize.test.ts), [touch card drag](../../tests/touchCardDrag.test.ts) and [quick-filter menu](../../tests/quickFilterMenu.test.ts).
+- The 600px breakpoint is a container query on the board (`container: trellis` in [styles.css](../../styles.css)), so it measures the board, not the window. Touch-specific styles use `(pointer: coarse)` and `(hover: none)`, and Obsidian mobile's `.is-mobile` class.
+- Paging: [columnSwipe.ts](../../src/ui/columnSwipe.ts) locks a touch gesture's direction, pages and suppresses the click after a swipe. Trackpad swipes and the Previous and Next column buttons page through the same code.
+- Column resize: [columnResize.ts](../../src/ui/columnResize.ts). Keyboard-safe editor sizing: `prepareEditorModal` in [editorHeader.ts](../../src/ui/editorHeader.ts).

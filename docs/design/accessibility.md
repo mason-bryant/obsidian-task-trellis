@@ -1,31 +1,30 @@
-[← Shared UX guidance](README.md)
+[← UX rules](README.md)
 
 # Accessibility
 
-## Expected behavior
+## Rules
 
-Every essential action needs a keyboard or explicit-control alternative to dragging or swiping. Prefer native buttons, inputs and checkboxes; custom roles must include their state and keyboard behavior. Icon-only controls need action names, including the item name where ambiguity matters.
+- Every essential action done by dragging or swiping also has a keyboard or button alternative. Prefer native buttons, inputs and checkboxes; a custom role carries its own state and keyboard behavior. Icon-only controls have names that say what they do, and which item, where several look alike.
+- Focus is always visible. After a redraw, focus returns to the same item or control, found by a stable id rather than a reference to the old element. Menus return focus to their trigger, and nested editors to the control that opened them. Background updates never take focus from another window.
+- Headings and groups describe a form's structure. Results such as a new reorder position or a selection count are announced in a live region, and errors that need attention are alerts. Visual placeholders and drag copies are hidden from assistive technology and contain no focusable controls.
+- Color is never the only signal. Label squares and bars have descriptions, and selections and active filters have a checkmark or a pressed state. Label text is chosen for at least 4.5:1 contrast with its label's color. Surfaces and text use Obsidian's theme colors.
+- Touch targets are 44px, with space between them.
+- Reduced motion turns animation off, and nothing depends on it: rows sliding aside and columns settling aren't needed to understand the result, and the drop indicator shows without animation. Long and enlarged text stays usable without covering nearby controls.
 
-Keep a visible focus indicator. After redraw, restore focus using a stable item/control identity rather than a previous DOM reference. Menus return focus to their trigger; nested editors return to their originating control. Do not steal focus from another window during background updates.
+### Keyboard alternatives today
 
-Use headings and groups to describe form structure, live status for results such as reorder positions or selection counts, and alerts for errors requiring attention. Mark purely visual placeholders and drag copies as hidden from assistive technology; a drag copy must not introduce duplicate focusable controls.
+- **Cards and subtasks:** Tab to a card or subtask. Enter edits it, or opens its source line when the Tasks plugin isn't installed. Alt+Up/Down moves an open card within its cell, and ⋯ Move to… moves a card or subtask to another column or date row.
+- **One-column boards:** the Previous column and Next column buttons beside the page dots.
+- **Settings lists:** column and quick-filter grips move with Arrow Up/Down and Home/End, with the new position announced.
+- **Column separators:** Arrow Left/Right resize, with Shift for bigger steps, and Home resets all widths.
+- **Settings and editors:** the settings tabs work with the keyboard, and editor headers have named save and close buttons.
 
-Color is supplemental. Label squares and strips need descriptions; selection and active filters need checkmarks or semantic state. Choose readable text contrast for editable label colors through [labels.ts](../../src/core/labels.ts). Prefer Obsidian theme variables for surfaces and text.
+## Exceptions
 
-Aim for 44px touch targets for ordinary actions and adequate separation. **Existing exception:** narrow full-height drag strips deliberately use less width to avoid consuming card/editor space. Keep their full height and non-drag alternatives; do not use this exception to shrink unrelated action buttons.
+- Drag grips on cards and settings rows, and the column-resize separators, are narrower than 44px, so they don't take space from or cover what's beside them. They keep their full height, and what they do has an alternative that isn't a drag. This doesn't extend to other buttons.
 
-Honor reduced motion: animated neighbor movement and page settling should not be required to understand the result. Keep the destination indicator visible without animation. Long text and enlarged text must remain usable without covering adjacent controls.
+## Where it lives
 
-## Current alternatives and limits
-
-- Cards: Enter edits; Alt+Up/Down reorders open cards within a cell; Move to… provides column/date moves.
-- Filter handles: Arrow Up/Down and Home/End reorder, with position announcements.
-- Column separators: Arrow Left/Right resize; Shift uses larger steps; Home resets widths.
-- Settings tabs support keyboard navigation. Editor headers provide labeled Save and Cancel controls.
-- A semantic attribute or passing DOM test does not establish usable VoiceOver behavior. Test the actual screen reader before claiming coverage.
-
-## Verify
-
-Complete the changed workflow without a pointer, then check focus after save, cancel, redraw and menu dismissal. Check a screen reader's names, state changes and reading order when available. Test light/dark themes, enlarged text, reduced motion and narrow layouts. On native iOS, include the keyboard and touch exploration.
-
-Start with [editor header](../../tests/editorHeader.test.ts), [appearance](../../tests/appearance.test.ts), [label picker](../../tests/labelPicker.test.ts), [reorder](../../tests/reorderQuickFilters.test.ts) and [column resize](../../tests/columnResize.test.ts) tests. Record what was actually exercised rather than declaring accessibility from automation alone.
+- Focus after a redraw: `renderBoard` in [renderBoard.ts](../../src/ui/renderBoard.ts) refocuses the control whose `data-board-focus` key matches the one that had focus. Menu triggers find their current button the same way.
+- Label text contrast: [labels.ts](../../src/core/labels.ts). Focus outlines, 44px sizing and reduced motion: [styles.css](../../styles.css).
+- Keyboard reordering and its announcement: [reorderQuickFilters.ts](../../src/ui/reorderQuickFilters.ts) and [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts). Column separators: [columnResize.ts](../../src/ui/columnResize.ts). The touch drag copy is hidden and inert: [touchCardDrag.ts](../../src/ui/touchCardDrag.ts).

@@ -1,26 +1,29 @@
 [← Development](../development.md)
 
-# Shared UX guidance
+# UX rules
 
-Task Trellis should feel like one tool across the board, its settings, and its editors. These documents describe interaction contracts, implementation locations, and checks to run when changing them. They are contributor guidance; task instructions for users remain in the [user documentation](../../README.md).
+Task Trellis should look and behave the same way wherever the same kind of thing happens: on the board, in its settings, and in every editor and menu. These documents say what that means, so that a change to one screen doesn't drift away from the others. They are written for contributors and coding agents; the [user guide](../../README.md) explains the features to users.
 
-## Choose the relevant contract
-
-| Area | Read before changing |
+| Document | Covers |
 | --- | --- |
-| [Drag and drop](drag-and-drop.md) | Card movement, reordered settings lists, drag handles and insertion feedback |
-| [Editing and saving](editing-and-saving.md) | Editors, draft lifetime, save/cancel controls and keyboard behavior |
-| [Buttons, icons and menus](buttons-icons-and-menus.md) | Action placement, naming, overflow and visual states |
-| [Responsive layouts and gestures](responsive-layouts-and-gestures.md) | Phone layouts, scrolling, paging, column resizing and keyboard clearance |
-| [Filters and selection](filters-and-selection.md) | Filter semantics, label previews, subtask context and bulk triage |
-| [Feedback and recovery](feedback-and-recovery.md) | Busy indicators, write failures, previews and Undo |
-| [Accessibility](accessibility.md) | Keyboard access, focus, screen-reader output, color and motion |
-| [Implementation and testing](implementation-and-testing.md) | Component boundaries, CSS scope and regression coverage |
+| [Look and feel](look-and-feel.md) | Colors, type, icons, sizes, control styles and states, and the layout of the board, cards, editors, menus and sidebar |
+| [Wording](wording.md) | Capitalization, names for buttons and commands, tooltips, notices and error messages |
+| [Buttons, icons and menus](buttons-icons-and-menus.md) | Which control and icon each action uses, and how toggles and menus behave |
+| [Editing and saving](editing-and-saving.md) | How each editor saves, cancels and keeps drafts, and its keys |
+| [Drag and drop](drag-and-drop.md) | Moving cards, reordering settings lists, handles and drop feedback |
+| [Responsive layouts and gestures](responsive-layouts-and-gestures.md) | Narrow boards, scrolling, paging, column resizing and the phone keyboard |
+| [Filters and selection](filters-and-selection.md) | What filters show, quick-filter states, subtask context and bulk selection |
+| [Feedback and recovery](feedback-and-recovery.md) | Busy states, failures, previews, Undo and recovery |
+| [Accessibility](accessibility.md) | Keyboard access, focus, screen readers, color and motion |
 
-## How to use these documents
+## How these documents work
 
-Read the contract before implementing a second version of an interaction. Follow the linked implementation rather than copying its markup or CSS into a new screen. Shared behavior does not require every interaction to use one universal controller: native card dragging and a draft settings list have different persistence and gesture needs.
+Each document has three parts:
 
-Each document separates expected behavior from current exceptions or verification limits. A checklist is a requirement for evaluating a change, not evidence that the current release has passed every check. Record actual results in the PR or [test report](../testing.md).
+- **Rules:** what users see and do. New and changed screens follow them.
+- **Exceptions:** every place the product differs from a rule, and why. A difference that isn't listed is a bug, either in the document or in the code.
+- **Where it lives:** the files that implement it today. Using that code keeps behavior matched and is preferred when it fits, but matching the look and behavior is what matters.
 
-When behavior deliberately changes, update the contract, related user documentation, and meaningful regression tests together. Keep implementation details in these documents rather than exposing them in product labels. Link to source files and named behaviors rather than line numbers that drift.
+When a change has to differ from a rule, record it under Exceptions, with the reason, in the same change. When a rule itself changes, update the document, the user guide pages that describe the behavior, and the tests together. Name files and functions rather than line numbers, which drift.
+
+How to check a change, and how to report what was tested, is in the [testing rules](../testing/README.md).

@@ -1,31 +1,30 @@
-[← Shared UX guidance](README.md)
+[← UX rules](README.md)
 
 # Feedback and recovery
 
-## Expected behavior
+## Rules
 
-Show a response as soon as work begins. Longer operations such as previewing or applying board-tag changes need an inline spinner and a meaningful busy label. Disable duplicate/conflicting actions, expose busy state to assistive technology, and remove it on both success and failure. Avoid transient success notices for every routine interaction when the changed UI already confirms the result.
+- Respond as soon as work starts. Longer operations, such as previewing or applying board-tag changes, show an inline spinner and a busy label. Disable actions that would repeat or conflict with the work, expose the busy state to assistive technology, and clear it on success and on failure.
+- Skip success notices when the changed screen already shows the result.
+- When an action fails, say so on screen; the console is never the only sign. Keep what the user entered, and where they were, whenever a retry is possible. How the message reads is in [wording](wording.md).
+- Tell a failed write apart from a failed follow-up. If the settings were saved but the board couldn't be opened, say that, so the user doesn't save again.
 
-An error should say what failed, whether anything was saved, and what the user can do next. Keep details in the console for diagnosis, but never make the console the only indication of a failed user action. Preserve entered text and editing context whenever retry is possible.
+### Previews, writes and Undo
 
-Distinguish a failed write from a failed follow-up action. For example, if board settings were saved but opening the board failed, say so rather than encouraging a duplicate save.
+- Notes are the source of truth. A card that moves as soon as it's dropped is a preview, not proof that the write worked. Previews of skipped and failed writes are removed, and successful ones are reconciled with the index. A local action doesn't rebuild the whole vault's index.
+- Writes check the task's snapshot before changing a note, including duplicate task lines and edits from sync. When a bulk edit partly succeeds, the result reports which tasks were updated and which were skipped.
+- Undo restores only writes that succeeded, and never overwrites newer edits: a note that changed after the action is skipped as a whole. There's no history to step back through; the board offers its latest action.
+- Renaming a board's tags is a bigger operation, with a preview of the affected notes and a recovery copy. Keep both, rather than treating it like a title edit.
+- Applying a color scheme keeps one Previous scheme: the outgoing colors, by label id. Names and assignments don't change. Editing a single label's name or color updates the palette without keeping a copy. Neither is task Undo.
 
-## Previews, writes and Undo
+## Exceptions
 
-Notes remain the source of truth. Optimistic card movement is temporary feedback, not proof that a write succeeded. Remove previews for skipped tasks and failed writes; reconcile successful previews against the index. Avoid unnecessary full-vault rebuilds for local actions.
+None recorded.
 
-Use [TaskWriter.ts](../../src/obsidian/TaskWriter.ts) and the existing atomic write paths. Check task snapshots before changing notes, including duplicate task lines and sync edits. Partial bulk success must report successful and skipped tasks separately.
+## Where it lives
 
-Undo restores successful writes only and must not overwrite newer edits. The current safety boundary can skip a whole note when its content changed after the action. Do not promise arbitrary history: the board offers its latest supported action. Undo invalidates selected task snapshots.
-
-Board-tag renaming is a larger operation with an explicit preview and recovery workflow. Preserve its affected-note review and recoverable changes rather than treating it as an ordinary title edit. Recoloring labels has a separate Previous scheme mechanism preserving names and assignments; it is not task Undo.
-
-## Reuse and verify
-
-Use [BoardView.ts](../../src/obsidian/BoardView.ts) for previews and action feedback, [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts) and [BoardTagRename.ts](../../src/obsidian/BoardTagRename.ts) for rename progress/recovery, and [recoverDraft.ts](../../src/obsidian/recoverDraft.ts) for task drafts. Note popup recovery is owned by [NotePopup.ts](../../src/obsidian/NotePopup.ts).
-
-- Force a destination failure, write failure, stale snapshot and mixed-success bulk edit in synthetic tests or a disposable vault.
-- Check no input loss, false success, stuck spinner, duplicate submission or permanently misplaced card preview.
-- Make an intervening note edit before Undo; confirm it is preserved.
-- Test save success followed by navigation failure, plus retry after failure.
-- Relevant suites: [save reliability](../../tests/saveReliability.test.ts), [TaskWriter](../../tests/TaskWriter.test.ts), [BoardView](../../tests/BoardView.test.ts), [board-tag rename](../../tests/boardTagRename.test.ts) and [NotePopup](../../tests/NotePopup.test.ts).
+- Card move previews, notices for task actions and the Undo action: [BoardView.ts](../../src/obsidian/BoardView.ts). The Undo bar and the bulk status line: [renderBoard.ts](../../src/ui/renderBoard.ts).
+- Writes, snapshot checks, Undo and the notices for skipped tasks: [TaskWriter.ts](../../src/obsidian/TaskWriter.ts).
+- Board rename: progress and errors in [renderBoardNameEditor.ts](../../src/ui/renderBoardNameEditor.ts), shown by [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts). Snapshots, applying and restoring in [BoardTagRename.ts](../../src/obsidian/BoardTagRename.ts), with the restore dialog in [RestoreBoardRenameModal.ts](../../src/obsidian/RestoreBoardRenameModal.ts).
+- Drafts: the inline composer keeps its draft in [renderBoard.ts](../../src/ui/renderBoard.ts). When saving text from the Tasks editor, the New task prompt or Details… fails, [recoverDraft.ts](../../src/obsidian/recoverDraft.ts) reopens it. The source-note popup keeps its own ([NotePopup.ts](../../src/obsidian/NotePopup.ts)).
+- Previous scheme: [labelSchemes.ts](../../src/core/labelSchemes.ts).
