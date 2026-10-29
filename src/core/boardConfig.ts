@@ -46,6 +46,9 @@ export type BoardConfig = {
   excludeFolders: string[];
   /** 0 hides completed tasks. */
   showCompletedDays: number;
+  /** Null preserves the legacy per-device Compact choice until edited. */
+  compact: boolean | null;
+  showColumnSelector: boolean;
   /** List completed subtasks after open ones, otherwise in note order. */
   sortCompletedSubtasks: boolean;
   hideCompletedSubtasks: boolean;
@@ -102,6 +105,8 @@ export const FM = {
   includeFolders: 'include-folders',
   excludeFolders: 'exclude-folders',
   showCompletedDays: 'show-completed-days',
+  compact: 'compact',
+  showColumnSelector: 'show-column-selector',
   sortCompletedSubtasks: 'sort-completed-subtasks',
   hideCompletedSubtasks: 'hide-completed-subtasks',
   overdueBar: 'overdue-bar',
@@ -143,6 +148,8 @@ export function newBoardFrontmatter(slug: string): Record<string, unknown> {
     [FM.includeFolders]: [],
     [FM.excludeFolders]: [],
     [FM.showCompletedDays]: 7,
+    [FM.compact]: false,
+    [FM.showColumnSelector]: true,
     [FM.sortCompletedSubtasks]: false,
     [FM.hideCompletedSubtasks]: false,
     [FM.overdueBar]: true,
@@ -225,6 +232,8 @@ export function parseBoardConfig(
       includeFolders: stringList(f[FM.includeFolders]).map(normalizeFolder).filter(Boolean),
       excludeFolders: stringList(f[FM.excludeFolders]).map(normalizeFolder).filter(Boolean),
       showCompletedDays: intSetting(f[FM.showCompletedDays], 7, 0, 3650),
+      compact: f[FM.compact] == null ? null : boolSetting(f[FM.compact], false),
+      showColumnSelector: boolSetting(f[FM.showColumnSelector], true),
       sortCompletedSubtasks: boolSetting(f[FM.sortCompletedSubtasks], false),
       hideCompletedSubtasks: boolSetting(f[FM.hideCompletedSubtasks], false),
       overdueBar: boolSetting(f[FM.overdueBar], true),

@@ -12,15 +12,19 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 | Save or cancel a draft | A green check on the left and an X on the right; see [editing and saving](editing-and-saving.md) |
 | Assign labels / edit a label | The tag icon / the pencil icon |
 | Copy / remove a quick filter | Copy and trash icons, named for the filter. Removing a filter changes the settings draft. |
-| Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, and cards on touch screens |
+| Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, cards on touch screens, and sibling subtasks on desktop |
 | More card actions | ⋯ opens Move to…, whose choices say what else the move changes, such as the due date it sets |
-| All subtasks | One Subtasks button beside Compact opens a menu with Collapse all subtasks and Expand all subtasks. Hiding completed subtasks is a setting under Appearance, not a toolbar button. |
+| All subtasks | One Subtasks button on the toolbar opens a menu with Collapse all subtasks and Expand all subtasks. Hiding completed subtasks is a setting under Appearance, not a toolbar button. |
 
 A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks or Show subtasks.
+
+The board toolbar always ends with Settings, after Select or Done selecting. Keep that order in the DOM, keyboard navigation and wrapped layouts, even when other controls are hidden.
 
 ### Toggles and menus
 
 Show a toggle's state with `aria-pressed` or a checkbox, not only a color. A menu's trigger exposes whether the menu is open, and gets focus back when the menu closes. After a redraw, find the current trigger again rather than focusing an element that was removed.
+
+Every checkbox in Appearance means **hide when checked, show when unchecked**, and its label begins with Hide. Keep stored preferences compatible when inverting a control’s wording. Non-visibility settings, such as card spacing and subtask ordering, use dropdowns instead of checkboxes.
 
 A quick-filter button shows the filter icon, then the color squares of its labels, then its name. The toolbar, the menu and the settings preview draw those squares the same way. In the menu, a checkmark means the filter is on; being in the menu doesn't turn a filter off. The menu's trigger counts the active filters inside it.
 

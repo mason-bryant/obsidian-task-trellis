@@ -2,6 +2,8 @@
 
 # Community readiness test report
 
+The [October 29 subtask-reordering report](qa/subtask-reorder-2026-10-29.md) records the initial implementation and the subsequent desktop-grip revision. The revision passes 651 application tests and browser pointer/keyboard checks; its native verification remains outstanding.
+
 The latest unreleased-branch check is the [October 28 pre-release report](qa/pre-release-2026-10-28.md): 609 application tests, 8 shortcut tests, browser layout measurements, native desktop checks and native iPhone checks through Mirroring. Its remaining gaps are recorded separately; the historical results below are not claims about that candidate.
 
 Updated October 27, 2026 for version **0.1.16**. The original readiness review covered 0.1.10; version-specific follow-ups and maintainer confirmations are recorded below. Test data is synthetic. Stress tests ran in a disposable vault; a separate synthetic QA folder in the maintainer’s synced vault was used for sync checks. No existing personal tasks were used for stress testing.
@@ -209,3 +211,38 @@ Includes merged PRs 24–28: pop-up note editing and lifecycle fixes, subtask pr
 - **Release-specific mobile attempt:** connected to the maintainer’s iPhone 15 Pro Max through Mirroring. Obsidian settings initially showed Task Trellis 0.1.15, disabled. Text entry and taps were unreliable; Mirroring closed once, and reconnecting and restarting Obsidian did not yield a usable bulk-edit session. The exact candidate bundle on the phone could not be established. Two synthetic test tasks and a board were prepared in the synced vault but never edited from the phone, then removed with a recoverable backup. The agent-operated attempt was incomplete. The maintainer then took over and confirmed that the requested phone smoke check looked good. **The phone smoke checklist is closed on maintainer-reported evidence**, not on a completed automated or agent-operated run; the exact installed phone build/app versions were not independently reconfirmed. Android remains deliberately deferred by the maintainer; no new VoiceOver or cross-device conflict-resolution pass is claimed.
 
 These implementation checks used the 0.1.16 source while the local manifest still read 0.1.15; a clean dependency installation, all 484 application and 8 shortcut tests, lint, preview build and final 0.1.16 packaging passed again on the release branch. Historical sections above retain their original version-specific counts and limitations.
+
+
+## Appearance toolbar controls (October 28, unreleased)
+
+- **Change:** Compact moved from the toolbar to Board settings → Appearance. Show column selector defaults on; turning it off removes the dropdown and clears its selected-column filter while retaining narrow-board navigation. Both choices use the normal settings draft/save flow. Legacy Compact choices remain effective until the board explicitly sets Compact.
+- **Automated:** clean `npm ci`, lint, all 611 tests in 45 files, all 8 Python shortcut tests, the browser harness build, and production packaging/release validation pass. Tests cover both settings, draft isolation and changed-field writes, legacy Compact fallback and explicit override, subtask visibility, and clearing/restoring the column selector.
+- **Browser:** Chrome/Chromium preview with synthetic tasks at 1200px and 390px. Visually checked Appearance and the surrounding toolbar/cards in light and dark themes, Save and Cancel, keyboard activation of Save, Compact on/off, hiding the picker after choosing Doing, restoring it, and narrow-board Next column navigation. Toolbar controls fit without overlap and the settings header remained reachable.
+- **Remaining coverage:** native Obsidian reload/inspection was blocked by the locked Mac at this check. No native iOS/Android, screen-reader, phone keyboard, or installed-theme coverage is claimed. Installed the verified build in the maintainer-selected vault with backups; all three installed assets match the packaged build and plugin settings were preserved byte-for-byte. Reload and native inspection remain pending because the Mac is locked.
+
+## Appearance checkbox direction and toolbar order (October 28, unreleased)
+
+- **Change:** every Appearance checkbox now checks to hide and unchecks to show. Card spacing and subtask order use dropdowns. Existing frontmatter keys retain their meaning, so existing preferences require no migration. Settings is last in the main toolbar, including selection mode and wrapped layouts. The hidden-selector scroll hint no longer mentions an absent control.
+- **Automated:** lint, all 612 tests in 45 files, all 8 Python shortcut tests, the harness build, and production packaging/type checking pass. The existing clean dependency install from the preceding Appearance pass was reused. Regression coverage checks inverse visibility writes, reopening saved preferences without changes, draft isolation, and Settings last with selection on/off and the column selector shown/hidden.
+- **Browser:** Chrome/Chromium harness with synthetic tasks at 1200px and 390px, light and dark themes. Checked Appearance and the surrounding toolbar/cards, Cancel, keyboard Save, reopening saved controls, checking to hide and unchecking to show the selector and overdue bars, compact spacing and subtask ordering, and Settings last with wrapping and selection mode. Tab from Done selecting focuses Settings.
+- **Local install and gaps:** installed and hash-verified the three packaged plugin assets in the requested maintainer vault, with a backup and unchanged plugin settings. Native reload/inspection remains blocked by the locked Mac. No native iOS, Android or screen-reader coverage is claimed.
+
+## Inline subtask keyboard visibility (October 29, unreleased)
+
+- **Fix:** the inline task/subtask composer now constrains the actual board scrolling area to the visual viewport while focused. It follows viewport resize and pan events, rechecks after layout and while typing, and preserves horizontal column position. When space is tight it prioritizes the text input. Leaving the composer, closing it, redrawing, or closing the view restores normal sizing and removes listeners.
+- **Regression:** the earlier test allowed unlimited `scrollTop`, masking the end-of-list failure. Tests now enforce the available scroll range in both the wide and paged layouts and cover viewport pan, cramped input visibility, draft preservation through redraw, and cleanup.
+- **Validation:** lint, all 644 tests in 47 files, 8 Python shortcut tests, harness compilation, and production packaging/type checking passed against the current working tree. The existing dependency install was reused. Chrome/Chromium browser checks used synthetic tasks at 390px and 1200px, light/dark themes, and a temporary 320px overlay with simulated visual-viewport events. Checked new tasks, subtasks, nested subtasks, an end-of-board task, chosen-column and paged layouts, typing, Enter save, Escape, and restoration of board height. The temporary fixture was removed.
+- **Local install:** packaged plugin assets were backed up, installed in the requested maintainer vault, and hash-verified; plugin settings were unchanged. Reload remains pending.
+- **Limits:** the overlay is a browser simulation, not native iOS keyboard coverage. Native app access was blocked by the locked Mac; native iOS, Android, and screen-reader behavior remain unverified.
+
+
+## Disabled subtask grips (October 29, unreleased)
+
+- Reproduced and fixed unavailable grips starting the ancestor row's native drag in Completed last mode. Grips now look disabled, block that false drag, and identify the correct visible task when siblings are hidden. Appearance explains the requirements for manual ordering.
+- Lint, 655 tests in 47 files, 8 Python tests, harness and production packaging/type checking pass. Chrome at 1200px verified actual movement events, the held insertion preview, disabled-grip drag prevention, nested reorder and Undo, light/dark appearance and surrounding settings/board. See [the detailed report](qa/subtask-reorder-2026-10-29.md#disabled-grip-drag-correction) for the temporary preview instrumentation and the earlier coverage gap.
+- Native Obsidian remains unverified because the Mac is locked; local reload is pending. No new native mobile or screen-reader pass.
+
+## Pre-PR verification (October 29)
+
+- A fresh locked dependency install completed with `npm ci --offline --no-audit --no-fund` using the local package cache after the initial install was interrupted. No dependency or lockfile changes were made.
+- Lint, all 655 application tests in 47 files, all 8 Python shortcut tests, the harness build, and production packaging/type checking passed again on the combined change. Earlier browser results and native testing gaps above still apply.

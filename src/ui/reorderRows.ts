@@ -5,20 +5,21 @@ import { uiElement } from './dom.ts';
  * on each row's right edge, or by its arrow, Home and End keys. Pointer capture supports mouse, pen
  * and touch without making the rows themselves draggable.
  */
-export function installRowReorder(body: HTMLElement, rowSelector: string, move: (from: number, to: number) => void): () => void {
+export function installRowReorder(body: HTMLElement, rowSelector: string, move: (from: number, to: number) => void,
+  options: { enabled?(event?: PointerEvent): boolean; scroller?(): HTMLElement; onDragState?(active: boolean): void; containDrop?: boolean } = {}): () => void {
   const rows = [...body.querySelectorAll<HTMLElement>(rowSelector)];
   const view = body.ownerDocument.defaultView!;
   type Box = { top: number; height: number; left: number; width: number };
   let drag: {
     from: number; id: number; handle: HTMLElement; startY: number; startX: number;
     y: number; x: number; to: number; moved: boolean; scroll: number; maxScroll: number;
-    boxes: Box[]; gap: number; placeholder: HTMLElement | null;
+    boxes: Box[]; gap: number; placeholder: HTMLElement | null; scroller: HTMLElement;
   } | null = null;
   let frame = 0;
   const target = () => {
     if (!drag?.moved) return;
     const current = drag;
-    const scrollDelta = body.scrollTop - current.scroll;
+    const scrollDelta = current.scroller.scrollTop - current.scroll;
     // Hit-test the original layout, never the animated rectangles. Otherwise the
     // rows moving out of the way can repeatedly flip the target under the pointer.
     const others = current.boxes.filter((_, index) => index !== current.from);
@@ -39,17 +40,18 @@ export function installRowReorder(body: HTMLElement, rowSelector: string, move: 
     const top = current.to > current.from ? destination.top + destination.height - source.height : destination.top;
     const bodyBox = body.getBoundingClientRect();
     const marker = current.placeholder!;
-    marker.style.top = `${top - bodyBox.top + current.scroll}px`;
+    marker.style.top = `${top - scrollDelta - bodyBox.top + body.scrollTop}px`;
     marker.style.left = `${source.left - bodyBox.left + body.scrollLeft}px`;
     marker.style.width = `${source.width}px`;
     marker.style.height = `${source.height}px`;
   };
   const tick = () => {
     if (!drag) return;
+    if (!body.isConnected || options.enabled?.() === false) { finish(false); return; }
     if (drag.moved) {
-      const rect = body.getBoundingClientRect();
+      const rect = drag.scroller.getBoundingClientRect();
       const speed = drag.y < rect.top + 48 ? -10 : drag.y > rect.bottom - 48 ? 10 : 0;
-      if (speed) body.scrollTop = Math.max(0, Math.min(drag.maxScroll, body.scrollTop + speed));
+      if (speed) drag.scroller.scrollTop = Math.max(0, Math.min(drag.maxScroll, drag.scroller.scrollTop + speed));
       target();
     }
     frame = view.requestAnimationFrame(tick);
@@ -67,13 +69,17 @@ export function installRowReorder(body: HTMLElement, rowSelector: string, move: 
     });
     if (current.handle.hasPointerCapture(current.id)) current.handle.releasePointerCapture(current.id);
     const rect = body.getBoundingClientRect();
-    if (commit && current.moved && current.x >= rect.left && current.x <= rect.right && current.to !== current.from) move(current.from, current.to);
+    const inside = current.x >= rect.left && current.x <= rect.right &&
+      (!options.containDrop || (current.y >= rect.top && current.y <= rect.bottom));
+    try {
+      if (commit && options.enabled?.() !== false && current.moved && inside && current.to !== current.from) move(current.from, current.to);
+    } finally { options.onDragState?.(false); }
   };
   const cleanups: Array<() => void> = [];
   rows.forEach((row, from) => {
-    const handle = row.querySelector<HTMLElement>('.tt-reorder-grip')!;
+    const handle = row.querySelector<HTMLElement>(':scope > .tt-reorder-grip')!;
     const down = (event: PointerEvent) => {
-      if (drag || !event.isPrimary || event.button !== 0) return;
+      if (drag || !event.isPrimary || event.button !== 0 || options.enabled?.(event) === false) return;
       event.preventDefault(); event.stopPropagation();
       handle.focus({ preventScroll: true });
       const boxes = rows.map((item) => {
@@ -83,10 +89,12 @@ export function installRowReorder(body: HTMLElement, rowSelector: string, move: 
       const source = boxes[from]!;
       const gap = boxes[from + 1] ? boxes[from + 1]!.top - source.top - source.height :
         boxes[from - 1] ? source.top - boxes[from - 1]!.top - boxes[from - 1]!.height : 0;
+      const scroller = options.scroller?.() ?? body;
       drag = { from, id: event.pointerId, handle, startY: event.clientY, startX: event.clientX,
-        y: event.clientY, x: event.clientX, to: from, moved: false, scroll: body.scrollTop, maxScroll: Math.max(0, body.scrollHeight - body.clientHeight),
+        y: event.clientY, x: event.clientX, to: from, moved: false, scroll: scroller.scrollTop, maxScroll: Math.max(0, scroller.scrollHeight - scroller.clientHeight), scroller,
         boxes, gap, placeholder: null };
       handle.setPointerCapture(event.pointerId);
+      options.onDragState?.(true);
       frame = view.requestAnimationFrame(tick);
     };
     const moving = (event: PointerEvent) => {
@@ -113,7 +121,7 @@ export function installRowReorder(body: HTMLElement, rowSelector: string, move: 
     const cancel = (event: PointerEvent) => { if (drag?.id === event.pointerId && drag.handle === handle) finish(false); };
     const key = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && drag) { event.preventDefault(); event.stopPropagation(); finish(false); return; }
-      if (drag || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+      if (drag || options.enabled?.() === false || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault(); event.stopPropagation();
       const to = event.key === 'Home' ? 0 : event.key === 'End' ? rows.length - 1 : from + (event.key === 'ArrowUp' ? -1 : 1);
       if (to >= 0 && to < rows.length && to !== from) move(from, to);

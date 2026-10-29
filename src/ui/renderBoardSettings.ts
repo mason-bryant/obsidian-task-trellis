@@ -417,10 +417,14 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       quickFilterEditor(body);
     } else if (section === 'appearance') {
       heading(body, 'Choose how cards look', 'Saved in the board note, so they follow the board to other devices.');
-      body.append(check('Sort completed subtasks to end of list', draft.sortCompletedSubtasks, (v) => { draft.sortCompletedSubtasks = v; }));
+      body.append(field('Card spacing', select('Card spacing', [['comfortable', 'Comfortable'], ['compact', 'Compact']], draft.compact ? 'compact' : 'comfortable', (v) => { draft.compact = v === 'compact'; }),
+        'Compact spacing does not change expanded subtask lists.'));
+      body.append(check('Hide column selector', !draft.showColumnSelector, (v) => { draft.showColumnSelector = !v; }));
+      body.append(el('p', 'tt-help', 'Hide the column dropdown and show all columns. Narrow boards still have column navigation.'));
+      body.append(field('Subtask order', select('Subtask order', [['note', 'Note order'], ['completed-last', 'Completed last']], draft.sortCompletedSubtasks ? 'completed-last' : 'note', (v) => { draft.sortCompletedSubtasks = v === 'completed-last'; }), 'To drag subtasks into a different order on desktop, choose Note order and show all sibling subtasks.'));
       body.append(check('Hide completed subtasks', draft.hideCompletedSubtasks, (v) => { draft.hideCompletedSubtasks = v; }));
       body.append(el('p', 'tt-help', 'A completed subtask with open subtasks stays visible.'));
-      body.append(check('Add red bar to overdue tasks', draft.overdueBar, (v) => { draft.overdueBar = v; }));
+      body.append(check('Hide overdue bars', !draft.overdueBar, (v) => { draft.overdueBar = !v; }));
       body.append(field('Open notes and links in', select('Open notes and links in', [['popup', 'Pop-up editor'], ['tab', 'A tab']], draft.openLinks, (v) => { draft.openLinks = v === 'tab' ? 'tab' : 'popup'; }),
         'A card’s note and the links in its text. The pop-up editor edits the note without leaving the board. Cmd/Ctrl-click always opens a new tab.'));
     } else {

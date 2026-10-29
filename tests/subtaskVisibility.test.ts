@@ -19,7 +19,7 @@ const completed = task('  - [x] Buy paint ✅ 2026-10-22', 3, 0);
 const laterParent = task('- [ ] Garden 📅 2027-01-01', 4);
 const laterChild = task('  - [ ] Order seeds', 5, 4);
 const tasks = [parent, child, grandchild, completed, laterParent, laterChild];
-const config = parseBoardConfig('House', { slug: 'house' }).config;
+let config = parseBoardConfig('House', { slug: 'house' }).config;
 
 let root: HTMLElement;
 let collapsed: Record<string, boolean>;
@@ -27,6 +27,7 @@ let persisted: string;
 let host: RenderHost;
 let selectSubtasks: (collapsed: boolean) => void;
 let closeSubtasks: () => void;
+const setCompact = (compact: boolean) => { config = { ...config, compact }; draw(); };
 const draw = () => renderBoard(root, buildBoard(tasks, config, today, () => undefined), host, { warnings: [], info: [] });
 const button = (label: string) => [...root.querySelectorAll<HTMLButtonElement>('button')]
   .find((b) => b.textContent === label || b.getAttribute('aria-label') === label)!;
@@ -39,6 +40,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'queueMicrotask'] });
   root = document.createElement('div'); document.body.append(root);
   collapsed = {}; persisted = '{}';
+  config = parseBoardConfig('House', { slug: 'house' }).config;
   host = {
     renderText: (el, t) => { el.textContent = t.text; }, icon: () => undefined,
     sourceLabel: () => 'House',
@@ -55,10 +57,7 @@ beforeEach(() => {
     onDrop: vi.fn(), onToggle: vi.fn(), onEdit: vi.fn(), onOpenSource: vi.fn(),
     onDragEnd: vi.fn(), onAddTask: vi.fn(), onAddSubtask: vi.fn(),
     isViewOn: (option) => collapsed[`view:${option}`] === true,
-    onToggleView: vi.fn((option) => {
-      collapsed[`view:${option}`] = !collapsed[`view:${option}`];
-      persisted = JSON.stringify(collapsed); draw();
-    }),
+
   };
   draw();
 });
@@ -93,10 +92,10 @@ describe('subtask visibility controls', () => {
   });
 
   it('preserves the same visibility when Compact is switched in either direction', () => {
-    click(toggle(parent)); click(button('Compact'));
+    click(toggle(parent)); setCompact(!(config.compact ?? false));
     expect(root.classList.contains('tt-board--compact')).toBe(true);
     expect(owner(child)).toBeUndefined();
-    click(toggle(parent)); click(toggle(child)); click(button('Compact'));
+    click(toggle(parent)); click(toggle(child)); setCompact(!(config.compact ?? false));
     expect(root.classList.contains('tt-board--compact')).toBe(false);
     expect(owner(child)).toBeDefined(); expect(owner(grandchild)).toBeUndefined();
     expect(JSON.parse(persisted)[subtasksKey(child)]).toBe(true);
@@ -127,7 +126,7 @@ describe('subtask visibility controls', () => {
   });
 
   it('reveals a collapsed list and focuses the add-subtask input, including in Compact', () => {
-    click(button('Compact')); chooseSubtasks(true);
+    setCompact(!(config.compact ?? false)); chooseSubtasks(true);
     click(owner(parent).querySelector<HTMLButtonElement>('.tt-add-subtask')!);
     vi.runAllTimers();
     const input = root.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
@@ -166,9 +165,10 @@ describe('subtask visibility controls', () => {
     expect(toggle(parent).textContent).toBe('1/2');
   });
 
-  it('offers one icon beside Compact and supports keyboard opening and cancellation', () => {
+  it('offers a Subtasks icon without Compact and supports keyboard opening and cancellation', () => {
     const menu = button('Subtasks');
-    expect(button('Compact').nextElementSibling).toBe(menu);
+    expect(button('Compact')).toBeUndefined();
+    expect(menu.parentElement?.firstElementChild).toBe(menu);
     expect(menu.textContent).toBe('');
     expect(menu.getAttribute('aria-haspopup')).toBe('menu');
     expect(button('Collapse all subtasks')).toBeUndefined();
@@ -214,10 +214,11 @@ describe('subtask visibility controls', () => {
     expect(root.classList.contains('tt-board--no-overdue-bar')).toBe(false);
   });
 
-  it('remembers Compact per board', () => {
-    click(button('Compact'));
+  it('honors legacy Compact until the board explicitly overrides it', () => {
+    collapsed['view:compact'] = true; draw();
     expect(root.classList.contains('tt-board--compact')).toBe(true);
-    expect(JSON.parse(persisted)).toMatchObject({ 'view:compact': true });
+    setCompact(false);
+    expect(root.classList.contains('tt-board--compact')).toBe(false);
   });
 });
 

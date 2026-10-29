@@ -20,6 +20,7 @@ import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeadi
 import { renderBoardSettings, type Section } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
+import { reorderSubtaskBlocks } from '../src/core/reorderSubtasks.ts';
 import { parseTaskLine, setClosedFallback, setPlacement } from '../src/core/taskLine.ts';
 import { clearBulkSelection, isDragging, renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 
@@ -183,10 +184,6 @@ const host: RenderHost = {
     render();
   },
   isViewOn: (option) => collapsed[`view:${option}`] === true,
-  onToggleView: (option) => {
-    collapsed = { ...collapsed, [`view:${option}`]: !collapsed[`view:${option}`] };
-    render();
-  },
   onSubtasksMenu: (_anchor, select, onClose) => {
     const dialog = uiElement(document, 'dialog');
     dialog.setAttribute('aria-label', 'Subtasks');
@@ -224,6 +221,20 @@ const host: RenderHost = {
     write(edits);
     offerUndo(before, 'Task moved');
     render();
+  },
+  onReorderSubtask: (move) => {
+    const before = JSON.stringify(files);
+    const result = reorderSubtaskBlocks(files[move.parent.path]!.join('\n'), move.parent.line,
+      move.siblings.map(task => task.line), move.siblings.find(task => task.id === move.taskId)!.line,
+      move.siblings.find(task => task.id === move.beforeId)?.line ?? null);
+    files[move.parent.path] = result.content.split('\n');
+    highlighted = taskId(move.parent.path, result.line);
+    const focused = document.activeElement as HTMLElement | null;
+    for (const prefix of ['subtask', 'subtask-reorder']) {
+      if (focused?.dataset.boardFocus === `${prefix}:${move.taskId}`) focused.dataset.boardFocus = `${prefix}:${highlighted}`;
+    }
+    const position = move.beforeId === null ? move.siblings.length : move.siblings.filter(task => task.id !== move.taskId).findIndex(task => task.id === move.beforeId) + 1;
+    offerUndo(before, `Subtask moved to position ${position} of ${move.siblings.length}`); render();
   },
   onToggle: (task) => {
     const before = JSON.stringify(files);
@@ -355,7 +366,7 @@ function openSettings(initialSection: Section = 'columns'): void {
     }),
   );
   // Mirrors the native modal: explicit save, with cancel/escape discarding the draft.
-  const original = config;
+  const original = { ...config, compact: config.compact ?? collapsed['view:compact'] === true };
   const draft = draftFromConfig(original);
   let discard = false;
   const tryClose = (save = false) => {

@@ -44,6 +44,8 @@ export type BoardDraft = DraftFilterSet & {
   weekHorizon: string;
   weekStart: number;
   showCompletedDays: string;
+  compact: boolean;
+  showColumnSelector: boolean;
   sortCompletedSubtasks: boolean;
   hideCompletedSubtasks: boolean;
   overdueBar: boolean;
@@ -82,6 +84,8 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     weekHorizon: String(config.weekHorizon),
     weekStart: config.weekStart,
     showCompletedDays: String(config.showCompletedDays),
+    compact: config.compact ?? false,
+    showColumnSelector: config.showColumnSelector,
     sortCompletedSubtasks: config.sortCompletedSubtasks,
     hideCompletedSubtasks: config.hideCompletedSubtasks,
     overdueBar: config.overdueBar,
@@ -176,6 +180,8 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.quickFiltersVisible]: optionalCountField("Filters to keep visible", draft.quickFiltersVisible, errors),
     [FM.quickFiltersVisibleMobile]: optionalCountField("Filters to keep visible in single-column view", draft.quickFiltersVisibleMobile, errors),
     [FM.showCompletedDays]: intField('Show completed', draft.showCompletedDays, 0, 3650, errors),
+    [FM.compact]: draft.compact,
+    [FM.showColumnSelector]: draft.showColumnSelector,
     [FM.sortCompletedSubtasks]: draft.sortCompletedSubtasks,
     [FM.hideCompletedSubtasks]: draft.hideCompletedSubtasks,
     [FM.overdueBar]: draft.overdueBar,

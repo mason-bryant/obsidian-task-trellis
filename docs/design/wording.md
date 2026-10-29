@@ -5,7 +5,7 @@
 ## Rules
 
 - **Sentence case** everywhere: labels, buttons, menu items, commands, tabs, headings and settings. Capitalize only the first word and names, such as Task Trellis, Tasks (the plugin), Daily notes and Obsidian.
-- **Name actions with a verb:** Add task, Save changes, Apply color scheme, Collapse all subtasks. A toggle is named for what it turns on, such as Compact.
+- **Name actions with a verb:** Add task, Save changes, Apply color scheme, Collapse all subtasks. A toggle is named for what it turns on. Appearance checkboxes always name what they hide: Hide column selector, Hide completed subtasks and Hide overdue bars.
 - **End with "…"**, a single ellipsis character:
   - an action that opens a menu, picker or dialog asking for more: Move to…, Open board…, Details…;
   - a placeholder: Search labels…, Add a value…;

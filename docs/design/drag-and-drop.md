@@ -14,17 +14,22 @@
 - In the one-column touch layout, holding a dragged card at the side edge reveals the next column. That takes outward movement and a short hold, so a vertical drag near the right-edge handle doesn't switch columns. An ordinary sideways swipe pages between columns without moving a task.
 - Resizing a column is a separate interaction; see [responsive layouts](responsive-layouts-and-gestures.md). A resize separator never looks or behaves like a reorder handle.
 
+- **Subtask order:** on desktop, use a dedicated right-edge grip to reorder direct siblings, including in narrow panes and with one column selected. The grip follows the pointer, shows a dashed destination slot and shifts neighbors, using the same controller as settings lists. Arrow Up/Down and Home/End work on the focused grip; Alt+Up/Down also works on a focused row. Keep focus on the moved item and announce its saved position through the Undo status. The intact Markdown block, including descendants and indented notes, moves with the task.
+- Subtask grips cannot reparent or promote tasks. All siblings must be visible, Appearance must use Note order, and no composer may be open in the list. Otherwise reordering is unavailable; a disabled grip explains hidden/sorted lists. Mobile and coarse-pointer devices have no sibling reorder grips; touch pointers never start a sibling reorder. Column count alone never disables desktop reordering.
+- An unavailable subtask grip is faded with the default cursor. Pressing it must never fall through to the row's native promotion drag. Appearance explains that manual ordering requires Note order and all siblings visible.
+
 ## Exceptions
 
-- With a mouse, a card or subtask row has no handle: you drag the whole item, with the browser's native drag and drop, as desktop users expect. The right-edge grip appears only on touch screens and in Obsidian mobile, where dragging a whole card would fight scrolling.
+- With a mouse, moving a card or promoting a subtask uses the whole item, with the browser's native drag and drop, as desktop users expect. The card-movement grip appears only on touch screens and in Obsidian mobile, where dragging a whole card would fight scrolling. The separate desktop subtask grip only reorders siblings; dragging a subtask row outside its list retains promotion.
 - With a mouse on a one-column board, a dragged card can't reach another column. Move to… does that instead.
-- Cards and the settings lists use different controllers because they save differently: a card drop writes notes, while a list drop changes a draft. Their feedback differs too:
+- Whole-card drags and settings lists use different controllers because they save differently: a card drop writes notes, while a list drop changes a draft. Their feedback differs too:
   - cards show an insertion marker, while a settings list opens a gap with a dashed slot;
   - a touch-dragged card is a floating copy, while a settings list moves the row itself;
   - Escape cancels a settings-list drag and a column resize, but card drags have no Escape handling of their own.
 
 ## Where it lives
 
+- **Sibling subtask order:** [reorderSubtasks.ts](../../src/ui/reorderSubtasks.ts) installs the desktop grips and keyboard shortcuts through [reorderRows.ts](../../src/ui/reorderRows.ts), with the board as the scroll host, shifting neighbors and a dashed slot. [The core transform](../../src/core/reorderSubtasks.ts) validates the direct sibling list and moves its Markdown blocks; `TaskWriter.reorderSubtask` validates snapshots and writes atomically with the normal guarded Undo.
 - **Card drags with a mouse:** native drag and drop of the whole card or subtask row, in [renderBoard.ts](../../src/ui/renderBoard.ts). It draws the insertion marker, works out the target cell and position, and also handles Alt+Up/Down.
 - **Card drags on touch:** the right-edge grip, in [touchCardDrag.ts](../../src/ui/touchCardDrag.ts). It moves a floating copy and scrolls near the edges: the column vertically, and a board wider than the screen sideways. In the one-column layout, holding at a side edge pages instead. The grip shows only with a coarse pointer or in Obsidian mobile.
 - **What a drop changes:** `planDrop` and `planPromotion` in [board.ts](../../src/core/board.ts). [BoardView.ts](../../src/obsidian/BoardView.ts) shows the move at once, writes it with `TaskWriter.applyEdits` and records Undo.

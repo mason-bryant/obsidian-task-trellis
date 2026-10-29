@@ -262,11 +262,6 @@ export class BoardView extends FileView {
         this.render();
       },
       isViewOn: (option) => this.plugin.isViewOn(this.board?.config.slug ?? '', option),
-      onToggleView: (option) => {
-        if (!this.board) return;
-        void this.plugin.toggleView(this.board.config.slug, option);
-        this.render();
-      },
       onBulkAction: (tasks, kind) => new Promise((resolve) => {
         if (!this.board) { resolve(null); return; }
         const slug = this.board.config.slug;
@@ -296,6 +291,7 @@ export class BoardView extends FileView {
         this.render();
       },
       onDrop: (taskId, target) => void this.drop(taskId, target),
+      onReorderSubtask: (move) => void this.reorderSubtask(move),
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action, ids: [task.id] };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
@@ -452,6 +448,36 @@ export class BoardView extends FileView {
     const slug = this.board?.config.slug;
     const move = this.moveQueue.then(() => this.board?.config.slug === slug ? this.performDrop(taskId, target) : undefined);
     this.moveQueue = move.catch((error: unknown) => { console.error('[Task Trellis] move failed', error); });
+    return this.moveQueue;
+  }
+
+  private reorderSubtask(move: import('../core/reorderSubtasks.ts').SubtaskReorder): Promise<void> {
+    const slug = this.board?.config.slug;
+    const run = this.moveQueue.then(async () => {
+      if (this.stopped || this.board?.config.slug !== slug) return;
+      try {
+        // Keep the displayed snapshots: retargeting stale line ids could move a different sibling.
+        const result = await this.plugin.writer.reorderSubtask(move);
+        if (result.action) {
+          const position = move.beforeId === null ? move.siblings.length : move.siblings.filter(task => task.id !== move.taskId).findIndex(task => task.id === move.beforeId) + 1;
+          this.undoAction = { label: `Subtask moved to position ${position} of ${move.siblings.length}`, action: result.action, ids: [result.id] };
+          this.highlightIds = new Set([result.id]); this.highlightUntil = Date.now() + 1000;
+          clearBulkSelection(this.contentEl);
+          const focused = this.contentEl.ownerDocument.activeElement as HTMLElement | null;
+          for (const prefix of ['subtask', 'subtask-reorder']) {
+            if (focused && this.contentEl.contains(focused) && focused.dataset.boardFocus === `${prefix}:${move.taskId}`) {
+              focused.dataset.boardFocus = `${prefix}:${result.id}`;
+            }
+          }
+        }
+        await this.plugin.index.refresh([move.parent.path]);
+      } catch (error) {
+        console.error('[Task Trellis] subtask reorder failed', error);
+        new Notice('Task Trellis: could not reorder the subtasks. Refresh the board and check that the note can be edited, then try again.');
+      }
+      this.renderWhenIdle();
+    });
+    this.moveQueue = run.catch((error: unknown) => { console.error('[Task Trellis] subtask reorder failed', error); });
     return this.moveQueue;
   }
 

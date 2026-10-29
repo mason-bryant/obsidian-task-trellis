@@ -292,6 +292,7 @@
 
 /* The guide line sits under the parent's checkbox, like Obsidian's own nested lists. */
 .tt-subtasks {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -321,6 +322,24 @@
 }
 .tt-subtask > .tt-card-main > .tt-card-more { margin-left: auto; }
 .tt-subtask.is-dragging { opacity: .45; }
+.tt-subtask.tt-subtask--reorderable { position: relative; padding-right: 28px; }
+.tt-subtask > .tt-subtask-reorder-grip {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 22px; min-width: 22px; height: 100%;
+  margin: 0; padding: 0; display: flex; align-items: center; justify-content: center;
+  border: 0; border-left: 1px solid var(--background-modifier-border); border-radius: 0 4px 4px 0;
+  background: var(--background-secondary); color: var(--text-muted); box-shadow: none;
+  touch-action: pan-y; cursor: grab; outline-offset: -2px;
+}
+.tt-subtask > .tt-subtask-reorder-grip svg { width: 16px; height: 16px; stroke-width: 1.8; }
+.tt-subtask > .tt-subtask-reorder-grip:hover:not(:disabled) { background: var(--background-modifier-hover); }
+.tt-subtask > .tt-subtask-reorder-grip:disabled { opacity: .35; cursor: default; }
+.tt-subtask:has(.tt-add-input) > .tt-subtask-reorder-grip { opacity: .4; cursor: default; }
+.is-mobile .tt-subtask > .tt-subtask-reorder-grip { display: none; }
+.is-mobile .tt-subtask.tt-subtask--reorderable { padding-right: 4px; }
+@media (pointer: coarse) {
+  .tt-subtask > .tt-subtask-reorder-grip { display: none; }
+  .tt-subtask.tt-subtask--reorderable { padding-right: 4px; }
+}
 
 .tt-subtasks > .tt-add-box {
   padding: 2px 0;

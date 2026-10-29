@@ -14,7 +14,7 @@
 - There's enough scrollable space below the last card for it and its actions to clear Obsidian's floating toolbar and the safe area. Padding outside the scrolling element doesn't count.
 - Column headers and row labels stay in view while scrolling. The column and scroll position survive board refreshes.
 - With several columns showing, dragging a column header's edge resizes that column like a spreadsheet, and the other columns keep their widths. A click without movement changes nothing, and a failed save restores the previous widths. Double-click or Home resets all widths. The arrow keys resize the focused separator, with Shift for bigger steps. There's no resizing at 600px or narrower, or when one column is chosen.
-- Editors keep their header reachable when the phone keyboard opens; see [editing and saving](editing-and-saving.md). An opened inline composer scrolls into the space between the column header and the keyboard, including while the keyboard opens.
+- Editors keep their header reachable when the phone keyboard opens; see [editing and saving](editing-and-saving.md). An opened inline task or subtask composer scrolls into the space between the column header and the keyboard, including while the keyboard opens or pans the visible area. Constrain the actual board scroller to that visible area so a composer at the end of a list can still scroll above an overlay keyboard. Keep its actions and input visible together when space allows; prioritize the text entry when space is too short for both. Restore normal sizing and remove viewport listeners when focus leaves, the composer closes, or the board redraws or closes.
 - On touch screens, text fields use at least 16px text, so iOS doesn't zoom the page when one is focused.
 
 ## Exceptions
@@ -27,3 +27,4 @@
 - The 600px breakpoint is a container query on the board (`container: trellis` in [styles.css](../../styles.css)), so it measures the board, not the window. Touch-specific styles use `(pointer: coarse)` and `(hover: none)`, and Obsidian mobile's `.is-mobile` class.
 - Paging: [columnSwipe.ts](../../src/ui/columnSwipe.ts) locks a touch gesture's direction, pages and suppresses the click after a swipe. Trackpad swipes and the Previous and Next column buttons page through the same code.
 - Column resize: [columnResize.ts](../../src/ui/columnResize.ts). Keyboard-safe editor sizing: `prepareEditorModal` in [editorHeader.ts](../../src/ui/editorHeader.ts).
+- Inline keyboard visibility: [composerViewport.ts](../../src/ui/composerViewport.ts), attached by `addBox` in [renderBoard.ts](../../src/ui/renderBoard.ts).

@@ -184,7 +184,7 @@ it('outside clicks exit selection without consuming the click or stealing focus'
 });
 
 it('keeps selection for board controls and clicks in an open bulk editor',async()=>{
-  const f=board();f.click('Select');f.click('Select A');f.click('Compact');
+  const f=board();f.click('Select');f.click('Select A');f.root.querySelector<HTMLSelectElement>('.tt-column-picker')!.click();
   expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
   let close!: (result:null)=>void;
   f.host.onBulkAction=vi.fn(()=>new Promise<null>(resolve=>{close=resolve;}));f.draw();f.click('Priority');
