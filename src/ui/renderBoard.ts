@@ -220,7 +220,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     }
   };
   const selectCard = (task: BoardTask, range: boolean) => {
-    if (selection.busy || task.parentId || model.quickContext?.contextOnly.has(task.id)) return;
+    if (selection.busy || (model.quickContext?.contextOnly.has(task.id) && !selection.has(task))) return;
     const byId = new Map(triageCards(model, columnOf(task, config)).map((t) => [t.id, t]));
     const ordered = [...grid.querySelectorAll<HTMLElement>('.tt-card')].flatMap((c) => {
       const t = byId.get(c.dataset.id ?? ''); return t ? [t] : [];
@@ -375,8 +375,15 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       actions.append(b);
     }
     const visible = new Set(matching.map((task) => `${task.id}\0${task.raw}`));
-    const outside = selection.tasks.filter((task) => !visible.has(`${task.id}\0${task.raw}`)).length;
-    const status = el('span', 'tt-bulk-status', selection.busy ? 'Choose changes in the dialog…' : selection.message || (outside ? `${outside} selected tasks are outside the current view.` : 'Select cards, or select all matching tasks including collapsed rows.'));
+    const context = model.quickContext?.contextOnly;
+    const asContext = selection.tasks.filter((task) => context?.has(task.id)).length;
+    const outside = selection.tasks.filter((task) => !context?.has(task.id) && !visible.has(`${task.id}\0${task.raw}`)).length;
+    const away = [
+      outside === 1 ? '1 selected task is outside the current view.' : outside ? `${outside} selected tasks are outside the current view.` : '',
+      asContext === 1 ? '1 selected task now shows only for context.' : asContext ? `${asContext} selected tasks now show only for context.` : '',
+    ].filter(Boolean).join(' ');
+    const status = el('span', 'tt-bulk-status', selection.busy ? 'Choose changes in the dialog…'
+      : [selection.message.replace(/[^.!?…]$/, '$&.'), away].filter(Boolean).join(' ') || 'Select cards, or select all matching tasks including collapsed rows.');
     status.setAttribute('role', 'status'); bar.append(status);
     root.insertBefore(bar, scrollEl);
   }
@@ -785,7 +792,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   c.addEventListener('click', (e) => {
     // Links and tags inside the rendered text keep their own behaviour.
     if ((e.target as HTMLElement).closest('a')) return;
-    if (host.onSelectCard && !task.parentId && (e.metaKey || e.ctrlKey || e.shiftKey)) {
+    if (host.onSelectCard && (e.metaKey || e.ctrlKey || e.shiftKey)) {
       e.preventDefault(); e.stopPropagation();
       if (!model.quickContext?.contextOnly.has(task.id)) host.onSelectCard(task, e.shiftKey);
       return;
@@ -793,7 +800,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
     host.onEdit(task);
   });
   c.addEventListener('mousedown', (e) => {
-    if (host.onSelectCard && !task.parentId && e.button === 0 && (e.metaKey || e.ctrlKey || e.shiftKey) &&
+    if (host.onSelectCard && e.button === 0 && (e.metaKey || e.ctrlKey || e.shiftKey) &&
       !(e.target as Element).closest('a, button, input, textarea, .tt-subtasks')) e.preventDefault();
   });
   c.addEventListener('dragstart', (e) => {
@@ -824,8 +831,9 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   const selection = host.selection!;
   const c = el('div', 'tt-card tt-selection-card'); c.dataset.id = task.id;
   appendFilterContext(c, task, model, host);
-  const selectable = !task.parentId && !model.quickContext?.contextOnly.has(task.id);
   const selected = selection.has(task);
+  // A parent shown only for context can't be picked, but one that became context after an edit can be unticked.
+  const selectable = selected || !model.quickContext?.contextOnly.has(task.id);
   c.classList.toggle('is-selected', selected);
   const check = el('button', 'tt-select-card'); check.type = 'button'; check.setAttribute('role', 'checkbox');
   check.setAttribute('aria-checked', String(selected)); check.setAttribute('aria-label', `Select ${task.text}`);

@@ -44,7 +44,9 @@ describe('bulk plans and snapshot selection', () => {
     const reopened = apply(task(done), {kind:'move',column:'backlog'}, c);
     expect(parseTaskLine(reopened)?.closed).toBe(false);
     expect(parseTaskLine(reopened)?.dueDate).toBeUndefined();
-    expect(planBulk([{...t,parentId:'parent'}],c,today,{kind:'priority',priority:'high'}).size).toBe(0);
+    // A subtask shown as a card is edited like one, except that subtasks don't have labels.
+    expect(planBulk([{...t,parentId:'parent'}],c,today,{kind:'priority',priority:'high'}).size).toBe(1);
+    expect(planBulk([{...t,parentId:'parent'}],c,today,{kind:'labels',mode:'add',ids:['green']}).size).toBe(0);
   });
   it('selects all matching cards past row/card limits but excludes nested tasks', () => {
     const parent = task('- [ ] Paint',0), child = {...task('  - [ ] Primer',1),parentId:parent.id}, later=task('- [ ] Garden 📅 2027-01-01',2);
@@ -87,7 +89,7 @@ describe('bulk board interactions',()=>{
     const f=board();f.click('Select');f.click('Select all 2 matching tasks');
     f.host.onBulkAction=vi.fn(async(tasks)=>{f.draw([]);return {tasks,message:'2 updated'};});
     f.draw();f.click('Priority');
-    await vi.waitFor(()=>expect(f.root.querySelector('.tt-bulk-status')?.textContent).toBe('2 updated'));
+    await vi.waitFor(()=>expect(f.root.querySelector('.tt-bulk-status')?.textContent).toBe('2 updated. 2 selected tasks are outside the current view.'));
     expect(f.root.querySelectorAll('.tt-card')).toHaveLength(0);
     expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('2 selected');
     f.click('Labels');await vi.waitFor(()=>expect(f.host.onBulkAction).toHaveBeenCalledTimes(2));

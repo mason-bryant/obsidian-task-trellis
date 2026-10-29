@@ -373,7 +373,10 @@ export class CliCommands {
     if (actions.length !== 1) throw new Error('Specify exactly one change: move, due, priority, labels-add or labels-remove.');
     if (!cards.length) return { changed: [], message: 'No cards matched.' };
     const edits = planBulk(cards, config, model.today, actions[0]!);
-    return this.write(cards, edits, config.slug, flagOption(params, 'dry-run'));
+    // Label changes leave subtask cards alone: subtasks don't have labels.
+    const unlabeled = cards.filter((task) => !edits.has(task.id)).map((task) => task.id);
+    const result = await this.write(cards.filter((task) => edits.has(task.id)), edits, config.slug, flagOption(params, 'dry-run'));
+    return unlabeled.length ? { ...result, unchanged: unlabeled, warning: 'Subtasks don’t have labels, so the subtask cards listed in unchanged were left alone.' } : result;
   }
 
   private async undo(): Promise<Result> {

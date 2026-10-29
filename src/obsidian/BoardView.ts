@@ -435,9 +435,13 @@ export class BoardView extends FileView {
       if (result.action) this.undoAction = { label: `${result.appliedIds.length === 1 ? '1 task' : `${result.appliedIds.length} tasks`} updated`, action: result.action, ids: result.appliedIds };
       await this.plugin.index.refresh([...new Set(tasks.map((task) => task.path))]);
       const skipped = new Set(result.skippedIds);
-      const message = `${result.appliedIds.length} updated${skipped.size ? `; ${skipped.size} skipped because they changed or could not be saved. Clear and reselect to retry.` : ''}.`;
+      // Label changes leave subtask cards alone: subtasks don't have labels.
+      const unlabeled = snapshots.filter((task) => !edits.has(task.id));
+      const message = [`${result.appliedIds.length} updated`,
+        ...skipped.size ? [`${skipped.size} skipped because they changed or could not be saved. Clear and reselect to retry`] : [],
+        ...unlabeled.length ? [`${unlabeled.length === 1 ? '1 subtask' : `${unlabeled.length} subtasks`} left unchanged, because subtasks don’t have labels`] : []].join('; ') + '.';
       this.render();
-      return { tasks: [...(result.writtenTasks ?? []), ...tasks.filter((task) => skipped.has(task.id))], message };
+      return { tasks: [...(result.writtenTasks ?? []), ...tasks.filter((task) => skipped.has(task.id)), ...unlabeled], message };
     });
     this.moveQueue = run.then(() => undefined, () => undefined);
     return run;

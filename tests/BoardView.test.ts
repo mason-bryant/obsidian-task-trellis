@@ -66,6 +66,17 @@ it('a failed Undo says changes may already be undone, and how many notes to chec
   await f.view.undo();
   expect(notices.at(-1)).toBe('Task Trellis: could not finish undoing. Some changes may already be undone; check the affected 2 notes.');
 });
+it('a label change leaves subtask cards alone, keeps them selected and says why', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  const subtask = { ...f.index.all()[0]!, parentId: 'Tasks.md:9' };
+  // The fixture's index has no subtasks, so hand back the subtask as its own snapshot.
+  vi.spyOn(f.index, 'currentSnapshot').mockImplementation((task) => task);
+  const run = (f.view as unknown as { applyBulk(t: unknown[], a: unknown, slug: string): Promise<{ tasks: unknown[]; message: string }> }).applyBulk.bind(f.view);
+  const result = await run([subtask], { kind: 'labels', mode: 'add', ids: ['green'] }, 'house');
+  expect(f.content).toBe('- [ ] original\n');
+  expect(result.message).toBe('0 updated; 1 subtask left unchanged, because subtasks don’t have labels.');
+  expect(result.tasks).toEqual([expect.objectContaining({ id: subtask.id })]);
+});
 it('a skipped write removes its preview even if other writes succeeded', async () => {
   const f = fixture('- [ ] original\n'); await f.ready();
   const task = f.index.all()[0]!;
