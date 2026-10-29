@@ -228,7 +228,7 @@ export class QuickAdd {
     const cache = this.app.metadataCache.getFileCache(file);
     const tags = parseTaskLine(line)?.tags ?? [];
     if (board && !taskMatchesBoard({ path: file.path, tags }, board, cache?.frontmatter, noteTags(cache))) {
-      new Notice(`Task Trellis: added to ${file.basename}, but this board's filters hide tasks from that note.`);
+      new Notice(`Task Trellis: added to ${file.basename}, but this board’s filters hide tasks from that note.`);
     } else if (!board) {
       new Notice(`Task Trellis: added to ${file.basename}.`);
     }
@@ -248,7 +248,7 @@ export class QuickAdd {
       try {
         const file = await daily.getDailyNote();
         if (!file) {
-          new Notice("Task Trellis: couldn't open today's daily note. Check the Daily notes settings.");
+          new Notice('Task Trellis: couldn’t open today’s daily note. Check the Daily notes settings.');
           return null;
         }
         return { file, created: createdPath === file.path };

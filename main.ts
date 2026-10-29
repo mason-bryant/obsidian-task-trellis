@@ -144,7 +144,7 @@ export default class TaskTrellisPlugin extends Plugin {
         await this.ensureBoardList();
         try {
           const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
-          if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Use the “restore board rename” command to review it.', 12000);
+          if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', 12000);
         } catch { new Notice('Task Trellis: a board rename recovery record could not be read. Check the Task Trellis recovery folder.'); }
       }
     });

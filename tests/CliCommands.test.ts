@@ -206,7 +206,7 @@ describe('task-trellis:add', () => {
     const result = await run('add', { parent: 'Inbox.md:3', text: 'Get quotes', due: '2026-10-30', subtasks: '["Acme","Bolt"]' });
     expect(result.added.map((a: { raw: string }) => a.raw)).toEqual(['\t- [ ] Get quotes 📅 2026-10-30', '\t\t- [ ] Acme', '\t\t- [ ] Bolt']);
     expect(notes['Inbox.md']).toContain('- [ ] Call roofer 📅 2026-10-28 #tt/home/doing/100\n\t- [ ] Get quotes 📅 2026-10-30\n\t\t- [ ] Acme\n\t\t- [ ] Bolt\n- [ ] Buy filters');
-    expect(await run('add', { parent: 'Inbox.md:3', board: 'home', text: 'x' })).toMatchObject({ ok: false, error: expect.stringContaining("board can't be used with parent") });
+    expect(await run('add', { parent: 'Inbox.md:3', board: 'home', text: 'x' })).toMatchObject({ ok: false, error: expect.stringContaining('board can’t be used with parent') });
   });
 
   it('writes nothing for a dry run, and adds a request only once', async () => {

@@ -289,8 +289,8 @@ export class BoardView extends FileView {
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
-      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); new Notice('Task Trellis: could not update the task.'); }),
-      onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); new Notice('Task Trellis: could not open the task editor.'); }) : this.openSource(task, false),
+      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); new Notice(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task. Check that its note can be edited, then try again.`); }),
+      onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); new Notice('Task Trellis: could not open the task editor, so nothing was changed. Check that the Tasks plugin is enabled, or open the task from its note link.'); }) : this.openSource(task, false),
       onOpenSource: (task, newTab) => this.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
       onAddTask: async (target, text, detailed) => {
@@ -404,7 +404,8 @@ export class BoardView extends FileView {
       await this.plugin.index.refresh(entry.action.paths);
     } catch (error) {
       console.error('[Task Trellis] undo failed', error);
-      new Notice('Task Trellis: could not undo the action.');
+      const notes = entry.action.paths.length === 1 ? 'note' : `${entry.action.paths.length} notes`;
+      new Notice(`Task Trellis: could not finish undoing. Some changes may already be undone; check the affected ${notes}.`);
     }
     this.render();
   }
@@ -471,7 +472,7 @@ export class BoardView extends FileView {
       this.renderWhenIdle();
     } catch (err) {
       console.error('[Task Trellis] write failed', err);
-      new Notice('Task Trellis: could not update the task. See the console for details.');
+      new Notice('Task Trellis: could not move the task. Check that its note can be edited, then try again.');
       for (const id of edits.keys()) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
       this.renderWhenIdle();
     }

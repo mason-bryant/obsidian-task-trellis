@@ -59,6 +59,13 @@ it('a drop that finishes while another card is being dragged waits for that drag
   await f.view.drop(task.id, { rowId: f.view.model.rows[0]!.id, index: 0, columnId: 'doing' });
   expect(f.content).toContain('#tt/house/doing'); expect(f.view.render).not.toHaveBeenCalled(); expect(queued).toHaveBeenCalled();
 });
+it('a failed Undo says changes may already be undone, and how many notes to check', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  f.view.undoAction = { label: 'Task moved', action: { paths: ['a.md', 'b.md'], undo: async () => { throw new Error('Disk full'); } } };
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await f.view.undo();
+  expect(notices.at(-1)).toBe('Task Trellis: could not finish undoing. Some changes may already be undone; check the affected 2 notes.');
+});
 it('a skipped write removes its preview even if other writes succeeded', async () => {
   const f = fixture('- [ ] original\n'); await f.ready();
   const task = f.index.all()[0]!;

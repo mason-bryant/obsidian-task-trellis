@@ -54,7 +54,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     const create = button('', 'tt-add-button tt-label-create');
     const addIcon = node('span', 'tt-add-icon'); addIcon.setAttribute('aria-hidden', 'true');
     host.icon(addIcon, 'plus');
-    create.append(addIcon, node('span', '', 'Add Label'));
+    create.append(addIcon, node('span', '', 'Add label'));
     create.onclick = () => editor({ id: newLabelId(labels, host.labelNext), name: '', color: LABEL_COLORS[0].color }, 'create');
     if (host.showSearch) root.append(search);
     root.append(list, create);

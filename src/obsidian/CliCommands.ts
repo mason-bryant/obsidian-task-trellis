@@ -232,7 +232,7 @@ export class CliCommands {
     const parentId = option(params, 'parent');
     if (parentId) {
       for (const key of ['board', 'column', 'labels', 'note', 'heading', 'request-id']) {
-        if (params[key] !== undefined) throw new Error(`${key} can't be used with parent: a subtask goes under its parent, with no column or labels of its own.`);
+        if (params[key] !== undefined) throw new Error(`${key} can’t be used with parent: a subtask goes under its parent, with no column or labels of its own.`);
       }
       const parent = this.task({ id: parentId, ...(params.expect !== undefined ? { expect: params.expect } : {}) });
       const lines = [fields(buildNewTaskLine(text, { created })), ...subtasks];
@@ -317,7 +317,7 @@ export class CliCommands {
     if (priority !== undefined) edit.priority = priority;
     if (text !== undefined) {
       if (replaceTaskText(task.raw, text) === null) {
-        throw new Error('The text can\'t be replaced safely: it must be non-empty with no #tt/ tags, and the task\'s text must come before its fields. Edit the note instead.');
+        throw new Error('The text can’t be replaced safely: it must be non-empty with no #tt/ tags, and the task’s text must come before its fields. Edit the note instead.');
       }
       edit.text = text;
     }

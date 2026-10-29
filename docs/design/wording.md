@@ -15,7 +15,7 @@
 - **Counts** agree with their number: 1 card, 2 cards; 1 day overdue.
 - **Notices** start with "Task Trellis: " and are full sentences. A failure says what failed, whether anything was saved or kept, and what to do next. For example: "Task Trellis: settings saved, but the board could not be opened. Open it from the boards sidebar to try again." Never leave the console as the only explanation; it's for diagnosis.
 - **Help text** describes the screen as it is. When a control moves or goes away, update the text that mentions it.
-- **Punctuation:** curly apostrophes and quotation marks (’ “ ”), never straight ones, in everything users read.
+- **Punctuation:** curly apostrophes and quotation marks (’ “ ”) in the plugin’s text, never straight ones.
 - **Naming a command in text:** write it as the command palette shows it, in bold in the docs: Task Trellis: Restore board rename.
 
 ## Exceptions
