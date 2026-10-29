@@ -33,9 +33,11 @@ Both property lists accept a single string, a list of rules, or a mapping. Use a
 
 Quick filters are buttons at the top of the board that narrow it further while they're pressed. They never widen the board: a task must pass the board's filters and every quick filter that is on. Each board remembers which of its quick filters are on.
 
-Manage them in **Settings → Quick filters**. Select a filter's name to expand it. **Show on board** puts its button in the toolbar. A hidden filter is kept but never applied. Use the arrows to reorder the buttons, the copy button to clone a filter, and the trash button to remove one.
+Manage them in **Settings → Quick filters**. Select a filter's name to expand it. **Show on board** makes it available in the toolbar or filter menu. A hidden filter is kept but never applied. Drag the grip beside a filter to reorder it. You can also focus the grip and use the up/down arrow keys (Home or End moves it to the first or last position). Use the copy button to clone a filter and the trash button to remove one.
 
-Filters with selected labels show colored squares beside their names, both on the board and in settings. The settings preview updates as you select labels.
+To save toolbar space, enable **Group filters in a menu**. **Filters to keep visible** keeps the first N enabled filters on the toolbar in settings order; blank or `0` puts them all in the menu. **Filters to keep visible in single-column view** is an optional override for narrow boards (including phones) or a single selected column: blank inherits the main value, while `0` puts all filters in the menu. No menu appears when every filter fits. The menu shows checkmarks, and its button highlights and counts active filters inside it. Moving a filter into the menu does not disable it.
+
+Filters with selected labels show colored squares beside their names, on toolbar buttons, in the menu and in settings. The settings preview updates as you select labels.
 
 A quick filter can match on:
 

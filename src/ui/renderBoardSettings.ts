@@ -1,5 +1,6 @@
 import { uiElement, isComposing } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
+import { installQuickFilterReorder } from './reorderQuickFilters.ts';
 import { quickFilterColors } from './quickFilterColors.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { labelDescription } from '../core/labels.ts';
@@ -232,6 +233,17 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
 
   function quickFilterEditor(body: HTMLElement): void {
     heading(body, 'Quick filters', 'Turn these on and off with buttons at the top of the board. Each one that is on narrows the board further, on top of its filters.');
+    body.append(check('Group filters in a menu', draft.quickFiltersMenu, (on) => { draft.quickFiltersMenu = on; redraw('Group filters in a menu'); }));
+    if (draft.quickFiltersMenu) {
+      const count = (label: string, value: string, change: (v: string) => void, help: string) => {
+        const node = input(value, label, change, 'number'); node.min = '0'; node.step = '1';
+        return field(label, node, help);
+      };
+      body.append(count('Filters to keep visible', draft.quickFiltersVisible, (v) => { draft.quickFiltersVisible = v; },
+        'Keep the first N enabled filters on the toolbar. Blank or 0 puts all filters in the menu.'));
+      body.append(count('Filters to keep visible in single-column view', draft.quickFiltersVisibleMobile, (v) => { draft.quickFiltersVisibleMobile = v; },
+        'Optional override for narrow boards and a single selected column. Blank uses the main value; 0 puts all filters in the menu.'));
+    }
     const list = draft.quickFilters;
     const quickCheck = (label: string, focus: string, checked: boolean, change: (v: boolean) => void) => {
       const wrap = check(label, checked, change); wrap.querySelector('input')!.dataset.focus = focus; return wrap;
@@ -252,7 +264,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     list.forEach((quick, i) => {
       const key = `quick-${i}`;
       const open = openQuick.has(quick.id);
-      const item = el('section', 'tt-quick-filter'); item.setAttribute('aria-label', `Quick filter ${i + 1}`);
+      const item = el('section', 'tt-quick-filter-editor'); item.setAttribute('aria-label', `Quick filter ${i + 1}`);
       const top = el('div', 'tt-quick-filter-header');
       const toggle = button('', 'tt-quick-filter-toggle'); toggle.dataset.focus = `${key}-toggle`;
       toggle.setAttribute('aria-expanded', String(open));
@@ -264,11 +276,13 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       toggle.append(icon(open ? 'chevron-down' : 'chevron-right'), icon('filter'), colors, el('span', '', quick.name.trim() || '(unnamed)'));
       toggle.onclick = () => { if (open) openQuick.delete(quick.id); else openQuick.add(quick.id); redraw(`${key}-toggle`); };
       const show = quickCheck('Show on board', `${key}-show`, quick.show, (v) => { quick.show = v; });
-      const move = (to: number) => { [list[i], list[to]] = [list[to]!, list[i]!]; redraw(`quick-${to}-toggle`); };
       const name = quick.name.trim() || `quick filter ${i + 1}`;
-      top.append(toggle, show,
-        iconButton('arrow-up', `Move ${name} up`, () => move(i - 1), i === 0),
-        iconButton('arrow-down', `Move ${name} down`, () => move(i + 1), i === list.length - 1),
+      const drag = iconButton('grip-vertical', `Reorder ${name}`, () => undefined);
+      drag.classList.add('tt-quick-filter-drag'); drag.dataset.focus = `${key}-drag`;
+      drag.title = 'Drag to reorder. Or use the up and down arrow keys.';
+      drag.setAttribute('aria-description', 'Drag to reorder, or use the arrow, home and end keys.');
+      const actions = el('div', 'tt-quick-filter-actions');
+      actions.append(show,
         iconButton('copy', `Clone ${name}`, () => {
           const copy: DraftQuickFilter = structuredClone(quick);
           copy.id = newQuickFilterId(list); copy.name = `${quick.name.trim()} copy`;
@@ -277,7 +291,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         iconButton('trash-2', `Remove ${name}`, () => {
           list.splice(i, 1); openQuick.delete(quick.id); redraw(list.length ? `quick-${Math.min(i, list.length - 1)}-toggle` : 'quick-add');
         }));
-      item.append(top);
+      top.append(toggle, actions);
+      item.append(top, drag);
       if (open) {
         const nameInput = input(quick.name, `Quick filter ${i + 1} name`, (v) => { quick.name = v; toggle.lastElementChild!.textContent = v.trim() || '(unnamed)'; });
         nameInput.dataset.focus = `${key}-name`;
@@ -296,6 +311,13 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       }
       body.append(item);
     });
+    const status = el('div', 'tt-reorder-status'); status.setAttribute('role', 'status'); body.append(status);
+    attach(installQuickFilterReorder(body, (from, to) => {
+      const [moved] = list.splice(from, 1); list.splice(to, 0, moved!);
+      redraw(`quick-${to}-drag`);
+      const announcement = root.querySelector('.tt-reorder-status');
+      if (announcement) announcement.textContent = `${moved!.name || 'Quick filter'} moved to position ${to + 1} of ${list.length}.`;
+    }));
     if (!list.length) body.append(el('p', 'tt-filter-empty', 'No quick filters.'));
     const add = button('Add quick filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.dataset.focus = 'quick-add';
     add.onclick = () => {

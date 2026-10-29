@@ -49,6 +49,9 @@ export type BoardDraft = DraftFilterSet & {
   overdueBar: boolean;
   openLinks: BoardConfig['openLinks'];
   quickFilters: DraftQuickFilter[];
+  quickFiltersMenu: boolean;
+  quickFiltersVisible: string;
+  quickFiltersVisibleMobile: string;
   newTasks: BoardConfig['newTasks'];
   newTasksNote: string;
   newTasksHeading: string;
@@ -84,6 +87,9 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     overdueBar: config.overdueBar,
     openLinks: config.openLinks,
     ...filterSetDraft(config),
+    quickFiltersMenu: config.quickFiltersMenu,
+    quickFiltersVisible: config.quickFiltersVisible?.toString() ?? "",
+    quickFiltersVisibleMobile: config.quickFiltersVisibleMobile?.toString() ?? "",
     quickFilters: config.quickFilters.map((f) => ({
       id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], noLabels: f.noLabels, matchSubtasks: f.matchSubtasks, due: [...f.due], ...filterSetDraft(f),
     })),
@@ -166,6 +172,9 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.includeFolders]: boardSet.includeFolders,
     [FM.excludeFolders]: boardSet.excludeFolders,
     [FM.quickFilters]: quickFilters,
+    [FM.quickFiltersMenu]: draft.quickFiltersMenu,
+    [FM.quickFiltersVisible]: optionalCountField("Filters to keep visible", draft.quickFiltersVisible, errors),
+    [FM.quickFiltersVisibleMobile]: optionalCountField("Filters to keep visible in single-column view", draft.quickFiltersVisibleMobile, errors),
     [FM.showCompletedDays]: intField('Show completed', draft.showCompletedDays, 0, 3650, errors),
     [FM.sortCompletedSubtasks]: draft.sortCompletedSubtasks,
     [FM.hideCompletedSubtasks]: draft.hideCompletedSubtasks,
@@ -259,4 +268,11 @@ export function filterWarnings(draft: DraftFilterSet): string[] {
   const excludesExistence = new Set(draft.excludedFilters.filter((f) => f.condition === 'exists').map((f) => f.key.trim()));
   return [...new Set(draft.filters.map((f) => f.key.trim()).filter((key) => key && excludesExistence.has(key)))]
     .map((key) => `“${key}” is required and its existence is excluded. No note can satisfy both rules.`);
+}
+
+function optionalCountField(name: string, raw: string, errors: string[]): number | null {
+  if (!raw.trim()) return null;
+  const n = Number(raw);
+  if (!Number.isSafeInteger(n) || n < 0) { errors.push(`${name} must be a whole number of 0 or more, or blank.`); return null; }
+  return n;
 }
