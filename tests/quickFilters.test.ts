@@ -187,7 +187,7 @@ describe('quick filter settings', () => {
     const form = renderBoardSettings(root, draft, original, host);
     const control = <T extends HTMLElement = HTMLButtonElement>(label: string) => root.querySelector<T>(`[aria-label="${label}"]`)!;
     const expand = (i: number) => root.querySelectorAll<HTMLButtonElement>('.tt-quick-filter-toggle')[i]!.click();
-    const checkbox = (i: number, label: string) => [...root.querySelectorAll('.tt-quick-filter')[i]!.querySelectorAll('label')]
+    const checkbox = (i: number, label: string) => [...root.querySelectorAll('.tt-quick-filter-editor')[i]!.querySelectorAll('label')]
       .find((l) => l.textContent === label)!.querySelector('input')!;
     const tick = (i: number, label: string) => { const box = checkbox(i, label); box.checked = !box.checked; box.dispatchEvent(new Event('change')); };
     const saved = () => { const result = draftToFrontmatter(draft, original); return { ...result, config: parseBoardConfig('House', { slug: 'house', ...result.frontmatter }).config }; };
@@ -239,9 +239,22 @@ describe('quick filter settings', () => {
 
   it('reorders and removes filters', () => {
     const ui = editor();
-    ui.control('Move 🏷️ Green up').click();
+    ui.control('Reorder 🏷️ Green').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
     ui.control('Remove High priority').click();
     expect(ui.saved().config.quickFilters.map((f) => f.id)).toEqual(['label-green', 'overdue']);
+  });
+
+  it('keeps edited fields and expanded state when moving several positions', () => {
+    const ui = editor(); ui.expand(0); ui.tick(0, 'Match subtasks');
+    const name = ui.control<HTMLInputElement>('Quick filter 1 name');
+    name.value = 'Important'; name.dispatchEvent(new Event('input'));
+    ui.control('Reorder High priority').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    expect(ui.saved().config.quickFilters.map((f) => f.name)).toEqual(['Overdue', '🏷️ Green', 'Important']);
+    expect(ui.control<HTMLInputElement>('Quick filter 3 name').value).toBe('Important');
+    expect(ui.checkbox(2, 'Match subtasks').checked).toBe(true);
+    expect(document.activeElement).toBe(ui.control('Reorder Important'));
+    expect(ui.root.querySelector('[role="status"]')?.textContent).toBe('Important moved to position 3 of 3.');
+    expect(ui.original.quickFilters[0]!.name).toBe('High priority');
   });
 
   it('defaults Match subtasks off and preserves it through saving, reopening and cloning', () => {

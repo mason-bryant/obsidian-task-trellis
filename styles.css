@@ -605,7 +605,7 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   .tt-filter-logic { margin-left: 0; flex-basis: 100%; }
 }
 
-.tt-quick-filter { margin: 10px 0; padding: 8px 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
+.tt-quick-filter-editor { margin: 10px 0; padding: 8px 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
 .tt-quick-filter-header { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .tt-quick-filter-header .tt-check-field { margin: 0 8px; }
 .tt-quick-filter-toggle { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-normal); font-weight: 600; text-align: left; cursor: pointer; }
@@ -914,3 +914,36 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 
 .tt-bulk-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
 .tt-board--selecting .tt-subtasks-menu { display: none; }
+
+/* Container-driven filter overflow uses the same breakpoint as column paging. */
+.tt-quick-filter-tools, .tt-quick-filter-group { display: contents; }
+.tt-quick-filter-group--mobile { display: none; }
+@container trellis (max-width: 600px) {
+  .tt-quick-filter-group--desktop { display: none; }
+  .tt-quick-filter-group--mobile { display: contents; }
+}
+.menu-item-title .tt-quick-filter-colors { margin-inline-end: 6px; vertical-align: middle; }
+
+/* Keep names left-aligned and give every header control the same vertical center. */
+.tt-quick-filter-editor { container: quick-filter / inline-size; position: relative; padding-right: 36px; }
+.tt-quick-filter-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.tt-quick-filter-actions { display: flex; align-items: center; gap: 4px; }
+.tt-settings .tt-quick-filter-header > .tt-quick-filter-toggle { justify-content: flex-start; min-width: 0; min-height: 44px; height: auto; margin: 0; background: transparent; box-shadow: none; }
+.tt-settings .tt-quick-filter-header .tt-icon-button { height: 44px; min-height: 44px; margin: 0; }
+/* Only the grip claims touch gestures; the rest of the editor scrolls normally. */
+.tt-settings .tt-quick-filter-editor > .tt-quick-filter-drag { position: absolute; top: 0; right: 0; bottom: 0; width: 24px; min-width: 24px; height: 100%; margin: 0; padding: 0; border-radius: 0 9px 9px 0; touch-action: none; cursor: grab; outline-offset: -2px; }
+.tt-quick-filter-reordering { position: relative; isolation: isolate; }
+.tt-quick-filter--dragging { z-index: 2; opacity: .94; background: var(--background-primary); box-shadow: 0 8px 24px rgba(0,0,0,.3); transition: none; }
+.tt-quick-filter--shifting { z-index: 1; transition: transform 160ms ease; }
+.tt-quick-filter-drop-slot { position: absolute; z-index: 0; box-sizing: border-box; pointer-events: none; border: 2px dashed var(--interactive-accent); border-radius: 10px; background: var(--background-modifier-hover); }
+@media (prefers-reduced-motion: reduce) {
+  .tt-quick-filter--shifting { transition: none; }
+}
+.tt-quick-filter--dragging .tt-quick-filter-drag { cursor: grabbing; }
+.tt-reorder-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@container quick-filter (max-width: 480px) {
+  .tt-quick-filter-header { grid-template-columns: minmax(0, 1fr); gap: 4px 8px; }
+  .tt-quick-filter-toggle { grid-column: 1; grid-row: 1; }
+  .tt-quick-filter-actions { grid-column: 1; grid-row: 2; flex-wrap: wrap; }
+  .tt-quick-filter-header .tt-check-field { margin-left: 6px; }
+}

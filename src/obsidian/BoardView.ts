@@ -264,6 +264,15 @@ export class BoardView extends FileView {
         const bounds = anchor.getBoundingClientRect();
         menu.showAtPosition({ x: bounds.left, y: bounds.bottom });
       },
+      onQuickFiltersMenu: (anchor, items, select, onClose) => {
+        // Native macOS menus flatten titles to text and lose the label swatches.
+        const menu = new Menu().setUseNativeMenu(false);
+        for (const filter of items) menu.addItem((item) => item.setTitle(filter.title).setIcon('filter')
+          .setChecked(filter.active).onClick(() => select(filter.id)));
+        menu.onHide(onClose);
+        const bounds = anchor.getBoundingClientRect();
+        menu.showAtPosition({ x: bounds.left, y: bounds.bottom }, anchor.ownerDocument);
+      },
       onSetQuickFilters: (ids) => {
         if (!this.board) return;
         void this.plugin.setActiveQuickFilters(this.board.config.slug, ids);

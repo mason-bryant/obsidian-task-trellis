@@ -8,7 +8,7 @@ import type { BoardColumn } from '../core/boardConfig.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
 import { installColumnSwipe } from './columnSwipe.ts';
 import { installTouchCardDrag } from './touchCardDrag.ts';
-import { quickFilterColors } from './quickFilterColors.ts';
+import { renderQuickFilters, type QuickFilterMenu } from './renderQuickFilters.ts';
 
 /** What the board needs from its host (the Obsidian view, or the dev harness). */
 export type RenderHost = {
@@ -21,6 +21,7 @@ export type RenderHost = {
   onSetSubtasksCollapsed(keys: string[], collapsed: boolean): void;
   /** Persists which quick filters are switched on. Without it the board shows no quick filter buttons. */
   onSetQuickFilters?(ids: string[]): void;
+  onQuickFiltersMenu?: QuickFilterMenu;
   /** Remembers a board's display choices. Without these they last only for this view. */
   isViewOn?(option: ViewOption): boolean;
   onToggleView?(option: ViewOption): void;
@@ -278,17 +279,8 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   }
   tools.append(picker);
   if (host.onSetQuickFilters) {
-    for (const filter of config.quickFilters.filter((f) => f.show)) {
-      const on = model.activeQuickFilters.includes(filter.id);
-      const toggle = el('button', 'tt-toolbar-button tt-quick-filter'); toggle.type = 'button';
-      toggle.dataset.boardFocus = `quick:${filter.id}`;
-      toggle.append(hostIcon(host, 'filter'));
-      toggle.append(quickFilterColors(root.ownerDocument, config.labels, filter.labels));
-      toggle.append(el('span', '', filter.name));
-      toggle.setAttribute('aria-pressed', String(on));
-      toggle.onclick = () => host.onSetQuickFilters?.(on ? model.activeQuickFilters.filter((id) => id !== filter.id) : [...model.activeQuickFilters, filter.id]);
-      tools.append(toggle);
-    }
+    tools.append(renderQuickFilters(root, config, model.activeQuickFilters, !!display.column,
+      (name) => hostIcon(host, name), (ids) => host.onSetQuickFilters?.(ids), host.onQuickFiltersMenu));
   }
   if (host.onSettings) {
     const settings = el('button', 'tt-toolbar-button'); settings.type = 'button';

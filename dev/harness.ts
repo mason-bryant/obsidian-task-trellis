@@ -202,6 +202,17 @@ const host: RenderHost = {
     document.body.append(dialog);
     dialog.showModal();
   },
+  onQuickFiltersMenu: (_anchor, items, select, onClose) => {
+    const dialog = uiElement(document, 'dialog'); dialog.className = 'move-sheet'; dialog.setAttribute('aria-label', 'Quick filters');
+    for (const filter of items) {
+      const item = uiElement(document, 'button'); item.className = 'move-item';
+      item.setAttribute('role', 'menuitemcheckbox'); item.setAttribute('aria-checked', String(filter.active));
+      item.append(filter.title); item.onclick = () => { dialog.close(); select(filter.id); }; dialog.append(item);
+    }
+    dialog.onclose = () => { dialog.remove(); onClose(); };
+    dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
+    document.body.append(dialog); dialog.showModal();
+  },
   onSetQuickFilters: (ids) => {
     collapsed = setActiveQuickFilterIds(collapsed, ids);
     render();

@@ -19,6 +19,9 @@ export type BoardConfig = {
   /** The number the next new label gets; see `newLabelId`. */
   labelNext: number;
   quickFilters: QuickFilter[];
+  quickFiltersMenu: boolean;
+  quickFiltersVisible: number | null;
+  quickFiltersVisibleMobile: number | null;
   previousLabelScheme: PreviousScheme;
   doneColumn: string | null;
   /** Show at most `doneLimit` cards per Done cell, the rest behind a "more" toggle. */
@@ -76,6 +79,9 @@ export const FM = {
   labels: 'labels',
   labelNext: 'label-next',
   quickFilters: 'quick-filters',
+  quickFiltersMenu: 'quick-filters-menu',
+  quickFiltersVisible: 'quick-filters-visible',
+  quickFiltersVisibleMobile: 'quick-filters-visible-mobile',
   previousLabelScheme: 'previous-label-scheme',
   columns: 'columns',
   columnWidths: 'column-widths',
@@ -199,6 +205,9 @@ export function parseBoardConfig(
       labels,
       labelNext: intSetting(f[FM.labelNext], 1, 1, 1_000_000),
       quickFilters: parseQuickFilters(f[FM.quickFilters], labels, warnings),
+      quickFiltersMenu: boolSetting(f[FM.quickFiltersMenu], false),
+      quickFiltersVisible: optionalCount(f[FM.quickFiltersVisible]),
+      quickFiltersVisibleMobile: optionalCount(f[FM.quickFiltersVisibleMobile]),
       previousLabelScheme: parsePreviousScheme(f[FM.previousLabelScheme]),
       doneColumn,
       limitDone: boolSetting(f[FM.limitDone], true),
@@ -268,4 +277,11 @@ function weekStartSetting(raw: unknown, warnings: string[]): number {
   if (i >= 0) return i;
   warnings.push(`week-start "${scalarText(raw)}" is not a weekday; using Monday.`);
   return 1;
+}
+
+function optionalCount(raw: unknown): number | null {
+  if (typeof raw !== "number" && typeof raw !== "string") return null;
+  if (typeof raw === "string" && !raw.trim()) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
 }

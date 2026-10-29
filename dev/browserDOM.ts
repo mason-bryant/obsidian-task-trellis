@@ -5,5 +5,6 @@ if (typeof window !== 'undefined') {
   const html = <K extends keyof HTMLElementTagNameMap>(tag: K): HTMLElementTagNameMap[K] => doc.createElementNS('http://www.w3.org/1999/xhtml', tag) as HTMLElementTagNameMap[K];
   const svgNamespace = 'http://www.w3.org/2000/svg';
   const svg = <K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] => doc.createElementNS(svgNamespace, tag);
+  if (typeof createFragment === 'undefined') Object.assign(window, { createFragment: () => doc.createRange().createContextualFragment('') });
   if (!doc.win.createEl) Object.assign(window, { createEl: html, createSvg: svg });
 }
