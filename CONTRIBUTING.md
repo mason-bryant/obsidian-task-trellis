@@ -2,6 +2,8 @@
 
 Start with a [bug report or feature request](https://github.com/mason-bryant/obsidian-task-trellis/issues/new/choose) for substantial changes. Describe the user problem and include a minimal example using fictional tasks.
 
+Before changing UI behavior, read the relevant [shared UX contract](docs/design/README.md). Reuse its linked components and update the contract when intentionally changing a convention. The [verification matrix](docs/design/implementation-and-testing.md) covers neighboring screens that also need checking.
+
 See [development](docs/development.md) for the browser preview. Use Node 22.13+ and run:
 
 ```sh

@@ -2,6 +2,8 @@
 
 # Develop Task Trellis
 
+For UI changes, start with the [shared UX guidance](design/README.md): interaction contracts, existing components, intentional exceptions and regression checklists. Repository-wide contributor instructions are in [AGENTS.md](../AGENTS.md).
+
 Use Node.js 22.13 or a newer supported even-numbered release (CI tests Node.js 22 and 24). This is a development requirement; it does not change the plugin's minimum Obsidian version. The Moment override keeps the Obsidian API packages' development dependency patched; Moment is not bundled in the plugin.
 
 ```bash
