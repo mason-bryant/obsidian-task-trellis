@@ -46,8 +46,7 @@ export type BoardConfig = {
   excludeFolders: string[];
   /** 0 hides completed tasks. */
   showCompletedDays: number;
-  /** Null preserves the legacy per-device Compact choice until edited. */
-  compact: boolean | null;
+  compact: boolean;
   showColumnSelector: boolean;
   /** List completed subtasks after open ones, otherwise in note order. */
   sortCompletedSubtasks: boolean;
@@ -120,7 +119,6 @@ export const FM = {
 } as const;
 
 /** Keys earlier versions wrote; read as fallbacks and removed when the settings form saves. */
-export const LEGACY_FM = { dueNowDays: 'due-now-days' } as const;
 
 export const DEFAULT_COLUMNS = ['Backlog', 'Doing', 'Waiting', 'Done'];
 
@@ -236,7 +234,7 @@ export function parseBoardConfig(
       includeFolders: stringList(f[FM.includeFolders]).map(normalizeFolder).filter(Boolean),
       excludeFolders: stringList(f[FM.excludeFolders]).map(normalizeFolder).filter(Boolean),
       showCompletedDays: intSetting(f[FM.showCompletedDays], 7, 0, 3650),
-      compact: f[FM.compact] == null ? null : boolSetting(f[FM.compact], false),
+      compact: boolSetting(f[FM.compact], false),
       showColumnSelector: boolSetting(f[FM.showColumnSelector], true),
       sortCompletedSubtasks: boolSetting(f[FM.sortCompletedSubtasks], false),
       hideCompletedSubtasks: boolSetting(f[FM.hideCompletedSubtasks], false),
@@ -278,7 +276,7 @@ function dueNowSetting(f: Record<string, unknown>, warnings: string[]): { dueNow
   else if (rawUnit !== undefined && rawUnit !== null && !/^days?$/i.test(scalarText(rawUnit).trim())) {
     warnings.push(`due-now-unit "${scalarText(rawUnit)}" should be days or weeks; using days.`);
   }
-  const raw = FM.dueNow in f ? f[FM.dueNow] : f[LEGACY_FM.dueNowDays];
+  const raw = f[FM.dueNow];
   return {
     dueNowUnit,
     dueNow: dueNowUnit === 'weeks' ? intSetting(raw, 1, 1, 52) : intSetting(raw, 7, 0, 365),

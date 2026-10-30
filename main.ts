@@ -3,7 +3,6 @@ import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
 import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
 import { boardNameError } from './src/core/boardName.ts';
 import { isComposing } from './src/ui/dom.ts';
-import type { ViewOption } from './src/ui/renderBoard.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
 import { editorBusy, prepareEditorModal, renderEditorHeader, type EditorHeader } from './src/ui/editorHeader.ts';
@@ -22,7 +21,7 @@ import {
   type ViewCreator,
   type ViewState,
 } from 'obsidian';
-import { FM, LEGACY_FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
+import { FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
 import { changedFrontmatter, draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
@@ -198,11 +197,6 @@ export default class TaskTrellisPlugin extends Plugin {
     await this.saveSettings();
   }
 
-  /** Legacy Compact choices, used until the board has an explicit Appearance setting. */
-  isViewOn(slug: string, option: ViewOption): boolean {
-    return this.settings.collapsed[slug]?.[`view:${option}`] === true;
-  }
-
   activeQuickFilters(slug: string): string[] {
     return activeQuickFilterIds(this.settings.collapsed[slug] ?? {});
   }
@@ -246,7 +240,6 @@ export default class TaskTrellisPlugin extends Plugin {
             parseColumnWidths(fm[FM.columnWidths], config.columns.map((c) => c.id)), renames, removed);
         }
         Object.assign(fm, frontmatter);
-        for (const key of Object.values(LEGACY_FM)) delete fm[key];
       });
     } catch (error) {
       await retagUndo?.undo();
