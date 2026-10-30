@@ -4,7 +4,7 @@ import { buildBoard, type BoardTask } from '../src/core/board.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import { Events, notices, TFile } from './mocks/obsidian.ts';
+import { Events, notices, TFile, TFolder } from './mocks/obsidian.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
 beforeEach(() => { notices.length = 0; });
@@ -36,7 +36,7 @@ it('cancels Templater recovery when disabled without writing the task again', as
   unload();
   workspace.trigger('templater:overwrite-file', { file });
   await vi.runAllTimersAsync();
-  expect(offref).toHaveBeenCalledTimes(1);
+  expect(offref).toHaveBeenCalledTimes(2);
   expect(read).not.toHaveBeenCalled();
   expect(process).toHaveBeenCalledTimes(1);
 });
@@ -136,4 +136,117 @@ it('reports a missing destination as failure without pretending the task was sav
   const config = parseBoardConfig('Review', {}).config;
   expect(await new QuickAdd(plugin).addFromBoard(buildBoard([], config, '2026-10-25', () => undefined), { rowId: 'now', columnId: 'backlog' }, 'Keep me', false)).toBe(false);
   expect(notices.at(-1)).toContain('Daily notes');
+});
+
+describe('Templater folder templates', () => {
+  const TEMPLATE = '# Kitchen project\n\nProject note created from a template.\n\n## Tasks\n';
+
+  /** A new note in `Tasks/`, which Templater fills from a folder template if it's still empty. */
+  function fixture(options: { trigger?: boolean; legacy?: boolean; regex?: boolean; readable?: boolean } = {}) {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', globalThis);
+    const notes: Record<string, string> = {};
+    const workspace = new Events();
+    const templateFor = (folder: TFolder) => folder.path === 'Tasks' ? 'Templates/Project.md' : undefined;
+    const trigger = options.trigger ?? true;
+    const templater = options.legacy
+      ? { settings: { trigger_on_file_creation: trigger, enable_folder_templates: true }, templater: { get_new_file_template_for_folder: templateFor } }
+      : options.regex
+        ? { settings: { trigger_on_file_creation_mode: 'regex' },
+          templater: { get_new_file_template_for_file: (file: TFile) => /^Tasks\//.test(file.path) ? 'Templates/Project.md' : undefined } }
+        : { settings: { trigger_on_file_creation_mode: 'folder' }, templater: { get_new_file_template_for_folder: templateFor } };
+    let unload = () => {};
+    const plugin = {
+      register: (cleanup: () => void) => { unload = cleanup; },
+      isExcludedFromIndex: () => false,
+      app: {
+        workspace,
+        plugins: { enabledPlugins: new Set(['templater-obsidian']),
+          plugins: options.readable === false ? {} : { 'templater-obsidian': templater } },
+        loadLocalStorage: (key: string) => !options.legacy && key === 'templater-local-settings' ? { trigger_on_file_creation: trigger } : null,
+        metadataCache: { getFileCache: () => null },
+        vault: {
+          configDir: '.obsidian', adapter: { read: async () => '{}' },
+          getFileByPath: (path: string) => path in notes ? new TFile(path) : null,
+          getAbstractFileByPath: (path: string) => new TFolder(path),
+          create: async (path: string, data: string) => { notes[path] = data; return new TFile(path); },
+          read: async (file: TFile) => notes[file.path]!,
+          process: async (file: TFile, transform: (content: string) => string) => (notes[file.path] = transform(notes[file.path]!)),
+        },
+      },
+      settings: { newTaskKind: 'note', newTaskNote: 'Tasks/Kitchen project.md', newTaskHeading: 'Tasks' },
+    } as unknown as TaskTrellisPlugin;
+    const quick = new QuickAdd(plugin);
+    const config = parseBoardConfig('House', { slug: 'house' }).config;
+    /** What Templater does ~300 ms after creation: fill the note, keeping what it already has. */
+    const fill = (path: string) => {
+      notes[path] = notes[path] + TEMPLATE;
+      workspace.trigger('templater:new-note-from-template', { file: new TFile(path), content: notes[path] });
+    };
+    const add = (note: string) => quick.addLines(config, { kind: 'note', note, heading: 'Tasks' }, ['- [ ] Paint kitchen', '\t- [ ] Buy paint']);
+    return { notes, fill, add, quick, config, unload: () => unload() };
+  }
+
+  it.each([
+    { templates: 'folder templates', options: {} },
+    { templates: 'file-name templates', options: { regex: true } },
+    { templates: 'an older Templater’s folder templates', options: { legacy: true } },
+  ])('adds under the template’s heading once Templater has filled the new note, with $templates', async ({ options }) => {
+    const f = fixture(options);
+    const pending = f.add('Tasks/Kitchen project');
+    await vi.advanceTimersByTimeAsync(300);
+    // Still empty when Templater looks, so it applies the template.
+    expect(f.notes['Tasks/Kitchen project.md']).toBe('');
+    f.fill('Tasks/Kitchen project.md');
+    const added = await pending;
+    expect(f.notes['Tasks/Kitchen project.md']).toBe(`${TEMPLATE}- [ ] Paint kitchen\n\t- [ ] Buy paint\n`);
+    // Undo takes the note back to what the template wrote.
+    expect(added).toMatchObject({ at: 5, duplicate: false, before: TEMPLATE, after: f.notes['Tasks/Kitchen project.md'] });
+    expect(added.uncertain).toBeUndefined();
+  });
+
+  it('adds a board’s task under the template’s heading too', async () => {
+    const f = fixture();
+    const model = buildBoard([], parseBoardConfig('House', { slug: 'house', 'new-tasks': 'note', 'new-tasks-note': 'Tasks/Kitchen project.md', 'new-tasks-heading': 'Tasks' }).config, '2026-10-30', () => undefined);
+    const pending = f.quick.addFromBoard(model, { rowId: 'now', columnId: 'backlog' }, 'Paint kitchen', false);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(f.notes['Tasks/Kitchen project.md']).toBe('');
+    f.fill('Tasks/Kitchen project.md');
+    expect(await pending).toBe(true);
+    const note = f.notes['Tasks/Kitchen project.md']!;
+    expect(note.slice(0, TEMPLATE.length)).toBe(TEMPLATE);
+    expect(note.slice(TEMPLATE.length)).toMatch(/^- \[ \] Paint kitchen .*#tt\/house\/backlog\/\d+\n$/);
+  });
+
+  it('adds the task after a timeout when Templater never fills the note', async () => {
+    const f = fixture();
+    const pending = f.add('Tasks/Kitchen project');
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(f.notes['Tasks/Kitchen project.md']).toBe('');
+    await vi.advanceTimersByTimeAsync(1);
+    expect((await pending).after).toBe('## Tasks\n- [ ] Paint kitchen\n\t- [ ] Buy paint\n');
+  });
+
+  it.each([
+    { name: 'Templater doesn’t run on new notes', options: { trigger: false }, note: 'Tasks/Kitchen project' },
+    { name: 'the folder has no template', options: {}, note: 'Inbox' },
+    { name: 'Templater’s settings can’t be read', options: { readable: false }, note: 'Tasks/Kitchen project' },
+  ])('writes at once when $name', async ({ options, note }) => {
+    const f = fixture(options);
+    const pending = f.add(note);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(f.notes[`${note}.md`]).toBe('## Tasks\n- [ ] Paint kitchen\n\t- [ ] Buy paint\n');
+    await vi.runAllTimersAsync();
+    await pending;
+  });
+
+  it('writes nothing when the plugin is disabled while waiting for Templater', async () => {
+    const f = fixture();
+    const pending = f.add('Tasks/Kitchen project');
+    const failed = expect(pending).rejects.toThrow('disabled');
+    await vi.advanceTimersByTimeAsync(100);
+    f.unload();
+    await failed;
+    expect(f.notes['Tasks/Kitchen project.md']).toBe('');
+  });
 });

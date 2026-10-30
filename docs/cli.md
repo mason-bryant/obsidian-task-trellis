@@ -20,6 +20,8 @@ obsidian task-trellis:boards format=text
 
 With several vaults open, name one first: `obsidian vault="My vault" task-trellis:boards`. `obsidian help task-trellis` lists every command with its options.
 
+**On macOS, type `obsidian-cli` wherever this page says `obsidian`**, as in `obsidian-cli task-trellis:boards format=text`. Obsidian's prompt puts a folder inside the app on your PATH. That folder holds `obsidian-cli` and the app itself, `Obsidian`, and macOS ignores case in file names, so `obsidian` starts the app instead. The app shows a result only if it comes back almost at once. Anything slower prints nothing and still counts as success, even though the command ran. An `add` that creates a note, for example, can take half a second. `obsidian-cli` waits for every result.
+
 If it answers “The CLI is unable to find Obsidian” while Obsidian is open, the command line interface is off, or Obsidian hasn't restarted since you turned it on. Quit Obsidian fully and open it again; on macOS, closing its window or reloading it isn't enough.
 
 The commands are not available on iPhone, iPad or Android, where Obsidian has no command line. Use the [iOS shortcut](ios-shortcuts.md) to capture tasks there.
@@ -53,7 +55,7 @@ Every command also takes `format=json` (the default) or `format=text`.
 
 ### Adding tasks
 
-`add` uses the board's first workflow column unless you give `column`, and refuses Done. The task goes to the note and heading set under the board's **Settings → New tasks**. `note` sends it to another note and `heading` puts it under another heading. A heading that doesn't exist is added at the end of the note, and a note that doesn't exist is created.
+`add` uses the board's first workflow column unless you give `column`, and refuses Done. The task goes to the note and heading set under the board's **Settings → New tasks**. `note` sends it to another note and `heading` puts it under another heading. A heading that doesn't exist is added at the end of the note, and a note that doesn't exist is created. If Templater fills new notes in that folder from a template, the task is added once Templater has done so, under the template's heading when it has that heading. Without a heading, the task goes at the end of the note, straight after any list the note ends with.
 
 If the board's filters would hide tasks in the destination note, nothing is added and the command says so. A newly created note may still be hidden, for example when the board filters by a property the note doesn't have yet; the result then includes a `warning`.
 
@@ -120,7 +122,8 @@ See [Tasks and cards](tasks.md) and [Labels](labels.md) for the details.
 - Pass `expect` with the task's whole `raw` line when changing a task, including a subtask's leading tab. Use the ids returned by a change for the next command, or run `show` again.
 - Check `ok`. When it's false, read `error`; it says what to change. Report `skipped` tasks and any `warning` to the user.
 - Use `dry-run` to show the user a change before making it. Use `request-id` only when an add might be retried with no one watching; otherwise run `show` to check before adding again.
-- If `obsidian` isn't found, Obsidian isn't running, the result says the command line interface is off, or it says “The CLI is unable to find Obsidian”, tell the user. Don't fall back to editing notes unless they ask; if they do, follow [How tasks are stored](#how-tasks-are-stored).
+- On macOS, run `obsidian-cli` rather than `obsidian`. `obsidian` there prints nothing for slower results, even when the command worked. If a command prints nothing, run `show` before trying an add again.
+- If the command isn't found, Obsidian isn't running, the result says the command line interface is off, or it says “The CLI is unable to find Obsidian”, tell the user. Don't fall back to editing notes unless they ask; if they do, follow [How tasks are stored](#how-tasks-are-stored).
 
 ## Privacy
 

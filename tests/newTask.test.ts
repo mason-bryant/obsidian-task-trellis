@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNewTaskLine, finishNewTaskLine, insertUnderHeading, planNewTaskAtTop } from '../src/core/newTask.ts';
+import { buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, planNewTaskAtTop } from '../src/core/newTask.ts';
 
 import { applyEdit, buildBoard, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
@@ -61,6 +61,18 @@ describe('insertUnderHeading', () => {
     expect(insertUnderHeading('# Note\ntext\n', 'Tasks', ['- [ ] c'])).toBe('# Note\ntext\n\n## Tasks\n- [ ] c\n');
     expect(insertUnderHeading('# Note\ntext', '', ['- [ ] c'])).toBe('# Note\ntext\n\n- [ ] c');
     expect(insertUnderHeading('', '', ['- [ ] c'])).toBe('- [ ] c\n');
+  });
+
+  it('appends tasks to a list the note ends with, without a blank line between', () => {
+    let note = '# 2026-10-30\n\nMet the plumber.\n';
+    for (const task of ['- [ ] a', '- [ ] b', '- [ ] c']) note = insertUnderHeading(note, '', [task]);
+    expect(note).toBe('# 2026-10-30\n\nMet the plumber.\n\n- [ ] a\n- [ ] b\n- [ ] c\n');
+    expect(insertUnderHeadingAt('- [ ] a\n\t- [ ] sub\n\n', '', ['- [ ] b', '\t- [ ] c'])).toEqual({ content: '- [ ] a\n\t- [ ] sub\n- [ ] b\n\t- [ ] c\n', at: 2 });
+    expect(insertUnderHeading('* idea', '', ['- [ ] b'])).toBe('* idea\n- [ ] b');
+    expect(insertUnderHeading('1. first\r\n', '', ['- [ ] b'])).toBe('1. first\r\n- [ ] b\r\n');
+    // A heading it adds still gets its blank line.
+    expect(insertUnderHeading('- [ ] a\n', '## Tasks', ['- [ ] b'])).toBe('- [ ] a\n\n## Tasks\n- [ ] b\n');
+    expect(insertUnderHeading('> - [ ] quoted\n', '', ['- [ ] b'])).toBe('> - [ ] quoted\n\n- [ ] b\n');
   });
 
   it('keeps CRLF line endings', () => {

@@ -1,7 +1,7 @@
 import { isComposing } from '../ui/dom.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
-import { setIcon, Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type Events } from 'obsidian';
+import { getFrontMatterInfo, setIcon, Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type Events } from 'obsidian';
 import type { BoardModel, BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
@@ -20,7 +20,22 @@ type Change = { before: string; after: string };
 
 type AppInternals = {
   internalPlugins?: { getEnabledPluginById?(id: string): unknown };
-  plugins?: { enabledPlugins?: Set<string> };
+  plugins?: { enabledPlugins?: Set<string>; plugins?: Record<string, unknown> };
+};
+
+/** What Templater uses to decide whether to fill a new note from a template. Internal API. */
+type Templater = {
+  settings?: {
+    /** In older versions. Templater 2.26 keeps this setting on each device instead. */
+    trigger_on_file_creation?: unknown;
+    trigger_on_file_creation_mode?: unknown;
+    enable_folder_templates?: unknown;
+    enable_file_templates?: unknown;
+  };
+  templater?: {
+    get_new_file_template_for_folder?(folder: TFolder, extension?: string): string | undefined;
+    get_new_file_template_for_file?(file: TFile): string | undefined;
+  };
 };
 
 const TEMPLATER_ID = 'templater-obsidian';
@@ -140,6 +155,8 @@ export class QuickAdd {
     if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
     const { file, created } = target;
     if (this.plugin.isExcludedFromIndex(file.path)) throw new Error('The destination note is excluded from task indexing.');
+    const templated = created && await this.waitForTemplate(file);
+    if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
     const line = lines[0]!;
     const cache = this.app.metadataCache.getFileCache(file);
     const filtered = !taskMatchesBoard({ path: file.path, tags: parseTaskLine(line)?.tags ?? [] }, config, cache?.frontmatter, noteTags(cache));
@@ -160,7 +177,7 @@ export class QuickAdd {
       ({ content: after, at } = insertUnderHeadingAt(content, dest.heading, saved));
       return after;
     });
-    if (created && !duplicate) {
+    if (created && !duplicate && !templated) {
       let readded: Change | null;
       try { readded = await this.keepThroughTemplater(file, dest.heading, saved); }
       catch { return { file, at, duplicate, before, after, uncertain: true, warning: 'The task was written, but template processing could not be verified. Check the destination note before retrying. Sync is not confirmed.' }; }
@@ -207,6 +224,8 @@ export class QuickAdd {
     const target = await this.resolve(dest);
     if (!target || this.stopped) return false;
     const { file, created } = target;
+    const templated = created && await this.waitForTemplate(file);
+    if (this.stopped) return false;
     if (model) {
       const plan = planNewTaskAtTop(line, model);
       if (plan.edits.size) {
@@ -218,7 +237,7 @@ export class QuickAdd {
     }
     await this.app.vault.process(file, (content) => insertUnderHeading(content, dest.heading, [line]));
     if (created) {
-      void this.keepThroughTemplater(file, dest.heading, [line]).catch((error: unknown) => {
+      if (!templated) void this.keepThroughTemplater(file, dest.heading, [line]).catch((error: unknown) => {
         console.error('Task Trellis: could not preserve the new task after template processing.', error);
         new Notice('Task Trellis: template processing may have replaced the new task. Check the destination note.');
       });
@@ -270,20 +289,54 @@ export class QuickAdd {
   }
 
   /**
-   * Templater rewrites a new note from what it reads ~300 ms after creation. The task is written
-   * before that, so it normally survives; if the rewrite dropped it, add it again. Returns the note
-   * before and after adding it again, if that was needed.
+   * Templater fills a new note from its folder or file-name template only if the note is still empty
+   * ~300 ms after creation. When it will, wait for it, so the task goes into the filled note rather
+   * than stopping the template. True when this waited.
    */
-  private async keepThroughTemplater(file: TFile, heading: string, lines: string[]): Promise<Change | null> {
-    if (this.stopped || !this.templaterOn()) return null;
+  private async waitForTemplate(file: TFile): Promise<boolean> {
+    if (this.stopped || !await this.templaterWillFill(file)) return false;
+    await this.templaterWrote(file);
+    return true;
+  }
+
+  /**
+   * Templater's own check on a new note, short of its templates and excluded folders, where a wrong
+   * guess costs only the wait. False when its settings can't be read: the task is then written at
+   * once and `keepThroughTemplater` looks after it.
+   */
+  private async templaterWillFill(file: TFile): Promise<boolean> {
+    if (!this.templaterOn()) return false;
+    const templater = (this.app as unknown as AppInternals).plugins?.plugins?.[TEMPLATER_ID] as Templater | undefined;
+    const settings = templater?.settings;
+    if (!settings) return false;
+    try {
+      const local = this.app.loadLocalStorage('templater-local-settings') as { trigger_on_file_creation?: unknown } | null;
+      if ((local?.trigger_on_file_creation ?? settings.trigger_on_file_creation) !== true) return false;
+      const mode = settings.trigger_on_file_creation_mode
+        ?? (settings.enable_folder_templates === true ? 'folder' : settings.enable_file_templates === true ? 'regex' : 'none');
+      const find = templater.templater;
+      const template = mode === 'folder' ? file.parent && find?.get_new_file_template_for_folder?.(file.parent, file.extension)
+        : mode === 'regex' ? find?.get_new_file_template_for_file?.(file) : undefined;
+      if (!template) return false;
+      const content = await this.app.vault.read(file);
+      return content.length === getFrontMatterInfo(content).contentStart;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Waits until Templater has written `file`, up to `TEMPLATER_WAIT_MS`, or the plugin unloads. */
+  private templaterWrote(file: TFile): Promise<void> {
     const workspace = this.app.workspace as unknown as Events;
-    await new Promise<void>((resolve) => {
+    return new Promise<void>((resolve) => {
       let timer = 0;
-      const ref = workspace.on('templater:overwrite-file', (data: unknown) => {
-        if ((data as { file?: TFile } | undefined)?.file?.path === file.path) finish();
-      });
+      // A template filling an empty note, or the commands already in a note run in place.
+      const refs = ['templater:new-note-from-template', 'templater:overwrite-file'].map((name) =>
+        workspace.on(name, (data: unknown) => {
+          if ((data as { file?: TFile } | undefined)?.file?.path === file.path) finish();
+        }));
       const finish = () => {
-        workspace.offref(ref);
+        for (const ref of refs) workspace.offref(ref);
         window.clearTimeout(timer);
         this.pending.delete(finish);
         resolve();
@@ -291,6 +344,16 @@ export class QuickAdd {
       this.pending.add(finish);
       timer = window.setTimeout(finish, TEMPLATER_WAIT_MS);
     });
+  }
+
+  /**
+   * Templater rewrites a new note that isn't empty from what it reads ~300 ms after creation. The task
+   * is written before that, so it normally survives; if the rewrite dropped it, add it again. Returns
+   * the note before and after adding it again, if that was needed.
+   */
+  private async keepThroughTemplater(file: TFile, heading: string, lines: string[]): Promise<Change | null> {
+    if (this.stopped || !this.templaterOn()) return null;
+    await this.templaterWrote(file);
     if (this.stopped) return null;
     const content = await this.app.vault.read(file);
     let readded: Change | null = null;
