@@ -373,6 +373,29 @@ describe('task-trellis:bulk and undo', () => {
     expect(notes['Projects/New.md']).toBe(undone);
   });
 
+  it('adds to a new note once Templater has filled it from a folder template; a retry adds nothing and undo keeps the template', async () => {
+    const { run, notes, plugin } = fixture();
+    const app = plugin.app as unknown as { plugins: { enabledPlugins: Set<string>; plugins: Record<string, unknown> };
+      workspace: Events; loadLocalStorage: (key: string) => unknown };
+    app.plugins.enabledPlugins.add('templater-obsidian');
+    app.plugins.plugins['templater-obsidian'] = { settings: { trigger_on_file_creation_mode: 'folder' },
+      templater: { get_new_file_template_for_folder: (folder: TFolder) => folder.path === 'Projects' ? 'Templates/Project.md' : undefined } };
+    app.loadLocalStorage = (key) => key === 'templater-local-settings' ? { trigger_on_file_creation: true } : null;
+    const add = () => run('add', { board: 'home', note: 'Projects/New.md', heading: 'Tasks', text: 'Paint', 'request-id': 'agent-2' });
+    const pending = add();
+    await vi.waitFor(() => expect(notes['Projects/New.md']).toBe(''));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(notes['Projects/New.md']).toBe('');
+    notes['Projects/New.md'] = '# New project\n\n## Tasks\n';
+    app.workspace.trigger('templater:new-note-from-template', { file: plugin.app.vault.getFileByPath('Projects/New.md') });
+    const raw = '- [ ] <!-- task-trellis-request:agent-2 --> Paint #tt/home/backlog';
+    expect((await pending).added).toEqual([{ id: 'Projects/New.md:3', raw }]);
+    expect(notes['Projects/New.md']).toBe(`# New project\n\n## Tasks\n${raw}\n`);
+    expect(await add()).toMatchObject({ duplicate: true, added: [{ id: 'Projects/New.md:3', raw }] });
+    expect((await run('undo')).undone).toBe(true);
+    expect(notes['Projects/New.md']).toBe('# New project\n\n## Tasks\n');
+  });
+
   it('undoes an add, and leaves a note alone that changed since', async () => {
     const { run, notes } = fixture();
     const before = notes['Projects/Kitchen.md'];

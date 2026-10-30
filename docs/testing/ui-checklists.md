@@ -19,6 +19,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Long names, several label squares, no labels, and disabled and active states.
 - Light and dark themes, and the user's installed theme when available.
 - After changing the settings editor or the toolbar, look at both.
+- After changing what a card or cell draws, open a large board: `npm run harness`, then `dev/harness.html?load=2000`, at phone width and wide. The [large-board report](../qa/large-board-2026-10-30.md) says how its memory was measured. Long cells are tested in [cellPaging](../../tests/cellPaging.test.ts).
 
 ## Wording
 

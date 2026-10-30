@@ -28,11 +28,6 @@ export function rewriteBoardTaskTags(content: string, oldSlug: string, newSlug: 
       if (!duplicate) count++;
       const next = `#tt/${newSlug}/${tail}`;
       return duplicate ? `${match} ${next}` : `${lead}${next}`;
-    }).replace(/<!-- tt-labels:([\p{L}\p{N}_-]+):([a-z0-9_,-]+) -->/gu, (match, slug: string, ids: string) => {
-      if (slug.toLowerCase() !== oldSlug) return match;
-      if (!duplicate) count++;
-      const next = `<!-- tt-labels:${newSlug}:${ids} -->`;
-      return duplicate ? `${match} ${next}` : next;
     }));
     staged.push(transform(true)); after.push(transform(false));
   }
@@ -56,7 +51,7 @@ export function migrationSlug(name: string): string {
 /** Conservative collision detection includes references outside task lines. */
 export function mentionsNamespace(content: string, slug: string): boolean {
   return [...content.matchAll(/(?:^|[^\p{L}\p{N}_/-])(?:#)?tt\/([\p{L}\p{N}_-]+)(?=\/|[^\p{L}\p{N}_-]|$)/giu)]
-    .some((match) => match[1]!.toLowerCase() === slug) || content.includes(`tt-labels:${slug}:`);
+    .some((match) => match[1]!.toLowerCase() === slug);
 }
 
 /** Task descriptions can contain examples in code spans; those are not tags to migrate. */

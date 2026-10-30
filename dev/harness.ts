@@ -66,14 +66,34 @@ function noteTags(path: string): string[] {
     .map((tag) => tag.replace(/^#/, '').toLowerCase()).filter((tag) => !tag.startsWith('tt/')))];
 }
 
+// ?load=2000 swaps the sample notes for that many synthetic tasks, 100 to a note, shaped like the
+// native load-test notes: a column tag on each, due dates from 5 days ago to 40 days ahead, and a
+// subtask under every tenth. A fixed seed draws the same board every time.
+const load = Math.max(0, Math.floor(Number(new URLSearchParams(location.search).get('load')) || 0));
+if (load) {
+  for (const path of Object.keys(files)) delete files[path];
+  let seed = 1;
+  const random = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const columns = ['backlog', 'doing', 'waiting'];
+  for (let n = 1; n <= load; n++) {
+    const path = `Load/Load ${String(Math.ceil(n / 100)).padStart(2, '0')}.md`;
+    const column = columns[Math.floor(random() * columns.length)]!;
+    const lines = files[path] ??= [];
+    lines.push(`- [ ] Synthetic load task ${n} 📅 ${d(Math.floor(random() * 46) - 5)} #tt/house/${column}/${n * 100}`);
+    if (n % 10 === 1) lines.push(`\t- [ ] Synthetic subtask of ${n}`);
+  }
+}
+
 let { config, warnings } = parseBoardConfig('House', {
   slug: 'house',
   columns: ['Backlog', 'Doing', 'Waiting', 'Done'],
   'done-column': 'Done',
-  'due-now-days': 7,
+  'due-now': 7,
   'week-horizon': 4,
   'filter-properties': ['context: house'],
 });
+// A load board keeps the defaults, like the native one.
+if (load) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done' }));
 let collapsed: Record<string, boolean> = {};
 
 // Stands in for Obsidian's list parsing: a list item's parent is the nearest less-indented item above it.
@@ -183,7 +203,6 @@ const host: RenderHost = {
     collapsed = setSubtaskCollapse(collapsed, keys, value);
     render();
   },
-  isViewOn: (option) => collapsed[`view:${option}`] === true,
   onSubtasksMenu: (_anchor, select, onClose) => {
     const dialog = uiElement(document, 'dialog');
     dialog.setAttribute('aria-label', 'Subtasks');
@@ -336,6 +355,8 @@ function render(): void {
   renderBoard(document.getElementById('board')!, model(), host, { warnings, info: [`Harness · today is ${today}`] });
   const src = document.getElementById('source')!;
   src.replaceChildren();
+  // A load board leaves its thousands of lines out, so measurements count only the board.
+  if (load) return;
   for (const [path, lines] of Object.entries(files)) {
     const h = uiElement(document, 'h4');
     h.textContent = path;
@@ -363,7 +384,7 @@ function openSettings(initialSection: Section = 'columns'): void {
     }),
   );
   // Mirrors the native modal: explicit save, with cancel/escape discarding the draft.
-  const original = { ...config, compact: config.compact ?? collapsed['view:compact'] === true };
+  const original = config;
   const draft = draftFromConfig(original);
   let discard = false;
   const tryClose = (save = false) => {

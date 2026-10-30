@@ -5,6 +5,10 @@ export class TFile {
   get extension(): string {
     return this.path.split('.').pop() ?? '';
   }
+  get parent(): TFolder {
+    const slash = this.path.lastIndexOf('/');
+    return new TFolder(slash < 0 ? '/' : this.path.slice(0, slash));
+  }
 }
 
 export const notices: string[] = [];
@@ -61,6 +65,11 @@ export class Plugin {}
 export class FuzzySuggestModal {}
 export class WorkspaceLeaf {}
 export class PluginSettingTab {}
+
+export function getFrontMatterInfo(content: string): { exists: boolean; contentStart: number } {
+  const block = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/.exec(content);
+  return { exists: block !== null, contentStart: block?.[0].length ?? 0 };
+}
 
 // JSON is a YAML subset; migration fixtures use it to isolate the vault transaction tests.
 export const parseYaml = (value: string): unknown => JSON.parse(value);

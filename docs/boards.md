@@ -49,13 +49,15 @@ These properties are stored in the board note. The settings form handles the usu
 | `exclude-properties` | none | Same rule syntax as `filter-properties`. Any matching item excludes the note's tasks. |
 | `include-tags` / `exclude-tags` | none | Tags on the task or its page; `house` also matches `#house/kitchen`. Page tags apply to every task in the note. |
 | `include-folders` / `exclude-folders` | none | Folders the task's note must, or must not, be in. |
-| `compact` | false | Compact card spacing. Older boards preserve their per-device choice until edited in Appearance. |
+| `compact` | false | Compact card spacing. |
 | `label-shape` | pill | How labels show on cards: `pill`, `circle` or `square`. |
 | `show-column-selector` | true | Show the toolbar column dropdown. Hiding it clears the chosen-column filter; narrow-board navigation stays available. |
 | `show-completed-days` | 7 | Completed tasks show for this many days after their done date. 0 hides them. |
 | `new-tasks` | default | Where tasks added on this board go: `default` (the plugin setting), `daily` or `note`. |
 | `new-tasks-note` | | The note for `new-tasks: note`, created if missing. |
 | `new-tasks-heading` | | The section new tasks go at the end of; empty adds to the end of the note. |
+
+A cell with more than 25 cards shows the first 25, then **N more**, which shows the next 25 each time you select it; **Show fewer** goes back. Done and No due date start from `done-limit` and `undated-limit` instead. The extra cards stay shown while the board is open, but not after you close it, so a large board opens without drawing every card. Column and row counts, **Select all** and **Select column** still include every card.
 
 Every board gets an **Open board: ‹name›** command, so you can give each board its own hotkey. The command id comes from the slug, so the hotkey survives renaming the note.
 

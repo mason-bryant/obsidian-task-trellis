@@ -64,9 +64,9 @@ it('opens existing hidden preferences without changing them, and unchecks to sho
 });
 
 it('keeps appearance changes in the draft and saves only edited fields', () => {
-  const legacy = parseBoardConfig('House', {}).config;
-  expect(legacy.compact).toBeNull();
-  expect(changedFrontmatter(draftFromConfig(legacy), legacy)).toEqual({});
+  const plain = parseBoardConfig('House', {}).config;
+  expect(plain.compact).toBe(false);
+  expect(changedFrontmatter(draftFromConfig(plain), plain)).toEqual({});
   const config = parseBoardConfig('House', { compact: true }).config;
   const draft = draftFromConfig(config);
   draft.showColumnSelector = false;

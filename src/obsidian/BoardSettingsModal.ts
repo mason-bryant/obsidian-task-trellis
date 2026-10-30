@@ -31,7 +31,6 @@ export class BoardSettingsModal extends Modal {
     private onClosed?: () => void,
   ) {
     super(app);
-    this.config = { ...config, compact: config.compact ?? plugin.isViewOn(config.slug, 'compact') };
     this.draft = draftFromConfig(this.config);
   }
 
