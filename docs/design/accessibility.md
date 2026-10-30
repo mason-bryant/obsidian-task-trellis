@@ -15,7 +15,7 @@
 
 - **Cards and subtasks:** Tab to a card or subtask. Enter edits it, or opens its source line when the Tasks plugin isn't installed. Alt+Up/Down moves an open card within its cell, and ⋯ Move to… moves a card or subtask to another column or date row.
 - **One-column boards:** the Previous column and Next column buttons beside the page dots.
-- **Desktop sibling subtasks:** right-edge grips work with Arrow Up/Down and Home/End, including narrow desktop panes. Alt+Up/Down works on the row too. Saving retains focus on the moved row or grip and the Undo status announces its new sibling position.
+- **Desktop subtasks:** Alt+Up/Down on an open subtask's row moves it past its visible neighbor, including in narrow desktop panes. Saving keeps focus on the moved row, and the Undo status says Subtask reordered.
 - **Settings lists:** column and quick-filter grips move with Arrow Up/Down and Home/End, with the new position announced.
 - **Column separators:** Arrow Left/Right resize, with Shift for bigger steps, and Home resets all widths.
 - **Settings and editors:** the settings tabs work with the keyboard, and editor headers have named save and close buttons.

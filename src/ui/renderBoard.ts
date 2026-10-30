@@ -70,7 +70,6 @@ const bulkStates = new WeakMap<HTMLElement, BulkSelection>();
 const selectionClickCleanup = new WeakMap<HTMLElement, () => void>();
 const composerViewportCleanup = new WeakMap<HTMLElement, () => void>();
 const subtaskReorderCleanup = new WeakMap<HTMLElement, () => void>();
-let activeSubtaskReorders = 0;
 
 function disposeSubtaskReorders(root: HTMLElement): void {
   root.querySelectorAll<HTMLElement>('.tt-subtasks').forEach(section => {
@@ -107,7 +106,6 @@ let composer: { key: string; text: string; saving?: boolean; refresh?: () => voi
 let redrawHadFocus: boolean | null = null;
 
 export function isDragging(): boolean {
-  if (activeSubtaskReorders > 0) return true;
   return draggingId !== null && Date.now() - dragStartedAt < STALE_DRAG_MS;
 }
 
@@ -1055,13 +1053,11 @@ function subtaskSection(task: BoardTask, model: BoardModel, host: RenderHost): H
     section.append(more);
   }
   if (composing) section.append(subtaskBox(task, model.config.slug, section, host));
-  subtaskReorderCleanup.set(section, installSubtaskReorder(section, task, subtasks, shown.length === subtasks.length && !model.config.sortCompletedSubtasks, {
+  subtaskReorderCleanup.set(section, installSubtaskReorder(section, task, subtasks, model.config.sortCompletedSubtasks, {
     id: () => draggingId && Object.values(model.subtasks).some(list => list.some(sub => sub.id === draggingId)) ? draggingId : null,
     clear: () => clearIndicators(section.ownerDocument),
     finish: () => { draggingId = null; clearIndicators(section.ownerDocument); host.onDragEnd(); },
-    active: value => { activeSubtaskReorders += value ? 1 : -1; if (!value) host.onDragEnd(); },
-    scroller: () => verticalScroller(section.closest<HTMLElement>('.tt-scroll')!),
-  }, (el, name) => host.icon(el, name), host.onReorderSubtask ? move => host.onReorderSubtask?.(move) : undefined));
+  }, host.onReorderSubtask ? move => host.onReorderSubtask?.(move) : undefined));
   return section;
 }
 

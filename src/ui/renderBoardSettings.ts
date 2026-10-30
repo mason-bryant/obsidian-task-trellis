@@ -421,7 +421,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         'Compact spacing does not change expanded subtask lists.'));
       body.append(check('Hide column selector', !draft.showColumnSelector, (v) => { draft.showColumnSelector = !v; }));
       body.append(el('p', 'tt-help', 'Hide the column dropdown and show all columns. Narrow boards still have column navigation.'));
-      body.append(field('Subtask order', select('Subtask order', [['note', 'Note order'], ['completed-last', 'Completed last']], draft.sortCompletedSubtasks ? 'completed-last' : 'note', (v) => { draft.sortCompletedSubtasks = v === 'completed-last'; }), 'To drag subtasks into a different order on desktop, choose Note order and show all sibling subtasks.'));
+      body.append(field('Subtask order', select('Subtask order', [['note', 'Note order'], ['completed-last', 'Completed last']], draft.sortCompletedSubtasks ? 'completed-last' : 'note', (v) => { draft.sortCompletedSubtasks = v === 'completed-last'; })));
       body.append(check('Hide completed subtasks', draft.hideCompletedSubtasks, (v) => { draft.hideCompletedSubtasks = v; }));
       body.append(el('p', 'tt-help', 'A completed subtask with open subtasks stays visible.'));
       body.append(check('Hide overdue bars', !draft.overdueBar, (v) => { draft.overdueBar = !v; }));

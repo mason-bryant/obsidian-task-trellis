@@ -459,15 +459,12 @@ export class BoardView extends FileView {
         // Keep the displayed snapshots: retargeting stale line ids could move a different sibling.
         const result = await this.plugin.writer.reorderSubtask(move);
         if (result.action) {
-          const position = move.beforeId === null ? move.siblings.length : move.siblings.filter(task => task.id !== move.taskId).findIndex(task => task.id === move.beforeId) + 1;
-          this.undoAction = { label: `Subtask moved to position ${position} of ${move.siblings.length}`, action: result.action, ids: [result.id] };
+          this.undoAction = { label: 'Subtask reordered', action: result.action, ids: [result.id] };
           this.highlightIds = new Set([result.id]); this.highlightUntil = Date.now() + 1000;
           clearBulkSelection(this.contentEl);
           const focused = this.contentEl.ownerDocument.activeElement as HTMLElement | null;
-          for (const prefix of ['subtask', 'subtask-reorder']) {
-            if (focused && this.contentEl.contains(focused) && focused.dataset.boardFocus === `${prefix}:${move.taskId}`) {
-              focused.dataset.boardFocus = `${prefix}:${result.id}`;
-            }
+          if (focused && this.contentEl.contains(focused) && focused.dataset.boardFocus === `subtask:${move.taskId}`) {
+            focused.dataset.boardFocus = `subtask:${result.id}`;
           }
         }
         await this.plugin.index.refresh([move.parent.path]);

@@ -230,11 +230,8 @@ const host: RenderHost = {
     files[move.parent.path] = result.content.split('\n');
     highlighted = taskId(move.parent.path, result.line);
     const focused = document.activeElement as HTMLElement | null;
-    for (const prefix of ['subtask', 'subtask-reorder']) {
-      if (focused?.dataset.boardFocus === `${prefix}:${move.taskId}`) focused.dataset.boardFocus = `${prefix}:${highlighted}`;
-    }
-    const position = move.beforeId === null ? move.siblings.length : move.siblings.filter(task => task.id !== move.taskId).findIndex(task => task.id === move.beforeId) + 1;
-    offerUndo(before, `Subtask moved to position ${position} of ${move.siblings.length}`); render();
+    if (focused?.dataset.boardFocus === `subtask:${move.taskId}`) focused.dataset.boardFocus = `subtask:${highlighted}`;
+    offerUndo(before, 'Subtask reordered'); render();
   },
   onToggle: (task) => {
     const before = JSON.stringify(files);

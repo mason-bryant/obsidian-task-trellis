@@ -2,7 +2,7 @@
 
 # Community readiness test report
 
-The [October 29 subtask-reordering report](qa/subtask-reorder-2026-10-29.md) records the initial implementation and the subsequent desktop-grip revision. The revision passes 651 application tests and browser pointer/keyboard checks; its native verification remains outstanding.
+The [October 29 subtask-reordering report](qa/subtask-reorder-2026-10-29.md) records the initial implementation, the desktop-grip revision, and the card-style drag that replaced the grip. Native mouse drops remain unverified.
 
 The latest unreleased-branch check is the [October 28 pre-release report](qa/pre-release-2026-10-28.md): 609 application tests, 8 shortcut tests, browser layout measurements, native desktop checks and native iPhone checks through Mirroring. Its remaining gaps are recorded separately; the historical results below are not claims about that candidate.
 
@@ -246,3 +246,11 @@ These implementation checks used the 0.1.16 source while the local manifest stil
 
 - A fresh locked dependency install completed with `npm ci --offline --no-audit --no-fund` using the local package cache after the initial install was interrupted. No dependency or lockfile changes were made.
 - Lint, all 655 application tests in 47 files, all 8 Python shortcut tests, the harness build, and production packaging/type checking passed again on the combined change. Earlier browser results and native testing gaps above still apply.
+
+## Card-style subtask reordering (October 29, unreleased)
+
+- **Change:** the desktop subtask grip is gone. Dragging an open subtask's row within its list reorders it with the card's native drag, dimmed source and insertion marker; Alt+Up/Down on the row does the same. Completed subtasks can't be reordered. Reordering now also works with Completed last, where open subtasks move among the open ones, and with hidden siblings. A drop beside the row's current place writes nothing. Dragging out of the list still promotes; a drop into another list does nothing. See [the report](qa/subtask-reorder-2026-10-29.md#card-style-drag-revision).
+- **Automated:** lint, all 645 tests in 47 files, all 8 Python shortcut tests, the harness build, and production packaging/type checking pass. The existing dependency install was reused; no dependency changes.
+- **Native:** macOS Obsidian 1.14.5 in the maintainer's vault, after installing the packaged build with a backup and unchanged plugin settings, and reloading the plugin. No grips render, and every open subtask row is draggable with the Alt+Up/Down shortcuts. Script-dispatched dragstart and dragover events, with no drop, dimmed the row and showed the card insertion marker below the last subtask; dragend removed both. No notes changed.
+- **Remaining coverage:** no real mouse drag, drop, Undo or nested drag in native Obsidian; no native iOS, Android or screen-reader pass.
+

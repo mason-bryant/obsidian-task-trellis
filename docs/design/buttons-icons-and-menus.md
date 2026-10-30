@@ -12,7 +12,7 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 | Save or cancel a draft | A green check on the left and an X on the right; see [editing and saving](editing-and-saving.md) |
 | Assign labels / edit a label | The tag icon / the pencil icon |
 | Copy / remove a quick filter | Copy and trash icons, named for the filter. Removing a filter changes the settings draft. |
-| Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, cards on touch screens, and sibling subtasks on desktop |
+| Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, and cards on touch screens |
 | More card actions | ⋯ opens Move to…, whose choices say what else the move changes, such as the due date it sets |
 | All subtasks | One Subtasks button on the toolbar opens a menu with Collapse all subtasks and Expand all subtasks. Hiding completed subtasks is a setting under Appearance, not a toolbar button. |
 
