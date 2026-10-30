@@ -49,7 +49,7 @@ These tests model Obsidian's per-file atomic write semantics. Multi-file changes
 | 10,000 / 100 | 37.3 / 40.8 ms | 11.3 / 13.3 ms |
 | 50,000 / 500 | 194.8 / 206.5 ms | 64.0 / 98.8 ms |
 
-This measures core work, **not** end-to-end vault indexing, Markdown rendering, DOM layout, phone performance, network/sync or startup. Rendering many open cards remains unvirtualized; use focused boards and compact/collapsed views. No claim is made that a phone renders 50,000 cards smoothly. A native 1,000-card check is recorded below. Broader memory profiling and phone rendering benchmarks remain follow-ups before making performance claims.
+This measures core work, **not** end-to-end vault indexing, Markdown rendering, DOM layout, phone performance, network/sync or startup. Rendering isn't virtualized, but each cell draws 25 cards at a time, so the cards drawn stop growing with the size of the board. The [October 30 large-board report](qa/large-board-2026-10-30.md) measures WebKit's memory at phone size from 500 to 10,000 tasks, before and after that limit, and records the iPhone check. No claim is made that a phone renders 50,000 cards smoothly. A native 1,000-card check is recorded below. The iPhone's own memory limit hasn't been measured.
 
 ## Accessibility and presentation
 
