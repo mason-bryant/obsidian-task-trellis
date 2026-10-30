@@ -53,11 +53,14 @@ export function planNewTaskAtTop(line: string, model: BoardModel): { line: strin
 
 type HeadingSpec = { level?: number; text: string };
 
+const LIST_ITEM_RE = /^\s*(?:[-*+]|\d+[.)])\s/;
+
 /**
  * Inserts `newLines` at the end of the section under `heading` (after its last non-blank line,
  * before the next heading of the same or a higher level). `heading` may include its `#`s; without
  * them any level matches. Matching ignores case and extra spaces. A missing heading is added at the
- * end of the note; an empty `heading` appends to the end.
+ * end of the note; an empty `heading` appends to the end, after a blank line unless the note ends
+ * with a list item.
  */
 export function insertUnderHeading(content: string, heading: string, newLines: string[]): string {
   return insertUnderHeadingAt(content, heading, newLines).content;
@@ -82,7 +85,9 @@ export function insertUnderHeadingAt(content: string, heading: string, newLines:
   const endsWithNewline = lines.length > 1 && lines[lines.length - 1] === '';
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === '') lines.pop();
   const tail = spec ? [`${'#'.repeat(spec.level ?? 2)} ${heading.replace(/^#+\s*/, '').trim()}`, ...newLines] : newLines;
-  const out = lines.length > 0 ? [...lines, '', ...tail] : tail;
+  // Appended tasks continue a list the note ends with; anything else gets a blank line before them.
+  const continuesList = !spec && lines.length > 0 && LIST_ITEM_RE.test(lines[lines.length - 1]!);
+  const out = lines.length > 0 ? [...lines, ...(continuesList ? [] : ['']), ...tail] : tail;
   return {
     content: joinEditedLines(content, endsWithNewline || lines.length === 0 ? [...out, ''] : out),
     at: out.length - newLines.length,

@@ -6,7 +6,8 @@ import { parseTaskLine } from '../src/core/taskLine.ts';
 import { Events, TFile, notices } from './mocks/obsidian.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
-function fixture(options: { filtered?: boolean; created?: boolean; daily?: boolean; templater?: boolean } = {}) {
+function fixture(options: { filtered?: boolean; created?: boolean; daily?: boolean; templater?: boolean; frontmatter?: Record<string, unknown>; indexed?: boolean } = {}) {
+  vi.stubGlobal('window', globalThis);
   const file = new TFile('Inbox.md');
   const boardFile = new TFile('Boards/House.md');
   const config = parseBoardConfig('House', {
@@ -18,6 +19,10 @@ function fixture(options: { filtered?: boolean; created?: boolean; daily?: boole
   let exists = !options.created;
   const cleanups: Array<() => void> = [];
   const getDailyNote = vi.fn(async () => file);
+  const cache = { frontmatter: options.frontmatter ?? {} };
+  // Like Obsidian, a new note has no metadata until it has been indexed.
+  let indexed = options.created ? null : cache;
+  const metadataCache = Object.assign(new Events(), { getFileCache: () => indexed });
   const plugin = {
     register: (fn: () => void) => cleanups.push(fn),
     isExcludedFromIndex: vi.fn(() => false),
@@ -27,13 +32,17 @@ function fixture(options: { filtered?: boolean; created?: boolean; daily?: boole
     app: {
       workspace: new Events(),
       plugins: { enabledPlugins: new Set(options.templater ? ['templater-obsidian'] : []) },
-      metadataCache: { getFileCache: () => ({ frontmatter: {} }) },
+      metadataCache,
       internalPlugins: { getEnabledPluginById: () => ({ getDailyNote }) },
       vault: {
         configDir: '.obsidian', adapter: { read: async () => '{"setCreatedDate":true}' },
         getFileByPath: vi.fn(() => exists ? file : null),
         create: vi.fn(async () => { exists = true; return file; }),
-        process: vi.fn(async (_file: TFile, transform: (value: string) => string) => { content = transform(content); }),
+        // Like Obsidian, index the note a moment after each write.
+        process: vi.fn(async (_file: TFile, transform: (value: string) => string) => {
+          const written = content = transform(content);
+          if (options.indexed !== false) setTimeout(() => { indexed = cache; metadataCache.trigger('changed', file, written, cache); }, 5);
+        }),
         read: vi.fn(async () => content),
         on: vi.fn(), offref: vi.fn(),
       },
@@ -107,12 +116,29 @@ describe('shortcut creation', () => {
     await f.actions.handle({ ...request, text: 'Call supplier #home' });
     expect(f.content()).toContain('Call supplier #home');
   });
-  it('warns about uncertain filter visibility for a newly created destination', async () => {
+  it('warns when a newly created destination’s tags don’t match the board’s filters', async () => {
     const f = fixture({ created: true, filtered: true });
     await f.actions.handle(request);
     expect(f.content()).toContain('Call supplier');
     expect(notices.join(' ')).toContain('may be hidden');
     expect(notices.join(' ')).toContain('Sync is not confirmed');
+  });
+  it('reports a save without a filter warning once Obsidian has indexed a new destination whose tags match', async () => {
+    const f = fixture({ created: true, filtered: true, frontmatter: { tags: ['home'] } });
+    await f.actions.handle(request);
+    expect(f.content()).toContain('Call supplier');
+    expect(notices.join(' ')).toContain('Task saved on this device. Keep Obsidian open');
+    expect(notices.join(' ')).not.toContain('may be hidden');
+  });
+  it('warns when Obsidian hasn’t indexed a new destination after a short wait', async () => {
+    vi.useFakeTimers();
+    const f = fixture({ created: true, filtered: true, frontmatter: { tags: ['home'] }, indexed: false });
+    const pending = f.actions.handle(request);
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(notices).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1); await pending;
+    expect(f.content()).toContain('Call supplier');
+    expect(notices.join(' ')).toContain('may be hidden');
   });
   it('blocks excluded destinations', async () => {
     const f = fixture();
@@ -159,7 +185,7 @@ describe('shortcut creation', () => {
     expect(notices.join(' ')).toContain('task is saved, but the board');
   });
   it('waits for new-note template recovery before reporting local save', async () => {
-    vi.useFakeTimers(); vi.stubGlobal('window', globalThis);
+    vi.useFakeTimers();
     const f = fixture({ created: true, templater: true });
     const pending = f.actions.handle({ ...request, 'request-id': 'template-1' });
     await vi.advanceTimersByTimeAsync(0);
@@ -172,7 +198,7 @@ describe('shortcut creation', () => {
     expect(notices.join(' ')).toContain('Task saved on this device.');
   });
   it('does not claim verified local save if template recovery fails', async () => {
-    vi.useFakeTimers(); vi.stubGlobal('window', globalThis);
+    vi.useFakeTimers();
     const f = fixture({ created: true, templater: true });
     vi.mocked(f.plugin.app.vault.read).mockRejectedValueOnce(new Error('Read failed'));
     const pending = f.actions.handle(request);
