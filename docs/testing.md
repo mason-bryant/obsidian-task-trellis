@@ -254,3 +254,10 @@ These implementation checks used the 0.1.16 source while the local manifest stil
 - **Native:** macOS Obsidian 1.14.5 in the maintainer's vault, after installing the packaged build with a backup and unchanged plugin settings, and reloading the plugin. No grips render, and every open subtask row is draggable with the Alt+Up/Down shortcuts. Script-dispatched dragstart and dragover events, with no drop, dimmed the row and showed the card insertion marker below the last subtask; dragend removed both. No notes changed.
 - **Remaining coverage:** no real mouse drag, drop, Undo or nested drag in native Obsidian; no native iOS, Android or screen-reader pass.
 
+
+## Label shapes (October 30, unreleased)
+
+- **Change:** Board settings → Appearance → Label shape chooses how a card's labels look: Pills (the default and the previous look, 40 × 8px bars), Circles or Squares (20px). It's saved in the board note as `label-shape`; unknown values fall back to pills. Hovering a label now shows the label's name instead of its color, falling back to the color for an unnamed label.
+- **Automated:** lint, all 645 tests in 47 files, all 8 Python shortcut tests, the harness build, and production packaging/type checking pass. The existing dependency install was reused; no dependency changes. Tests cover the default, parsing, the settings dropdown and its write, the renderer's shape class and the name on hover.
+- **Native:** macOS Obsidian 1.14.5 in the maintainer's vault, after installing the packaged build and reloading. Pills measured 40 × 8px with the original spacing; circles and squares 20 × 20px, shown by swapping the shape class in the page without saving. Hovering a label showed only its name in Obsidian's tooltip.
+- **Remaining coverage:** the Label shape dropdown wasn't opened in native Obsidian; no light theme, iOS, Android or screen-reader pass.

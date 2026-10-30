@@ -791,9 +791,13 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   .tt-board-list button.tt-board-list-item, .tt-board-list-create { min-height: 44px; }
 }
 
-/* Board-specific labels: short bars remain visible in both card densities. */
-.tt-card-labels { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
-.tt-card-label { display: block; width: 40px; height: 8px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%); }
+/* Board-specific labels, in the board's Label shape: circles and squares are 20px stickers, and
+   pills keep the original short bars. */
+.tt-card-labels { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.tt-card-label { display: block; width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 18%), 0 1px 2px rgb(0 0 0 / 35%); }
+.tt-card-labels--square .tt-card-label { border-radius: 4px; }
+.tt-card-labels--pill { gap: 5px; margin-bottom: 8px; }
+.tt-card-labels--pill .tt-card-label { width: 40px; height: 8px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%); }
 .tt-label-modal { box-sizing: border-box; background: var(--background-primary); color: var(--text-normal); border: 1px solid var(--background-modifier-border); border-radius: 12px; width: min(440px, calc(100vw - 32px)); max-height: 85dvh; overflow-y: auto; }
 .tt-label-picker, .tt-label-picker * { box-sizing: border-box; }
 .tt-label-picker { display: flex; flex-direction: column; gap: 16px; }

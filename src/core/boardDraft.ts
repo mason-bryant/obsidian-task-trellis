@@ -50,6 +50,7 @@ export type BoardDraft = DraftFilterSet & {
   hideCompletedSubtasks: boolean;
   overdueBar: boolean;
   openLinks: BoardConfig['openLinks'];
+  labelShape: BoardConfig['labelShape'];
   quickFilters: DraftQuickFilter[];
   quickFiltersMenu: boolean;
   quickFiltersVisible: string;
@@ -90,6 +91,7 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     hideCompletedSubtasks: config.hideCompletedSubtasks,
     overdueBar: config.overdueBar,
     openLinks: config.openLinks,
+    labelShape: config.labelShape,
     ...filterSetDraft(config),
     quickFiltersMenu: config.quickFiltersMenu,
     quickFiltersVisible: config.quickFiltersVisible?.toString() ?? "",
@@ -186,6 +188,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.hideCompletedSubtasks]: draft.hideCompletedSubtasks,
     [FM.overdueBar]: draft.overdueBar,
     [FM.openLinks]: draft.openLinks,
+    [FM.labelShape]: draft.labelShape,
     [FM.newTasks]: draft.newTasks,
     [FM.newTasksNote]: draft.newTasks === 'note' ? draft.newTasksNote.trim() : '',
     [FM.newTasksHeading]: draft.newTasks === 'default' ? '' : draft.newTasksHeading.trim(),

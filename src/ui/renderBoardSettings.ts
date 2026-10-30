@@ -417,6 +417,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       quickFilterEditor(body);
     } else if (section === 'appearance') {
       heading(body, 'Choose how cards look', 'Saved in the board note, so they follow the board to other devices.');
+      body.append(field('Label shape', select('Label shape', [['circle', 'Circles'], ['pill', 'Pills'], ['square', 'Squares']], draft.labelShape, (v) => { draft.labelShape = v as BoardConfig['labelShape']; })));
       body.append(field('Card spacing', select('Card spacing', [['comfortable', 'Comfortable'], ['compact', 'Compact']], draft.compact ? 'compact' : 'comfortable', (v) => { draft.compact = v === 'compact'; }),
         'Compact spacing does not change expanded subtask lists.'));
       body.append(check('Hide column selector', !draft.showColumnSelector, (v) => { draft.showColumnSelector = !v; }));

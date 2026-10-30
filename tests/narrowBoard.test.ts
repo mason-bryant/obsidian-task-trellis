@@ -225,13 +225,20 @@ describe('touch card placement', () => {
 
 
 describe('card labels', () => {
-  it('renders board-specific bars and opens the picker without editing the card', () => {
+  it('renders board-specific labels in the board shape and opens the picker without editing the card', () => {
     const raw = setTaskLabels(setTaskLabels(open.raw, 'house', ['red']), 'work', ['blue']);
     const labeled = task(raw, 0);
     host.onLabels = vi.fn();
     renderBoard(root, buildBoard([labeled], parseBoardConfig('House', { slug: 'house' }).config, today, () => undefined), host, { warnings: [], info: [] });
     expect(root.querySelectorAll('.tt-card-label')).toHaveLength(1);
     expect(root.querySelector('.tt-card-label')!.getAttribute('aria-label')).toBe('Red');
+    expect(root.querySelector('.tt-card-labels')!.classList.contains('tt-card-labels--pill')).toBe(true);
+    const named = parseBoardConfig('House', { slug: 'house', 'label-shape': 'circle' }).config;
+    named.labels = named.labels.map((label) => label.id === 'red' ? { ...label, name: 'Urgent' } : label);
+    renderBoard(root, buildBoard([labeled], named, today, () => undefined), host, { warnings: [], info: [] });
+    // The hover shows the label's name, not its color.
+    expect(root.querySelector('.tt-card-label')!.getAttribute('aria-label')).toBe('Urgent');
+    expect(root.querySelector('.tt-card-labels')!.classList.contains('tt-card-labels--circle')).toBe(true);
     root.querySelector<HTMLButtonElement>('.tt-card-label-button')!.click();
     expect(host.onLabels).toHaveBeenCalledWith(labeled);
     expect(host.onEdit).not.toHaveBeenCalled();

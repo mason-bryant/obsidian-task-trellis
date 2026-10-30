@@ -56,6 +56,7 @@ export type BoardConfig = {
   overdueBar: boolean;
   /** How a card's note and the links in its text open. */
   openLinks: 'popup' | 'tab';
+  labelShape: LabelShape;
   /** Where tasks added on this board go; `default` uses the plugin setting. */
   newTasks: 'default' | NewTaskKind;
   newTasksNote: string;
@@ -64,6 +65,7 @@ export type BoardConfig = {
 };
 
 export type NewTaskKind = 'daily' | 'note';
+export type LabelShape = 'pill' | 'circle' | 'square';
 
 /** A note and the heading new tasks go under. */
 export type NewTaskDestination = { kind: NewTaskKind; note: string; heading: string };
@@ -111,6 +113,7 @@ export const FM = {
   hideCompletedSubtasks: 'hide-completed-subtasks',
   overdueBar: 'overdue-bar',
   openLinks: 'open-links',
+  labelShape: 'label-shape',
   newTasks: 'new-tasks',
   newTasksNote: 'new-tasks-note',
   newTasksHeading: 'new-tasks-heading',
@@ -154,6 +157,7 @@ export function newBoardFrontmatter(slug: string): Record<string, unknown> {
     [FM.hideCompletedSubtasks]: false,
     [FM.overdueBar]: true,
     [FM.openLinks]: 'popup',
+    [FM.labelShape]: 'pill',
     [FM.newTasks]: 'default',
   };
 }
@@ -238,6 +242,7 @@ export function parseBoardConfig(
       hideCompletedSubtasks: boolSetting(f[FM.hideCompletedSubtasks], false),
       overdueBar: boolSetting(f[FM.overdueBar], true),
       openLinks: scalarText(f[FM.openLinks])?.toLowerCase() === 'tab' ? 'tab' : 'popup',
+      labelShape: labelShapeSetting(f[FM.labelShape]),
       newTasks: newTasksSetting(f[FM.newTasks], warnings),
       newTasksNote: typeof f[FM.newTasksNote] === 'string' ? (f[FM.newTasksNote] as string).trim() : '',
       newTasksHeading: typeof f[FM.newTasksHeading] === 'string' ? (f[FM.newTasksHeading] as string).trim() : '',
@@ -253,6 +258,11 @@ function newTasksSetting(raw: unknown, warnings: string[]): BoardConfig['newTask
   if (v === 'default' || v === 'daily' || v === 'note') return v;
   warnings.push(`new-tasks "${scalarText(raw)}" should be default, daily or note; using default.`);
   return 'default';
+}
+
+function labelShapeSetting(raw: unknown): LabelShape {
+  const v = scalarText(raw)?.trim().toLowerCase();
+  return v === 'circle' || v === 'square' ? v : 'pill';
 }
 
 function boolSetting(raw: unknown, fallback: boolean): boolean {

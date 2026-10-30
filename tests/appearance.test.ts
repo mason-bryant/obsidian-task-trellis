@@ -8,8 +8,8 @@ import { buildBoard } from '../src/core/board.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 
 it('defaults to note-order subtasks, all shown, with the overdue bar', () => {
-  expect(parseBoardConfig('House', {}).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup' });
-  expect(parseBoardConfig('House', newBoardFrontmatter('house')).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup' });
+  expect(parseBoardConfig('House', {}).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup', labelShape: 'pill' });
+  expect(parseBoardConfig('House', newBoardFrontmatter('house')).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup', labelShape: 'pill' });
 });
 
 it('checks to hide, saves inverse visibility flags, and keeps spacing and order as choices', () => {
@@ -27,7 +27,7 @@ it('checks to hide, saves inverse visibility flags, and keeps spacing and order 
     expect(box(label!).checked).toBe(false);
     box(label!).click();
   }
-  for (const [label, before, after] of [['Card spacing', 'comfortable', 'compact'], ['Subtask order', 'note', 'completed-last']] as const) {
+  for (const [label, before, after] of [['Label shape', 'pill', 'circle'], ['Card spacing', 'comfortable', 'compact'], ['Subtask order', 'note', 'completed-last']] as const) {
     const choice = root.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;
     expect(choice.value).toBe(before);
     choice.value = after; choice.dispatchEvent(new Event('change'));
@@ -37,7 +37,9 @@ it('checks to hide, saves inverse visibility flags, and keeps spacing and order 
   opener.value = 'tab'; opener.dispatchEvent(new Event('change'));
   const { frontmatter, errors } = draftToFrontmatter(draft, config);
   expect(errors).toEqual([]);
-  expect(frontmatter).toMatchObject({ compact: true, 'show-column-selector': false, 'sort-completed-subtasks': true, 'hide-completed-subtasks': true, 'overdue-bar': false, 'open-links': 'tab' });
+  expect(frontmatter).toMatchObject({ compact: true, 'show-column-selector': false, 'sort-completed-subtasks': true, 'hide-completed-subtasks': true, 'overdue-bar': false, 'open-links': 'tab', 'label-shape': 'circle' });
+  expect(parseBoardConfig('House', { 'label-shape': 'Square' }).config.labelShape).toBe('square');
+  expect(parseBoardConfig('House', { 'label-shape': 'star' }).config.labelShape).toBe('pill');
   expect(parseBoardConfig('House', { 'open-links': 'Tab' }).config.openLinks).toBe('tab');
   expect(parseBoardConfig('House', { 'open-links': 'other' }).config.openLinks).toBe('popup');
 });
