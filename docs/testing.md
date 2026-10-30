@@ -2,7 +2,7 @@
 
 # Community readiness test report
 
-The [October 30 native and upgrade report](qa/native-2026-10-30.md) covers upgrading from 0.1.16, a downgrade on shared board settings, desktop subtask reordering by mouse and keyboard, a 2,000-card board, and Obsidian's internal integrations on Obsidian 1.13.7.
+The [October 30 native and upgrade report](qa/native-2026-10-30.md) covers upgrading from 0.1.16, a downgrade on shared board settings, desktop subtask reordering by mouse and keyboard, a 2,000-card board, and Obsidian's internal integrations on Obsidian 1.13.7 and 1.14.5. It also covers the command line, Tasks and Templater, a VoiceOver pass on macOS and large boards on iPhone, and lists the problems those found.
 
 The [October 29 subtask-reordering report](qa/subtask-reorder-2026-10-29.md) records the initial implementation, the desktop-grip revision, and the card-style drag that replaced the grip. Native mouse drops were verified on October 30.
 
