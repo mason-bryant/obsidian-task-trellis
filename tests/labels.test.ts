@@ -84,13 +84,12 @@ describe('task label persistence', () => {
 
 
 describe('label tags', () => {
-  it('reads legacy assignments and converts them on a selection write', () => {
+  it('reads only label tags, not the comments very early versions wrote', () => {
     const old = '- [ ] <!-- tt-labels:home:red --> Invoice 📅 2026-10-25 #tt/home/doing/100 ^id';
-    expect(taskLabels(old, 'home')).toEqual(['red']);
-    const migrated = setTaskLabels(old, 'home', ['red']);
-    expect(migrated).toBe('- [ ] Invoice 📅 2026-10-25 #tt/home/label/red #tt/home/doing/100 ^id');
-    expect(setTaskLabels(migrated, 'home', ['red'])).toBe(migrated);
-    expect(parseTaskLine(old)?.text).toBe('Invoice');
+    expect(taskLabels(old, 'home')).toEqual([]);
+    const labelled = setTaskLabels('- [ ] Invoice 📅 2026-10-25 #tt/home/doing/100 ^id', 'home', ['red']);
+    expect(labelled).toBe('- [ ] Invoice 📅 2026-10-25 #tt/home/label/red #tt/home/doing/100 ^id');
+    expect(setTaskLabels(labelled, 'home', ['red'])).toBe(labelled);
   });
 
   it('keeps numeric label ids separate from placement tags', () => {

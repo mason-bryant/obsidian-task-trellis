@@ -49,7 +49,7 @@ These properties are stored in the board note. The settings form handles the usu
 | `exclude-properties` | none | Same rule syntax as `filter-properties`. Any matching item excludes the note's tasks. |
 | `include-tags` / `exclude-tags` | none | Tags on the task or its page; `house` also matches `#house/kitchen`. Page tags apply to every task in the note. |
 | `include-folders` / `exclude-folders` | none | Folders the task's note must, or must not, be in. |
-| `compact` | false | Compact card spacing. Older boards preserve their per-device choice until edited in Appearance. |
+| `compact` | false | Compact card spacing. |
 | `label-shape` | pill | How labels show on cards: `pill`, `circle` or `square`. |
 | `show-column-selector` | true | Show the toolbar column dropdown. Hiding it clears the chosen-column filter; narrow-board navigation stays available. |
 | `show-completed-days` | 7 | Completed tasks show for this many days after their done date. 0 hides them. |

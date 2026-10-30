@@ -99,8 +99,10 @@ describe('new task destination', () => {
 });
 
 describe('due now settings', () => {
-  it('reads the old due-now-days key, booleans as text, and warns about a bad unit', () => {
-    expect(config({ 'due-now-days': 4 })).toMatchObject({ dueNow: 4, dueNowUnit: 'days' });
+  it('reads due-now in days, booleans as text, and warns about a bad unit', () => {
+    expect(config({ 'due-now': 4 })).toMatchObject({ dueNow: 4, dueNowUnit: 'days' });
+    // The pre-0.1.15 key is no longer read.
+    expect(config({ 'due-now-days': 4 })).toMatchObject({ dueNow: 7 });
     expect(config({ 'limit-done': 'false', 'done-limit': 3 })).toMatchObject({ limitDone: false, doneLimit: 3 });
     const r = parseBoardConfig('B', { 'due-now-unit': 'fortnights' });
     expect(r.config.dueNowUnit).toBe('days');
@@ -152,14 +154,14 @@ describe('computeRows', () => {
   });
 
   it('starts later right after the window when there are no week rows', () => {
-    const r = computeRows(config({ 'week-horizon': 0, 'due-now-days': 0 }), TODAY);
+    const r = computeRows(config({ 'week-horizon': 0, 'due-now': 0 }), TODAY);
     expect(r.map((x) => x.id)).toEqual(['none', 'now', 'later']);
     expect(r[2]!.from).toBe('2026-10-22');
   });
 
   it('honours a Sunday week start', () => {
     expect(startOfWeek('2026-10-21', 0)).toBe('2026-10-18');
-    const r = computeRows(config({ 'week-start': 'sunday', 'due-now-days': 4 }), TODAY);
+    const r = computeRows(config({ 'week-start': 'sunday', 'due-now': 4 }), TODAY);
     expect(r[2]).toMatchObject({ id: 'week-2026-10-25', from: '2026-10-26', to: '2026-10-31' });
   });
 });

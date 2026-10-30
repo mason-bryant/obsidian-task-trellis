@@ -70,7 +70,7 @@ let { config, warnings } = parseBoardConfig('House', {
   slug: 'house',
   columns: ['Backlog', 'Doing', 'Waiting', 'Done'],
   'done-column': 'Done',
-  'due-now-days': 7,
+  'due-now': 7,
   'week-horizon': 4,
   'filter-properties': ['context: house'],
 });
@@ -183,7 +183,6 @@ const host: RenderHost = {
     collapsed = setSubtaskCollapse(collapsed, keys, value);
     render();
   },
-  isViewOn: (option) => collapsed[`view:${option}`] === true,
   onSubtasksMenu: (_anchor, select, onClose) => {
     const dialog = uiElement(document, 'dialog');
     dialog.setAttribute('aria-label', 'Subtasks');
@@ -363,7 +362,7 @@ function openSettings(initialSection: Section = 'columns'): void {
     }),
   );
   // Mirrors the native modal: explicit save, with cancel/escape discarding the draft.
-  const original = { ...config, compact: config.compact ?? collapsed['view:compact'] === true };
+  const original = config;
   const draft = draftFromConfig(original);
   let discard = false;
   const tryClose = (save = false) => {
