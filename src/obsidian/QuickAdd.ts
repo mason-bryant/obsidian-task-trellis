@@ -1,7 +1,7 @@
 import { isComposing } from '../ui/dom.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
-import { getFrontMatterInfo, setIcon, Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type Events } from 'obsidian';
+import { getFrontMatterInfo, setIcon, Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type CachedMetadata, type Events } from 'obsidian';
 import type { BoardModel, BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
@@ -40,6 +40,7 @@ type Templater = {
 
 const TEMPLATER_ID = 'templater-obsidian';
 const TEMPLATER_WAIT_MS = 3000;
+const INDEX_WAIT_MS = 2000;
 
 /** Adds new tasks to today's daily note, or a configured note, under a heading. */
 export class QuickAdd {
@@ -166,41 +167,49 @@ export class QuickAdd {
     let duplicate = false;
     let at = -1;
     let before = '', after = '';
-    await this.app.vault.process(file, (content) => {
-      if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
-      before = after = content;
-      if (marker && content.includes(marker)) {
-        duplicate = true;
-        at = content.split(/\r?\n/).findIndex((l) => l.includes(marker));
-        return content;
-      }
-      ({ content: after, at } = insertUnderHeadingAt(content, dest.heading, saved));
-      return after;
-    });
-    if (created && !duplicate && !templated) {
-      let readded: Change | null;
-      try { readded = await this.keepThroughTemplater(file, dest.heading, saved); }
-      catch { return { file, at, duplicate, before, after, uncertain: true, warning: 'The task was written, but template processing could not be verified. Check the destination note before retrying. Sync is not confirmed.' }; }
-      // Templater may have rewritten the note around the task. `before` and `after` then describe the
-      // note as it left it, so undoing the add keeps the template's content.
-      if (this.templaterOn()) {
-        const final = await this.app.vault.read(file);
-        const current = final.split(/\r?\n/);
-        if (current[at] !== saved[0]) at = current.indexOf(saved[0]!);
-        if (readded?.after === final) ({ before, after } = readded);
-        else if (final !== after) {
-          // Without the lines together to remove, there is no undo: `before` equals `after`.
-          before = removeLinesAt(final, at, saved) ?? final;
-          after = final;
+    // Folder filters need only the path. Tag and property filters also read the note, and a new note
+    // has its template's properties and tags only once Obsidian has indexed it, a moment after each
+    // write. Listen from before writing, so the check below can wait for the note as the add left it.
+    const readsNote = config.includeTags.length + config.excludeTags.length +
+      config.propertyFilters.length + config.excludedPropertyFilters.length > 0;
+    const index = created && readsNote ? this.watchIndex(file) : null;
+    try {
+      await this.app.vault.process(file, (content) => {
+        if (this.stopped) throw new Error('The plugin was disabled before the task could be saved.');
+        before = after = content;
+        if (marker && content.includes(marker)) {
+          duplicate = true;
+          at = content.split(/\r?\n/).findIndex((l) => l.includes(marker));
+          return content;
+        }
+        ({ content: after, at } = insertUnderHeadingAt(content, dest.heading, saved));
+        return after;
+      });
+      if (created && !duplicate && !templated) {
+        let readded: Change | null;
+        try { readded = await this.keepThroughTemplater(file, dest.heading, saved); }
+        catch { return { file, at, duplicate, before, after, uncertain: true, warning: 'The task was written, but template processing could not be verified. Check the destination note before retrying. Sync is not confirmed.' }; }
+        // Templater may have rewritten the note around the task. `before` and `after` then describe the
+        // note as it left it, so undoing the add keeps the template's content.
+        if (this.templaterOn()) {
+          const final = await this.app.vault.read(file);
+          const current = final.split(/\r?\n/);
+          if (current[at] !== saved[0]) at = current.indexOf(saved[0]!);
+          if (readded?.after === final) ({ before, after } = readded);
+          else if (final !== after) {
+            // Without the lines together to remove, there is no undo: `before` equals `after`.
+            before = removeLinesAt(final, at, saved) ?? final;
+            after = final;
+          }
         }
       }
+      const latestCache = index ? await index.indexed(after) : this.app.metadataCache.getFileCache(file);
+      const visibilityUnknown = index !== null && !latestCache;
+      const hidden = !taskMatchesBoard({ path: file.path, tags: parseTaskLine(line)?.tags ?? [] }, config, latestCache?.frontmatter, noteTags(latestCache));
+      return { file, at, duplicate, before, after, warning: hidden || visibilityUnknown ? 'The task may be hidden by this board’s filters; check the destination note and its properties. Sync is not confirmed.' : undefined };
+    } finally {
+      index?.stop();
     }
-    const latestCache = this.app.metadataCache.getFileCache(file);
-    const hasFilters = config.includeTags.length + config.excludeTags.length + config.includeFolders.length +
-      config.excludeFolders.length + config.propertyFilters.length + config.excludedPropertyFilters.length > 0;
-    const visibilityUnknown = created && hasFilters && !latestCache;
-    const hidden = !taskMatchesBoard({ path: file.path, tags: parseTaskLine(line)?.tags ?? [] }, config, latestCache?.frontmatter, noteTags(latestCache));
-    return { file, at, duplicate, before, after, warning: hidden || visibilityUnknown ? 'The task may be hidden by this board’s filters; check the destination note and its properties. Sync is not confirmed.' : undefined };
   }
 
   /** The Tasks modal when available (prefilled with the text and due date), else a plain prompt. */
@@ -344,6 +353,38 @@ export class QuickAdd {
       this.pending.add(finish);
       timer = window.setTimeout(finish, TEMPLATER_WAIT_MS);
     });
+  }
+
+  /**
+   * Until Obsidian indexes a write, it reports a new note's properties and tags as unknown, or a
+   * changed note's as they were. Start this before writing `file`: `indexed(content)` then gives the
+   * note's metadata once Obsidian has indexed `content`, or null after `INDEX_WAIT_MS` or if the
+   * plugin unloads. `stop` stops listening.
+   */
+  private watchIndex(file: TFile): { indexed(content: string): Promise<CachedMetadata | null>; stop(): void } {
+    const { metadataCache } = this.app;
+    let latest: { content: string; cache: CachedMetadata } | null = null;
+    let seen = (): void => undefined;
+    // Obsidian passes the content it read, so an index of an earlier write isn't taken for this one.
+    const ref = metadataCache.on('changed', (changed, content, cache) => {
+      if (changed.path !== file.path) return;
+      latest = { content, cache };
+      seen();
+    });
+    const indexed = (content: string) => new Promise<CachedMetadata | null>((resolve) => {
+      const current = () => (latest?.content === content ? latest.cache : null);
+      let timer = 0;
+      const finish = () => {
+        window.clearTimeout(timer);
+        this.pending.delete(finish);
+        resolve(current());
+      };
+      if (this.stopped || current()) return finish();
+      seen = () => { if (current()) finish(); };
+      this.pending.add(finish);
+      timer = window.setTimeout(finish, INDEX_WAIT_MS);
+    });
+    return { indexed, stop: () => metadataCache.offref(ref) };
   }
 
   /**
