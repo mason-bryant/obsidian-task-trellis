@@ -50,6 +50,7 @@ describe('board settings draft', () => {
       'hide-completed-subtasks': false,
       'overdue-bar': true,
       'open-links': 'popup',
+      'label-shape': 'pill',
       'new-tasks': 'default',
       'new-tasks-note': '',
       'new-tasks-heading': '',

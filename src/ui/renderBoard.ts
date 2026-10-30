@@ -3,9 +3,9 @@ import { uiElement, isComposing } from './dom.ts';
 import { installColumnResize } from './columnResize.ts';
 import { watchComposerViewport } from './composerViewport.ts';
 import type { Section } from './renderBoardSettings.ts';
-import { labelDescription, taskLabels } from '../core/labels.ts';
+import { labelDescription, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
-import type { BoardColumn } from '../core/boardConfig.ts';
+import type { BoardColumn, LabelShape } from '../core/boardConfig.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
 import { installColumnSwipe } from './columnSwipe.ts';
 import { installTouchCardDrag } from './touchCardDrag.ts';
@@ -750,17 +750,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
 
   const assigned = taskLabels(task.raw, model.config.slug);
   const labels = task.parentId ? [] : model.config.labels.filter((label) => assigned.includes(label.id));
-  if (labels.length) {
-    const bars = el('div', 'tt-card-labels');
-    for (const label of labels) {
-      const bar = el('span', 'tt-card-label');
-      bar.style.backgroundColor = label.color;
-      bar.setAttribute('aria-label', labelDescription(label));
-      bar.setAttribute('role', 'img');
-      bars.append(bar);
-    }
-    c.append(bars);
-  }
+  if (labels.length) c.append(labelMarks(labels, model.config.labelShape));
   const main = taskMain(task, host);
   const handle = el('span', 'tt-card-drag-handle');
   handle.title = 'Drag to move task';
@@ -848,6 +838,19 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   return c;
 }
 
+/** A card's labels in the board's shape. Obsidian shows the aria-label, the label's name, on hover. */
+function labelMarks(labels: BoardLabel[], shape: LabelShape): HTMLElement {
+  const marks = el('div', `tt-card-labels tt-card-labels--${shape}`);
+  for (const label of labels) {
+    const mark = el('span', 'tt-card-label');
+    mark.style.backgroundColor = label.color;
+    mark.setAttribute('role', 'img');
+    mark.setAttribute('aria-label', label.name || labelDescription(label));
+    marks.append(mark);
+  }
+  return marks;
+}
+
 /** Selection uses separate controls, never the task's completion checkbox or drag handle. */
 function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const selection = host.selection!;
@@ -865,12 +868,7 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   main.append(check, text); c.append(main);
   const meta = el('div', 'tt-card-meta', host.sourceLabel(task)); appendBadges(meta, task, model, host); c.append(meta);
   const labels = model.config.labels.filter((label) => taskLabels(task.raw, model.config.slug).includes(label.id));
-  const bars = el('div', 'tt-card-labels');
-  for (const label of labels) {
-    const bar = el('span', 'tt-card-label'); bar.style.backgroundColor = label.color;
-    bar.setAttribute('role', 'img'); bar.setAttribute('aria-label', labelDescription(label)); bars.append(bar);
-  }
-  if (labels.length) c.prepend(bars);
+  if (labels.length) c.prepend(labelMarks(labels, model.config.labelShape));
   const children = model.subtasks[task.id]?.length ?? 0;
   if (children) c.append(el('span', 'tt-selection-detail', `${children} subtasks`));
   if (model.quickContext?.branches.has(task.id)) appendMatchingSummary(c, task, model);
