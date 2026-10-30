@@ -57,7 +57,7 @@ Every command also takes `format=json` (the default) or `format=text`.
 
 `add` uses the board's first workflow column unless you give `column`, and refuses Done. The task goes to the note and heading set under the board's **Settings → New tasks**. `note` sends it to another note and `heading` puts it under another heading. A heading that doesn't exist is added at the end of the note, and a note that doesn't exist is created. If Templater fills new notes in that folder from a template, the task is added once Templater has done so, under the template's heading when it has that heading. Without a heading, the task goes at the end of the note, straight after any list the note ends with.
 
-If the board's filters would hide tasks in the destination note, nothing is added and the command says so. A newly created note may still be hidden, for example when the board filters by a property the note doesn't have yet; the result then includes a `warning`.
+If the board's filters would hide tasks in the destination note, nothing is added and the command says so. A note the add creates is checked after the task is written: folder filters at once, and tag and property filters once Obsidian has read the new note, waiting up to 2 seconds. The result includes a `warning` if the filters hide the task, for example when the board filters by a property the note's template doesn't set, or if Obsidian hadn't read the note in time.
 
 ```bash
 obsidian task-trellis:add board=home note="Projects/Kitchen.md" heading="## To do" text="Paint kitchen" due=2026-11-08 labels=green subtasks='["Buy paint","Tape the edges","Paint the walls"]'

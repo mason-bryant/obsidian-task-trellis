@@ -250,3 +250,125 @@ describe('Templater folder templates', () => {
     expect(f.notes['Tasks/Kitchen project.md']).toBe('');
   });
 });
+
+describe('filter feedback for a new note', () => {
+  const PATH = 'Daily/2026-10-30.md';
+
+  /** A new note, which Obsidian indexes only when `index` is called. Until then it has no metadata. */
+  function fixture(rules: Record<string, unknown>) {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', globalThis);
+    const notes: Record<string, string> = {};
+    let cache: { frontmatter: Record<string, unknown> } | null = null;
+    const metadataCache = Object.assign(new Events(), { getFileCache: () => cache });
+    const vault = {
+      configDir: '.obsidian', adapter: { read: async () => '{}' },
+      getFileByPath: (path: string) => path in notes ? new TFile(path) : null,
+      getAbstractFileByPath: (path: string) => new TFolder(path),
+      create: async (path: string, data: string) => { notes[path] = data; return new TFile(path); },
+      read: async (file: TFile) => notes[file.path]!,
+      process: async (file: TFile, transform: (content: string) => string) => (notes[file.path] = transform(notes[file.path]!)),
+    };
+    let unload = () => {};
+    const plugin = {
+      register: (cleanup: () => void) => { unload = cleanup; },
+      isExcludedFromIndex: () => false,
+      app: { metadataCache, vault },
+      settings: { newTaskKind: 'note', newTaskNote: PATH, newTaskHeading: '' },
+    } as unknown as TaskTrellisPlugin;
+    const quick = new QuickAdd(plugin);
+    const config = parseBoardConfig('Daily', { slug: 'daily', ...rules }).config;
+    /** Obsidian finishes indexing the note as `content` reads, with these properties. */
+    const index = (content: string, frontmatter: Record<string, unknown>) => {
+      cache = { frontmatter };
+      metadataCache.trigger('changed', new TFile(PATH), content, cache);
+    };
+    let settled = false;
+    const add = () => {
+      const pending = quick.addLines(config, { kind: 'note', note: PATH, heading: '' }, ['- [ ] Water plants']);
+      void pending.finally(() => { settled = true; });
+      return pending;
+    };
+    return { notes, index, add, settled: () => settled, metadataCache, vault, unload: () => unload() };
+  }
+
+  it.each([
+    { filters: 'folder filters that include it', rules: { 'include-folders': ['Daily'] }, warned: false },
+    { filters: 'folder filters that leave it out', rules: { 'include-folders': ['Projects'] }, warned: true },
+  ])('answers at once from the path with $filters', async ({ rules, warned }) => {
+    const f = fixture(rules);
+    const on = vi.spyOn(f.metadataCache, 'on');
+    const added = await f.add();
+    expect(f.notes[PATH]).toContain('Water plants');
+    expect(on).not.toHaveBeenCalled();
+    expect(added.warning !== undefined).toBe(warned);
+  });
+
+  it.each([
+    { filters: 'property filters', rules: { 'filter-properties': ['status: active'] } },
+    { filters: 'tag filters', rules: { 'include-tags': ['daily'] } },
+  ])('waits for Obsidian to index the note before checking $filters', async ({ rules }) => {
+    const f = fixture(rules);
+    const pending = f.add();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(f.settled()).toBe(false);
+    f.index(f.notes[PATH]!, { status: 'active', tags: ['daily'] });
+    expect((await pending).warning).toBeUndefined();
+  });
+
+  it('warns when the indexed properties leave the task out', async () => {
+    const f = fixture({ 'filter-properties': ['status: active'] });
+    const pending = f.add();
+    await vi.advanceTimersByTimeAsync(0);
+    f.index(f.notes[PATH]!, { status: 'done' });
+    expect((await pending).warning).toContain('may be hidden');
+  });
+
+  it('doesn’t take an index of the note from before the add for the note as the add left it', async () => {
+    const f = fixture({ 'filter-properties': ['status: active'] });
+    const pending = f.add();
+    await vi.advanceTimersByTimeAsync(0);
+    // Obsidian finishes indexing the empty note it created only after the task is written.
+    f.index('', {});
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(f.settled()).toBe(false);
+    f.index(f.notes[PATH]!, { status: 'active' });
+    expect((await pending).warning).toBeUndefined();
+  });
+
+  it('takes an index that finished before the check without waiting', async () => {
+    const f = fixture({ 'filter-properties': ['status: active'] });
+    const write = f.vault.process;
+    f.vault.process = async (file, transform) => {
+      const written = await write(file, transform);
+      f.index(written, { status: 'active' });
+      return written;
+    };
+    const pending = f.add();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(f.settled()).toBe(true);
+    expect((await pending).warning).toBeUndefined();
+  });
+
+  it('warns after a short wait when Obsidian hasn’t indexed the note', async () => {
+    const f = fixture({ 'filter-properties': ['status: active'] });
+    const off = vi.spyOn(f.metadataCache, 'offref');
+    const pending = f.add();
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(f.settled()).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect((await pending).warning).toBe('The task may be hidden by this board’s filters; check the destination note and its properties. Sync is not confirmed.');
+    expect(off).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops waiting when the plugin is disabled', async () => {
+    const f = fixture({ 'filter-properties': ['status: active'] });
+    const pending = f.add();
+    await vi.advanceTimersByTimeAsync(100);
+    f.unload();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(f.settled()).toBe(true);
+    expect(f.notes[PATH]).toContain('Water plants');
+    expect((await pending).warning).toContain('may be hidden');
+  });
+});
