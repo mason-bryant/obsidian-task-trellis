@@ -25,8 +25,6 @@ export type RenderHost = {
   /** Persists which quick filters are switched on. Without it the board shows no quick filter buttons. */
   onSetQuickFilters?(ids: string[]): void;
   onQuickFiltersMenu?: QuickFilterMenu;
-  /** Reads the legacy per-device Compact choice when the board has no explicit setting. */
-  isViewOn?(option: ViewOption): boolean;
   /** Opens the host's accessible menu; calls onClose when dismissed. */
   onSubtasksMenu?(anchor: HTMLElement, select: (collapsed: boolean) => void, onClose: () => void): void;
   onDrop(taskId: string, target: DropTarget): void;
@@ -60,9 +58,6 @@ export type RenderHost = {
 };
 
 export type RenderNotes = { warnings: string[]; info: string[] };
-
-/** Legacy per-board display choices. New choices are stored in the board note. */
-export type ViewOption = 'compact';
 
 type DisplayState = { slug: string; column: string };
 const renderInputs = new WeakMap<HTMLElement, { model: BoardModel; host: RenderHost; notes: RenderNotes }>();
@@ -264,7 +259,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     has: (task) => selection.has(task), busy: selection.busy, toggle: selectCard,
   } };
   root.classList.toggle('tt-board--selecting', selection.active);
-  root.classList.toggle('tt-board--compact', config.compact ?? baseHost.isViewOn?.('compact') ?? false);
+  root.classList.toggle('tt-board--compact', config.compact);
   root.classList.toggle('tt-board--no-overdue-bar', !config.overdueBar);
   const toolbar = el('div', 'tt-board-toolbar');
   const heading = el('div', 'tt-board-heading');

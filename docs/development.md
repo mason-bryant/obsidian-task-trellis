@@ -27,7 +27,7 @@ See [Release and submission checklist](releasing.md) for publishing requirements
 
 ## UI code
 
-Task rules and transformations are in `src/core`, rendering and interaction in `src/ui`, and Obsidian persistence and navigation in `src/obsidian`. `main.ts` sets up the plugin and keeps each board's view state, such as active quick filters and collapsed rows (and legacy Compact preferences until a board sets Compact in Appearance). The browser harness runs the real renderers with an in-memory host. When a renderer or helper already does what you need, use it rather than writing a copy that will drift.
+Task rules and transformations are in `src/core`, rendering and interaction in `src/ui`, and Obsidian persistence and navigation in `src/obsidian`. `main.ts` sets up the plugin and keeps each board's view state, such as active quick filters and collapsed rows. The browser harness runs the real renderers with an in-memory host. When a renderer or helper already does what you need, use it rather than writing a copy that will drift.
 
 - Create DOM nodes in the document of the window they will appear in, using the helpers in `src/ui/dom.ts`, so pop-out windows keep their own focus, geometry and menus. `renderBoard.ts` and `renderBoardSettings.ts` are the exception: they are shared with the harness, and their `el()` creates nodes in the main `document`, which the destination document adopts when the node is inserted. Don't copy that into code that needs the owning window before inserting a node.
 - Use public Obsidian APIs available in the manifest's `minAppVersion`. Don't import undocumented internals to imitate a built-in screen.

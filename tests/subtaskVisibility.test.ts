@@ -56,7 +56,6 @@ beforeEach(() => {
     onSubtasksMenu: vi.fn((_anchor, select, close) => { selectSubtasks = select; closeSubtasks = close; }),
     onDrop: vi.fn(), onToggle: vi.fn(), onEdit: vi.fn(), onOpenSource: vi.fn(),
     onDragEnd: vi.fn(), onAddTask: vi.fn(), onAddSubtask: vi.fn(),
-    isViewOn: (option) => collapsed[`view:${option}`] === true,
 
   };
   draw();
@@ -92,10 +91,10 @@ describe('subtask visibility controls', () => {
   });
 
   it('preserves the same visibility when Compact is switched in either direction', () => {
-    click(toggle(parent)); setCompact(!(config.compact ?? false));
+    click(toggle(parent)); setCompact(!(config.compact));
     expect(root.classList.contains('tt-board--compact')).toBe(true);
     expect(owner(child)).toBeUndefined();
-    click(toggle(parent)); click(toggle(child)); setCompact(!(config.compact ?? false));
+    click(toggle(parent)); click(toggle(child)); setCompact(!(config.compact));
     expect(root.classList.contains('tt-board--compact')).toBe(false);
     expect(owner(child)).toBeDefined(); expect(owner(grandchild)).toBeUndefined();
     expect(JSON.parse(persisted)[subtasksKey(child)]).toBe(true);
@@ -126,7 +125,7 @@ describe('subtask visibility controls', () => {
   });
 
   it('reveals a collapsed list and focuses the add-subtask input, including in Compact', () => {
-    setCompact(!(config.compact ?? false)); chooseSubtasks(true);
+    setCompact(!(config.compact)); chooseSubtasks(true);
     click(owner(parent).querySelector<HTMLButtonElement>('.tt-add-subtask')!);
     vi.runAllTimers();
     const input = root.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
@@ -214,11 +213,11 @@ describe('subtask visibility controls', () => {
     expect(root.classList.contains('tt-board--no-overdue-bar')).toBe(false);
   });
 
-  it('honors legacy Compact until the board explicitly overrides it', () => {
+  it('takes Compact only from the board, ignoring the old per-device choice', () => {
     collapsed['view:compact'] = true; draw();
-    expect(root.classList.contains('tt-board--compact')).toBe(true);
-    setCompact(false);
     expect(root.classList.contains('tt-board--compact')).toBe(false);
+    setCompact(true);
+    expect(root.classList.contains('tt-board--compact')).toBe(true);
   });
 });
 

@@ -261,7 +261,6 @@ export class BoardView extends FileView {
         void this.plugin.setSubtasksCollapsed(this.board.config.slug, keys, collapsed);
         this.render();
       },
-      isViewOn: (option) => this.plugin.isViewOn(this.board?.config.slug ?? '', option),
       onBulkAction: (tasks, kind) => new Promise((resolve) => {
         if (!this.board) { resolve(null); return; }
         const slug = this.board.config.slug;

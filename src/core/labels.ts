@@ -60,24 +60,18 @@ export function labelTextColor(color: string): string {
   return luminance > 0.179 ? '#000000' : '#ffffff';
 }
 
-
-// Compatibility reads only. New assignments are always ordinary Obsidian tags.
-const LEGACY_RE = /<!-- tt-labels:([\p{L}\p{N}_-]+):([a-z0-9_,-]+) -->/gu;
 const LABEL_TAG_RE = /(^|\s)#tt\/([\p{L}\p{N}_-]+)\/label\/([a-z0-9_-]+)(?=[^\p{L}\p{N}_/-]|$)/giu;
 
 export function taskLabels(line: string, slug: string): string[] {
   const wanted = slug.toLowerCase();
   const tags = [...line.matchAll(LABEL_TAG_RE)].filter((m) => m[2]!.toLowerCase() === wanted)
     .map((m) => m[3]!.toLowerCase());
-  return [...new Set([...tags, ...[...line.matchAll(LEGACY_RE)]
-    .filter((m) => m[1]!.toLowerCase() === wanted).flatMap((m) => m[2]!.split(',').filter(Boolean))])];
+  return [...new Set(tags)];
 }
-
-export function stripLegacyTaskLabels(line: string): string { return line.replace(LEGACY_RE, ''); }
 
 /** Labels use colored bars on cards, but remain real tags for search and filtering. */
 export function stripTaskLabels(line: string): string {
-  return stripLegacyTaskLabels(line).replace(LABEL_TAG_RE, '$1');
+  return line.replace(LABEL_TAG_RE, '$1');
 }
 
 /**
@@ -108,9 +102,7 @@ export function setTaskLabels(line: string, slug: string, ids: string[]): string
   }
   if (!/^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[[^\]]\]\s+)/.test(line)) throw new Error('Not a task line.');
   const wanted = slug.toLowerCase();
-  let clean = line.replace(/<!-- tt-labels:([\p{L}\p{N}_-]+):([a-z0-9_,-]+) --> ?/gu,
-    (match, board: string) => board.toLowerCase() === wanted ? '' : match);
-  clean = clean.replace(LABEL_TAG_RE, (match, _lead: string, board: string) => board.toLowerCase() === wanted ? '' : match);
+  const clean = line.replace(LABEL_TAG_RE, (match, _lead: string, board: string) => board.toLowerCase() === wanted ? '' : match);
   if (!ids.length) return clean;
   const tags = [...new Set(ids)].map((id) => `#tt/${wanted}/label/${id}`).join(' ');
   // Keep labels after Tasks fields and before placement tags and block ids.
