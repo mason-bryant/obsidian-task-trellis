@@ -85,7 +85,7 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     weekHorizon: String(config.weekHorizon),
     weekStart: config.weekStart,
     showCompletedDays: String(config.showCompletedDays),
-    compact: config.compact ?? false,
+    compact: config.compact,
     showColumnSelector: config.showColumnSelector,
     sortCompletedSubtasks: config.sortCompletedSubtasks,
     hideCompletedSubtasks: config.hideCompletedSubtasks,

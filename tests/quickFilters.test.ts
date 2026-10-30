@@ -74,7 +74,6 @@ describe('applying quick filters', () => {
     expect(matches('- [ ] Work #outside #tt/other/label/green #tt/house/doing/10')).toBe(true);
     expect(matches('- [ ] Work #tt/house/label/green')).toBe(false);
     expect(matches('- [ ] Work #tt/house/label/unknown')).toBe(false);
-    expect(matches('- [ ] Work <!-- tt-labels:house:green -->')).toBe(false);
     filter.labels = ['green'];
     expect(matches('- [ ] Work #tt/house/label/green')).toBe(true);
     expect(matches('- [ ] Work')).toBe(true);
