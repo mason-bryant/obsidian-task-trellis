@@ -292,6 +292,7 @@
 
 /* The guide line sits under the parent's checkbox, like Obsidian's own nested lists. */
 .tt-subtasks {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -320,7 +321,7 @@
   body:not(.is-mobile) .tt-subtask:hover { background: var(--background-modifier-hover); }
 }
 .tt-subtask > .tt-card-main > .tt-card-more { margin-left: auto; }
-.tt-subtask.is-dragging { opacity: .45; }
+.tt-subtask.is-dragging { opacity: .4; }
 
 .tt-subtasks > .tt-add-box {
   padding: 2px 0;

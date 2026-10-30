@@ -1,6 +1,7 @@
 import { BulkSelection, triageCards, type BulkKind, type BulkResult } from '../core/bulkTriage.ts';
 import { uiElement, isComposing } from './dom.ts';
 import { installColumnResize } from './columnResize.ts';
+import { watchComposerViewport } from './composerViewport.ts';
 import type { Section } from './renderBoardSettings.ts';
 import { labelDescription, taskLabels } from '../core/labels.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
@@ -9,6 +10,8 @@ import { diffDays, shortLabel } from '../core/dates.ts';
 import { installColumnSwipe } from './columnSwipe.ts';
 import { installTouchCardDrag } from './touchCardDrag.ts';
 import { renderQuickFilters, type QuickFilterMenu } from './renderQuickFilters.ts';
+import { installSubtaskReorder } from './reorderSubtasks.ts';
+import type { SubtaskReorder } from '../core/reorderSubtasks.ts';
 
 /** What the board needs from its host (the Obsidian view, or the dev harness). */
 export type RenderHost = {
@@ -22,12 +25,12 @@ export type RenderHost = {
   /** Persists which quick filters are switched on. Without it the board shows no quick filter buttons. */
   onSetQuickFilters?(ids: string[]): void;
   onQuickFiltersMenu?: QuickFilterMenu;
-  /** Remembers a board's display choices. Without these they last only for this view. */
+  /** Reads the legacy per-device Compact choice when the board has no explicit setting. */
   isViewOn?(option: ViewOption): boolean;
-  onToggleView?(option: ViewOption): void;
   /** Opens the host's accessible menu; calls onClose when dismissed. */
   onSubtasksMenu?(anchor: HTMLElement, select: (collapsed: boolean) => void, onClose: () => void): void;
   onDrop(taskId: string, target: DropTarget): void;
+  onReorderSubtask?(move: SubtaskReorder): void;
   onToggle(task: BoardTask): void;
   onEdit(task: BoardTask): void;
   /** `newTab` is set for a Cmd/Ctrl-click. */
@@ -58,13 +61,21 @@ export type RenderHost = {
 
 export type RenderNotes = { warnings: string[]; info: string[] };
 
-/** Per-board display choices from the toolbar. */
+/** Legacy per-board display choices. New choices are stored in the board note. */
 export type ViewOption = 'compact';
 
-type DisplayState = { slug: string; column: string } & Record<ViewOption, boolean>;
+type DisplayState = { slug: string; column: string };
 const renderInputs = new WeakMap<HTMLElement, { model: BoardModel; host: RenderHost; notes: RenderNotes }>();
 const bulkStates = new WeakMap<HTMLElement, BulkSelection>();
 const selectionClickCleanup = new WeakMap<HTMLElement, () => void>();
+const composerViewportCleanup = new WeakMap<HTMLElement, () => void>();
+const subtaskReorderCleanup = new WeakMap<HTMLElement, () => void>();
+
+function disposeSubtaskReorders(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('.tt-subtasks').forEach(section => {
+    subtaskReorderCleanup.get(section)?.(); subtaskReorderCleanup.delete(section);
+  });
+}
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 const quickDisclosures = new WeakMap<HTMLElement, { scope: string; collapsed: Set<string>; all: Set<string> }>();
 
@@ -73,6 +84,8 @@ export function clearBulkSelection(root: HTMLElement): void { bulkStates.get(roo
 
 /** Release document listeners when a view closes or switches files. */
 export function disposeBoardSelection(root: HTMLElement): void {
+  disposeSubtaskReorders(root);
+  composerViewportCleanup.get(root)?.();
   selectionClickCleanup.get(root)?.();
   bulkStates.delete(root);
   quickDisclosures.delete(root);
@@ -135,6 +148,8 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
   const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
+  composerViewportCleanup.get(root)?.();
+  disposeSubtaskReorders(root);
   root.replaceChildren();
   root.classList.add('tt-board');
 
@@ -155,16 +170,10 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const { config } = model;
   let display = displayStates.get(root);
   if (!display || display.slug !== config.slug) {
-    display = { slug: config.slug, compact: false, column: '' };
+    display = { slug: config.slug, column: '' };
     displayStates.set(root, display);
   }
-  if (!model.columns.some((c) => c.id === display.column)) display.column = '';
-  const local = display;
-  const viewOn = (option: ViewOption) => baseHost.isViewOn ? baseHost.isViewOn(option) : local[option];
-  const toggleView = (option: ViewOption) => {
-    if (baseHost.onToggleView) { baseHost.onToggleView(option); return; }
-    local[option] = !local[option]; renderBoard(root, model, baseHost, notes);
-  };
+  if (!config.showColumnSelector || !model.columns.some((c) => c.id === display.column)) display.column = '';
   let bulk = bulkStates.get(root);
   if (!bulk) { bulk = new BulkSelection(); bulkStates.set(root, bulk); }
   bulk.resetScope(JSON.stringify([config.slug, config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders,
@@ -235,7 +244,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     has: (task) => selection.has(task), busy: selection.busy, toggle: selectCard,
   } };
   root.classList.toggle('tt-board--selecting', selection.active);
-  root.classList.toggle('tt-board--compact', viewOn('compact'));
+  root.classList.toggle('tt-board--compact', config.compact ?? baseHost.isViewOn?.('compact') ?? false);
   root.classList.toggle('tt-board--no-overdue-bar', !config.overdueBar);
   const toolbar = el('div', 'tt-board-toolbar');
   const heading = el('div', 'tt-board-heading');
@@ -247,12 +256,6 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   } else heading.append(el('span', 'tt-board-name', config.name));
   heading.append(el('span', 'tt-board-total', `${model.total} ${model.total === 1 ? 'card' : 'cards'}`));
   const tools = el('div', 'tt-board-tools');
-  const compact = el('button', 'tt-toolbar-button'); compact.type = 'button';
-  compact.dataset.boardFocus = 'compact';
-  compact.append(hostIcon(host, 'rows-3'), el('span', '', 'Compact'));
-  compact.setAttribute('aria-pressed', String(viewOn('compact')));
-  compact.title = 'Use compact card spacing';
-  compact.onclick = () => toggleView('compact');
   const picker = el('select', 'tt-column-picker'); picker.setAttribute('aria-label', 'Visible board column');
   picker.dataset.boardFocus = 'column';
   for (const [id, label] of [['', 'All columns'], ...model.columns.map((c) => [c.id, c.label])]) {
@@ -260,7 +263,6 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   }
   picker.value = display.column;
   picker.onchange = () => { display.column = picker.value; renderBoard(root, model, baseHost, notes); };
-  tools.append(compact);
   const subtaskKeys = subtaskListKeys(model);
   if (subtaskKeys.length > 0 && host.onSubtasksMenu) {
     const action = el('button', 'tt-toolbar-button tt-subtasks-menu');
@@ -294,14 +296,10 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     };
     tools.append(action);
   }
-  tools.append(picker);
+  if (config.showColumnSelector) tools.append(picker);
   if (host.onSetQuickFilters) {
     tools.append(renderQuickFilters(root, config, model.activeQuickFilters, !!display.column,
       (name) => hostIcon(host, name), (ids) => host.onSetQuickFilters?.(ids), host.onQuickFiltersMenu));
-  }
-  if (host.onSettings) {
-    const settings = el('button', 'tt-toolbar-button'); settings.type = 'button'; settings.dataset.boardFocus = 'settings';
-    settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = () => host.onSettings?.(); tools.append(settings);
   }
   if (host.onBulkAction) {
     const select = el('button', 'tt-toolbar-button', selection.active ? 'Done selecting' : 'Select');
@@ -310,11 +308,16 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     select.onclick = () => { selection.active = !selection.active; selection.clear(); redraw(); };
     tools.append(select);
   }
+  if (host.onSettings) {
+    const settings = el('button', 'tt-toolbar-button'); settings.type = 'button'; settings.dataset.boardFocus = 'settings';
+    settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = () => host.onSettings?.(); tools.append(settings);
+  }
   toolbar.append(heading, tools); root.insertBefore(toolbar, root.firstChild);
   const visibleColumns = display.column ? model.columns.filter((c) => c.id === display.column) : model.columns;
   scrollEl.style.setProperty('--tt-columns', String(visibleColumns.length));
   grid.style.setProperty('--tt-columns', String(visibleColumns.length));
-  const hint = el('div', 'tt-scroll-hint', 'Scroll sideways to explore columns, or choose one above.');
+  const hint = el('div', 'tt-scroll-hint', config.showColumnSelector
+    ? 'Scroll sideways to explore columns, or choose one above.' : 'Scroll sideways to explore columns.');
   hint.hidden = !!display.column; root.insertBefore(hint, scrollEl);
   const filters = config.propertyFilters.length + config.excludedPropertyFilters.length +
     [config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders].filter((list) => list.length).length;
@@ -595,6 +598,7 @@ function addBox(
   onClose: () => void,
 ): HTMLElement {
   const box = el('div', 'tt-add-box');
+  let stopViewport: (() => void) | undefined;
   const isOpen = () => composer?.key === key;
   // Opened by a click, or reopened by a redraw while the board had focus.
   const takeFocus = redrawHadFocus ?? true;
@@ -606,6 +610,7 @@ function addBox(
     if (isOpen()) composer!.text = input.value;
   });
   const close = () => {
+    stopViewport?.();
     if (isOpen()) composer = null;
     onClose();
   };
@@ -675,23 +680,22 @@ function addBox(
 
   box.append(actions, input);
   refresh();
-  // A phone's keyboard covers the bottom of the screen as it opens. Keep the whole box between the
-  // sticky column header and the keyboard, whatever the app's scrolling does on its own.
-  const viewport = box.ownerDocument.defaultView?.visualViewport;
-  const keepVisible = () => {
+  box.addEventListener('focusin', () => {
+    const root = box.closest<HTMLElement>('.tt-board');
     const scroller = box.closest<HTMLElement>('.tt-scroll');
-    if (!viewport || !scroller || !box.contains(box.ownerDocument.activeElement)) return;
-    const list = verticalScroller(scroller);
-    const rect = box.getBoundingClientRect();
-    const header = list.querySelector('.tt-col-header')?.getBoundingClientRect().height ?? 0;
-    const top = Math.max(list.getBoundingClientRect().top, viewport.offsetTop) + header + 8;
-    const bottom = viewport.offsetTop + viewport.height - 8;
-    // Too tall for the space left, it shows its top: the buttons and the start of the text.
-    const by = rect.bottom > bottom ? Math.min(rect.bottom - bottom, rect.top - top) : rect.top < top ? rect.top - top : 0;
-    if (by) list.scrollTop += by;
-  };
-  input.addEventListener('focus', () => { keepVisible(); viewport?.addEventListener('resize', keepVisible); });
-  input.addEventListener('blur', () => viewport?.removeEventListener('resize', keepVisible));
+    if (!root || !scroller || stopViewport) return;
+    composerViewportCleanup.get(root)?.();
+    const destroy = watchComposerViewport(box, input, scroller, () => verticalScroller(scroller));
+    stopViewport = () => {
+      destroy();
+      composerViewportCleanup.delete(root);
+      stopViewport = undefined;
+    };
+    composerViewportCleanup.set(root, stopViewport);
+  });
+  box.addEventListener('focusout', () => queueMicrotask(() => {
+    if (!box.contains(box.ownerDocument.activeElement)) stopViewport?.();
+  }));
   // Clicks inside the box shouldn't reach the cell or card.
   box.addEventListener('click', (e) => e.stopPropagation());
   // Right after the redraw that attaches it, before the next keystroke arrives.
@@ -1049,6 +1053,11 @@ function subtaskSection(task: BoardTask, model: BoardModel, host: RenderHost): H
     section.append(more);
   }
   if (composing) section.append(subtaskBox(task, model.config.slug, section, host));
+  subtaskReorderCleanup.set(section, installSubtaskReorder(section, task, subtasks, model.config.sortCompletedSubtasks, {
+    id: () => draggingId && Object.values(model.subtasks).some(list => list.some(sub => sub.id === draggingId)) ? draggingId : null,
+    clear: () => clearIndicators(section.ownerDocument),
+    finish: () => { draggingId = null; clearIndicators(section.ownerDocument); host.onDragEnd(); },
+  }, host.onReorderSubtask ? move => host.onReorderSubtask?.(move) : undefined));
   return section;
 }
 

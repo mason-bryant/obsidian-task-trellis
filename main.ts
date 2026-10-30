@@ -198,17 +198,9 @@ export default class TaskTrellisPlugin extends Plugin {
     await this.saveSettings();
   }
 
-  /** Toolbar display choices such as Compact, kept per board as `view:<option>`. */
+  /** Legacy Compact choices, used until the board has an explicit Appearance setting. */
   isViewOn(slug: string, option: ViewOption): boolean {
     return this.settings.collapsed[slug]?.[`view:${option}`] === true;
-  }
-
-  async toggleView(slug: string, option: ViewOption): Promise<void> {
-    const state = { ...(this.settings.collapsed[slug] ?? {}) };
-    if (state[`view:${option}`]) delete state[`view:${option}`];
-    else state[`view:${option}`] = true;
-    this.settings.collapsed[slug] = state;
-    await this.saveSettings();
   }
 
   activeQuickFilters(slug: string): string[] {

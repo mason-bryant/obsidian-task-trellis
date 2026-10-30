@@ -27,7 +27,8 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 
 ## Buttons, icons and menus
 
-- Toolbar wrapping and menu placement in narrow panes.
+- Toolbar wrapping and menu placement in narrow panes. Settings stays last in visual and keyboard order, with the column selector shown or hidden and selection mode on or off.
+- Every Appearance checkbox checks to hide and unchecks to show. Existing saved preferences open unchanged; Save and Cancel preserve their meanings.
 - Open and dismiss each menu with the pointer and with the keyboard. Check focus and checkmarks after a redraw.
 - Tests: [quickFilterMenu](../../tests/quickFilterMenu.test.ts) (overflow, checked state, active count and focus on dismissal; its toggle doesn't redraw), [subtaskVisibility](../../tests/subtaskVisibility.test.ts) (the Subtasks menu and focus after a redraw), [narrowBoard](../../tests/narrowBoard.test.ts) (Move to…), [quickFilters](../../tests/quickFilters.test.ts) (copy, remove and reorder) and [editorHeader](../../tests/editorHeader.test.ts) (header order).
 
@@ -45,6 +46,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - The item follows the pointer, the insertion point holds still, the edges scroll, and reduced motion works.
 - Cancel, release outside any destination, and redraw or close mid-gesture: nothing is written and no drag is left stuck.
 - Mouse and touch, the keyboard alternatives, settings Save and Cancel, a failed card write, and Undo.
+- Desktop subtasks: drag an open row up and down, including one with descendants and in a nested list, with Note order, with Completed last and with completed subtasks hidden. During the drag the row dims and the card insertion marker shows where it will land. Completed subtasks can't be reordered. Check Undo, Alt+Up/Down and focus after saving, a drop outside the list (it becomes a card) and into another list (nothing), a narrow desktop pane and one selected column. No subtask reordering on mobile or coarse pointers.
 - Ordinary vertical scrolling, column paging, Obsidian's sidebar gestures and the toolbar layout still work.
 - Tests: [reorderRows](../../tests/reorderRows.test.ts) (the settings-list grip), [columnSettings](../../tests/columnSettings.test.ts) (reordering columns keeps the Done column), [quickFilters](../../tests/quickFilters.test.ts) (keyboard reordering keeps state and focus, and announces), [touchCardDrag](../../tests/touchCardDrag.test.ts) (the card grip), [narrowBoard](../../tests/narrowBoard.test.ts) (touch drops, native desktop drag and Alt+Down), [promoteSubtask](../../tests/promoteSubtask.test.ts) (dragging a subtask out of its card) and [BoardView](../../tests/BoardView.test.ts) (writing a drop, previews and Undo). How Obsidian intercepts events needs native testing.
 
@@ -56,6 +58,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Reach the last card above the floating toolbar, with short and long lists.
 - Pointer and keyboard resizing, resetting, and a failed save.
 - Editors with the keyboard open on native iOS when available. Record browser and simulator coverage separately from devices.
+- Open a task and a nested subtask composer near the end of a list with an overlay keyboard. Check the input remains visible with real scroll limits, viewport resize and pan, paging and one chosen column, and after redraw. Close or move focus out and check the board regains its height. A mocked `scrollTop` that accepts unlimited values cannot validate this case.
 - Tests: [columnSwipe](../../tests/columnSwipe.test.ts), [narrowBoard](../../tests/narrowBoard.test.ts), [columnResize](../../tests/columnResize.test.ts), [touchCardDrag](../../tests/touchCardDrag.test.ts) and [quickFilterMenu](../../tests/quickFilterMenu.test.ts). They set the one-column layout by hand, so the breakpoint itself needs a browser.
 
 ## Filters and selection

@@ -54,11 +54,11 @@ Icons are Obsidian's line icons, drawn through the host's icon function (`setIco
 
 ### Layout
 
-- **Board toolbar:** the board name, which renames the board when clicked, and the card count on the left. Then Compact, Subtasks, the column picker, the quick filters, Settings and Select.
+- **Board toolbar:** the board name, which renames the board when clicked, and the card count on the left. Then Subtasks, the optional column picker, the quick filters, Select (or Done selecting), and Settings last. Settings stays last in visual and keyboard order when controls are hidden or the toolbar wraps.
 - **Columns and rows:** each column has a sticky header with an icon, its title and a count. Each date row has a sticky label with a chevron that collapses it.
 - **Card:** label bars at the top, then the checkbox and text, then a metadata row: the source note, due date, priority and the card's actions. A card with subtasks puts its actions on the subtask row instead, after the count, above the subtask list.
 - **Editor:** a header with the check on the left, the title in the middle and the X on the right, above the scrolling fields.
-- **Board settings:** tabs at the top, the chosen section below them, and a footer with Save & open board.
+- **Board settings:** Card spacing and Hide column selector live in Appearance, use the normal draft/save flow, and are saved per board. Every Appearance checkbox is checked to hide and unchecked to show. Spacing and subtask ordering use dropdowns, since they are not visibility choices. The column selector starts visible; hiding it clears the chosen-column filter without disabling narrow-board page navigation. Tabs at the top, the chosen section below them, and a footer with Save & open board.
 - **Menus:** Obsidian menus. Items can have an icon, active choices show a checkmark, and muted text after a choice explains what else it changes.
 - **Boards sidebar:** a Boards heading, a full-width Create new board button, then a row for each board with the kanban icon. The open board uses Obsidian's active navigation colors. When two boards share a name, each shows its folder too.
 - **Plugin settings tab:** Obsidian's own searchable setting rows, like other plugins' settings.

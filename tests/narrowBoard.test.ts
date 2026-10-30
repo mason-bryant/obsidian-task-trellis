@@ -95,7 +95,7 @@ describe('one column at a time', () => {
       expect(root.querySelector('.tt-board-toolbar')!.closest('[data-ignore-swipe]')).toBeNull();
     };
     draw(); check();
-    root.querySelector<HTMLButtonElement>('[data-board-focus="compact"]')!.click(); check();
+    draw({ compact: true }); check();
     const picker = root.querySelector<HTMLSelectElement>('.tt-column-picker')!;
     picker.value = 'doing'; picker.dispatchEvent(new Event('change')); check();
     draw(); check();

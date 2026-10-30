@@ -4,6 +4,7 @@ import { changedFrontmatter, convertDueNow, draftChanged, draftFromConfig, draft
 
 const original = parseBoardConfig('Renovation', {
   slug: 'renovation',
+  compact: false,
   columns: ['Backlog', 'Doing', 'Waiting', 'Done'],
   'done-column': 'Done',
   'filter-properties': ['"context: renovation, house"'],
@@ -17,6 +18,8 @@ describe('board settings draft', () => {
     expect(renames.size).toBe(0);
     expect(removed).toEqual([]);
     expect(frontmatter).toEqual({
+      compact: false,
+      'show-column-selector': true,
       columns: ['Backlog', 'Doing', 'Waiting', 'Done'],
       'done-column': 'Done',
       'limit-done': true,

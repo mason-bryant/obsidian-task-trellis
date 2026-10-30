@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { buildBoard, taskId, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
-import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
+import { disposeBoardSelection, renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 
 const today = '2026-10-28';
 const config = parseBoardConfig('House', { slug: 'house' }).config;
@@ -110,9 +110,67 @@ it('keeps an opened composer above the phone keyboard as it opens, and below the
     expect(list.scrollTop).toBe(0);
     viewport.height = 400; viewport.dispatchEvent(new Event('resize'));
     expect(box.getBoundingClientRect().bottom).toBe(392);
-    viewport.height = 150; viewport.dispatchEvent(new Event('resize'));
-    expect(box.getBoundingClientRect().top).toBe(148);
   } finally {
+    disposeBoardSelection(root);
     Reflect.deleteProperty(window, 'visualViewport');
+  }
+});
+
+it.each([false, true])('reveals a bottom-of-list subtask above an overlay keyboard with bounded scrolling (paging=%s)', async (paging) => {
+  const viewport = Object.assign(new EventTarget(), { offsetTop: 0, height: 700 });
+  Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
+  const style = document.createElement('style');
+  style.textContent = `.tt-scroll { --tt-column-paging: ${paging ? 1 : 0}; }`;
+  document.head.append(style);
+  try {
+    draw();
+    const scroller = root.querySelector<HTMLElement>('.tt-scroll')!;
+    const list = paging ? root.querySelector<HTMLElement>('.tt-vertical-scroll')! : scroller;
+    scroller.scrollLeft = 400;
+    const rect = (top: number, height: number) => ({ top, bottom: top + height, left: 0, right: 300,
+      width: 300, height, x: 0, y: top, toJSON: () => ({}) });
+    const listHeight = () => Math.min(600, parseFloat(scroller.style.maxHeight) || 600);
+    scroller.getBoundingClientRect = () => rect(100, listHeight());
+    list.getBoundingClientRect = () => rect(100, listHeight());
+    root.querySelector<HTMLElement>('.tt-col-header')!.getBoundingClientRect = () => rect(100, 40);
+    // Model the browser's real scroll clamp: the old scroll-only fix cannot reveal this box.
+    let scrollTop = 0;
+    Object.defineProperty(list, 'scrollTop', { configurable: true, get: () => scrollTop,
+      set: (value: number) => { scrollTop = Math.max(0, Math.min(value, 800 - listHeight())); } });
+    card(paint).querySelector<HTMLButtonElement>('.tt-add-subtask')!.click();
+    const box = card(paint).querySelector<HTMLElement>('.tt-add-box')!;
+    const input = box.querySelector<HTMLTextAreaElement>('textarea')!;
+    box.getBoundingClientRect = () => rect(660 - scrollTop, 120);
+    input.getBoundingClientRect = () => rect(708 - scrollTop, 72);
+    await Promise.resolve();
+    input.value = 'Keep this subtask draft'; input.dispatchEvent(new Event('input'));
+    viewport.height = 400; viewport.dispatchEvent(new Event('resize'));
+    expect(box.getBoundingClientRect().bottom).toBe(392);
+    expect(box.getBoundingClientRect().top).toBeGreaterThanOrEqual(148);
+    expect(scrollTop).toBeGreaterThan(200); // Original full-height list cannot scroll this far.
+    expect(scroller.scrollLeft).toBe(400);
+    viewport.height = 250; viewport.dispatchEvent(new Event('resize'));
+    expect(input.getBoundingClientRect().bottom).toBe(242);
+    expect(input.getBoundingClientRect().top).toBeGreaterThanOrEqual(148);
+    // iOS can pan the visual viewport without resizing it.
+    viewport.offsetTop = 300; viewport.height = 200; viewport.dispatchEvent(new Event('scroll'));
+    expect(box.getBoundingClientRect().top).toBe(308);
+    expect(input.value).toBe('Keep this subtask draft');
+    // Focus on Save keeps keyboard tracking; moving out releases it, as does closing the view.
+    box.querySelector<HTMLButtonElement>('.tt-editor-save')!.focus(); await Promise.resolve();
+    expect(scroller.style.maxHeight).not.toBe('');
+    key('settings').focus(); await Promise.resolve();
+    expect(scroller.style.maxHeight).toBe('');
+    viewport.height = 350; viewport.dispatchEvent(new Event('resize'));
+    expect(scroller.style.maxHeight).toBe('');
+    input.focus();
+    expect(scroller.style.maxHeight).not.toBe('');
+    draw(); await Promise.resolve();
+    expect(scroller.style.maxHeight).toBe('');
+    expect(root.querySelector<HTMLTextAreaElement>('.tt-add-input')!.value).toBe('Keep this subtask draft');
+    disposeBoardSelection(root);
+    expect(root.querySelector<HTMLElement>('.tt-scroll')!.style.maxHeight).toBe('');
+  } finally {
+    disposeBoardSelection(root); style.remove(); Reflect.deleteProperty(window, 'visualViewport');
   }
 });
