@@ -1,13 +1,14 @@
 import { uiElement } from '../ui/dom.ts';
 import { destinationAdvice } from '../core/setup.ts';
 import { prepareEditorModal } from '../ui/editorHeader.ts';
-import { AbstractInputSuggest, Modal, Notice, setIcon, TextComponent, DropdownComponent, type App, type TFile } from 'obsidian';
+import { AbstractInputSuggest, Modal, setIcon, TextComponent, DropdownComponent, type App, type TFile } from 'obsidian';
 import { parseBoardConfig, type BoardConfig } from '../core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } from '../core/boardDraft.ts';
 import { propertyValueStrings } from '../core/filters.ts';
 import { renderBoardSettings, type SettingsForm, type Section } from '../ui/renderBoardSettings.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
+import { notice } from './notice.ts';
 import { shortcutURL } from '../core/shortcut.ts';
 
 /**
@@ -52,14 +53,14 @@ export class BoardSettingsModal extends Modal {
       if (openBoard) this.afterClose = () => {
         void this.plugin.openBoard(this.file).catch((error: unknown) => {
           console.error('[Task Trellis] opening saved board failed', error);
-          new Notice('Task Trellis: settings saved, but the board could not be opened. Open it from the boards sidebar to try again.');
+          notice(this.app, 'Task Trellis: settings saved, but the board could not be opened. Open it from the boards sidebar to try again.', { alert: true });
         });
       };
       this.saving = false;
       this.close();
     } catch (error) {
       console.error('[Task Trellis] settings save failed', error);
-      new Notice('Task Trellis: could not save board settings. Your draft is still open.');
+      notice(this.app, 'Task Trellis: could not save board settings. Your draft is still open.', { alert: true, region: this.contentEl });
     } finally {
       this.saving = false;
       this.form?.setSaving(false);
@@ -115,8 +116,8 @@ export class BoardSettingsModal extends Modal {
         const matches = this.plugin.boards.boards().filter((b) => b.config.slug === this.config.slug);
         const board = matches.length === 1 ? this.config.slug : this.file.path;
         void navigator.clipboard.writeText(shortcutURL(this.app.vault.getName(), board))
-          .then(() => { new Notice('Task Trellis: shortcut URL copied. Replace the example text before using it.'); })
-          .catch(() => { new Notice('Task Trellis: could not copy the shortcut URL. See the setup instructions in the readme.'); });
+          .then(() => { notice(this.app, 'Task Trellis: shortcut URL copied. Replace the example text before using it.', { region: this.contentEl }); })
+          .catch(() => { notice(this.app, 'Task Trellis: could not copy the shortcut URL. See the setup instructions in the readme.', { alert: true, region: this.contentEl }); });
       },
     });
   }

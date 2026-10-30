@@ -1,5 +1,6 @@
 import { BulkSelection, triageCards, type BulkKind, type BulkResult } from '../core/bulkTriage.ts';
 import { uiElement, isComposing } from './dom.ts';
+import { announce, clearForRedraw } from './announce.ts';
 import { installColumnResize } from './columnResize.ts';
 import { watchComposerViewport } from './composerViewport.ts';
 import type { Section } from './renderBoardSettings.ts';
@@ -55,6 +56,7 @@ export type RenderHost = {
   selection?: { has(task: BoardTask): boolean; toggle(task: BoardTask, range: boolean): void; busy: boolean };
   /** Renderer-owned temporary disclosures while a quick filter reveals matching descendants. */
   quickDisclosure?: { collapsed(id: string): boolean; toggle(id: string): void; all(id: string): boolean; toggleAll(id: string): void };
+  /** Its label is said when a new object arrives, so pass the same one on redraws that don't change it. */
   undo?: { label: string; run(): void };
   highlightIds?: Set<string>;
 };
@@ -77,6 +79,8 @@ function disposeSubtaskReorders(root: HTMLElement): void {
   });
 }
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
+/** What each board last said in its live region, so a redraw doesn't say it again. */
+const spoken = new WeakMap<HTMLElement, { undo?: RenderHost['undo']; count?: string; result?: string }>();
 const quickDisclosures = new WeakMap<HTMLElement, { scope: string; collapsed: Set<string>; all: Set<string> }>();
 
 /** Undo invalidates selected snapshots; keep selection mode but require a fresh choice. */
@@ -150,7 +154,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
   composerViewportCleanup.get(root)?.();
   disposeSubtaskReorders(root);
-  root.replaceChildren();
+  clearForRedraw(root);
   root.classList.add('tt-board');
 
   for (const text of notes.warnings) root.append(el('div', 'tt-note tt-note--warning', text));
@@ -338,14 +342,19 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     }
     root.insertBefore(empty, scrollEl);
   }
+  const said = spoken.get(root) ?? {};
+  spoken.set(root, said);
   if (host.undo) {
-    const undo = el('div', 'tt-undo'); undo.setAttribute('role', 'status');
+    const undo = el('div', 'tt-undo');
     const action = el('button', 'tt-toolbar-button', 'Undo'); action.type = 'button'; action.dataset.boardFocus = 'undo'; action.onclick = () => host.undo?.run();
     undo.append(el('span', '', host.undo.label), action); root.insertBefore(undo, scrollEl);
+    // While selecting, the selection status says what a bulk change did.
+    if (host.undo !== said.undo && !selection.active) announce(root, host.undo.label);
   }
+  said.undo = host.undo;
   if (selection.active) {
     const bar = el('div', 'tt-bulk-bar'); bar.setAttribute('aria-label', 'Bulk task actions'); bar.setAttribute('role', 'region');
-    const count = el('span', 'tt-bulk-count', `${selection.tasks.length} selected`); count.setAttribute('role', 'status'); bar.append(count);
+    bar.append(el('span', 'tt-bulk-count', `${selection.tasks.length} selected`));
     const button = (text: string, key: string, action: () => void) => {
       const b = el('button', 'tt-toolbar-button', text); b.type = 'button'; b.dataset.boardFocus = key;
       b.disabled = selection.busy; b.onclick = action; bar.append(b); return b;
@@ -385,10 +394,18 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       outside === 1 ? '1 selected task is outside the current view.' : outside ? `${outside} selected tasks are outside the current view.` : '',
       asContext === 1 ? '1 selected task now shows only for context.' : asContext ? `${asContext} selected tasks now show only for context.` : '',
     ].filter(Boolean).join(' ');
-    const status = el('span', 'tt-bulk-status', selection.busy ? 'Choose changes in the dialog…'
-      : [selection.message.replace(/[^.!?…]$/, '$&.'), away].filter(Boolean).join(' ') || 'Select cards, or select all matching tasks including collapsed rows.');
-    status.setAttribute('role', 'status'); bar.append(status);
+    const result = [selection.message.replace(/[^.!?…]$/, '$&.'), away].filter(Boolean).join(' ');
+    bar.append(el('span', 'tt-bulk-status', selection.busy ? 'Choose changes in the dialog…'
+      : result || 'Select cards, or select all matching tasks including collapsed rows.'));
     root.insertBefore(bar, scrollEl);
+    // Say a changed count or result; the dialog speaks for itself while it's open.
+    if (!selection.busy) {
+      const count = `${selection.tasks.length} selected.`;
+      announce(root, [count === (said.count ?? '0 selected.') ? '' : count, result === (said.result ?? '') ? '' : result].filter(Boolean).join(' '));
+      said.count = count; said.result = result;
+    }
+  } else {
+    said.count = undefined; said.result = undefined;
   }
   for (const column of visibleColumns) {
     const count = model.rows.reduce((n, r) => n + (model.cells[r.id]?.[column.id]?.length ?? 0), 0);
@@ -541,7 +558,10 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   for (const task of hidden ? cards.slice(0, limit) : cards) c.append(card(task, model, host));
   if (capped) c.append(moreToggle(hidden, cards.length - limit, `more:${rowId}:${column.id}`, host, () => host.onToggleRow(moreKey(rowId))));
   // Done fills itself by completing tasks, so it gets no add button.
-  if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, host));
+  // The No due date column is one cell down the board, so its column names it.
+  const place = rowId === 'none' && column.id === model.config.undatedColumn ? column.label
+    : `${column.label}, ${model.rows.find((r) => r.id === rowId)?.label ?? rowId}`;
+  if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, place, host));
   if (!host.selection) addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
   return c;
 }
@@ -553,8 +573,8 @@ function cardLimit(columnId: string, config: BoardModel['config']): number | nul
   return null;
 }
 
-/** Opens a cell's add box; on mobile CSS places it above the task list. */
-function addTask(target: { rowId: string; columnId: string }, slug: string, host: RenderHost): HTMLElement {
+/** Opens a cell's add box; on mobile CSS places it above the task list. `place` names the cell. */
+function addTask(target: { rowId: string; columnId: string }, slug: string, place: string, host: RenderHost): HTMLElement {
   const wrap = el('div', 'tt-add');
   const key = `cell:${slug}:${target.rowId}:${target.columnId}`;
 
@@ -564,6 +584,7 @@ function addTask(target: { rowId: string; columnId: string }, slug: string, host
     const icon = el('span', 'tt-add-icon');
     host.icon(icon, 'plus');
     b.append(icon, el('span', '', 'Add task'));
+    b.setAttribute('aria-label', `Add task to ${place}`);
     b.dataset.boardFocus = `add:${key}`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -620,7 +641,10 @@ function addBox(
     input.value = draft.text;
     input.readOnly = !!draft.saving;
     box.setAttribute('aria-busy', String(!!draft.saving));
-    box.querySelectorAll<HTMLButtonElement>('button:not(.tt-add-cancel)').forEach((b) => { b.disabled = !!draft.saving; });
+    const buttons = [...box.querySelectorAll<HTMLButtonElement>('button:not(.tt-add-cancel)')];
+    // Disabling the focused button would drop focus to the page; keep it in the box, ready for the next task.
+    if (draft.saving && buttons.includes(box.ownerDocument.activeElement as HTMLButtonElement)) input.focus({ preventScroll: true });
+    buttons.forEach((b) => { b.disabled = !!draft.saving; });
   };
   if (draft) draft.refresh = refresh;
   const submit = async (detailed: boolean) => {

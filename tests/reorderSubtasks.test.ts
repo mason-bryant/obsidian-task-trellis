@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
-import { TFile } from './mocks/obsidian.ts';
+import { TFile, Workspace } from './mocks/obsidian.ts';
 import { reorderSubtaskBlocks, type SubtaskReorder } from '../src/core/reorderSubtasks.ts';
 import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
@@ -12,7 +12,7 @@ const task = (line: number, parent?: number): BoardTask => ({ ...parseTaskLine(l
   id: taskId('Tasks.md', line), raw: lines[line]!, ...(parent === undefined ? {} : { parentId: taskId('Tasks.md', parent) }) });
 function fixture(content = original) {
   const file = new TFile('Tasks.md');
-  const app = { vault: { getAbstractFileByPath: () => file,
+  const app = { workspace: new Workspace(), vault: { getAbstractFileByPath: () => file,
     process: async (_file: TFile, fn: (s: string) => string) => { content = fn(content); return content; } } } as unknown as App;
   const move: SubtaskReorder = { parent: task(1), siblings: [task(2, 1), task(5, 1), task(6, 1)], taskId: task(2).id, beforeId: null };
   return { writer: new TaskWriter(app), move, get content() { return content; }, set(value: string) { content = value; } };

@@ -6,7 +6,7 @@ import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
 import { saveLabelDefinition, parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { LabelPickerModal } from './LabelPickerModal.ts';
-import { Component, FileView, MarkdownRenderer, Menu, Notice, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { Component, FileView, MarkdownRenderer, Menu, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
 import { todayISO } from '../core/dates.ts';
@@ -16,6 +16,7 @@ import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
 import { recoverDraft } from './recoverDraft.ts';
+import { notice } from './notice.ts';
 import { noteTags } from './noteTags.ts';
 import type { UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
@@ -40,6 +41,8 @@ export class BoardView extends FileView {
   /** Owns the markdown rendered into cards; replaced on every redraw. */
   private textScope: Component | null = null;
   private undoAction: { label: string; action: UndoAction; ids: string[] } | null = null;
+  /** One Undo control per action, so the board says each action once however often it redraws. */
+  private undoControls = new WeakMap<object, NonNullable<RenderHost['undo']>>();
   private highlightIds = new Set<string>();
   private highlightUntil = 0;
 
@@ -141,6 +144,22 @@ export class BoardView extends FileView {
     this.cancelRender = () => win.cancelAnimationFrame(frame);
   }
 
+  /** A notice about this board, also said from its live region. */
+  private alert(message: string): void {
+    notice(this.app, message, { alert: true, region: this.contentEl });
+  }
+
+  private undoControl(): RenderHost['undo'] {
+    const entry = this.undoAction;
+    if (!entry) return undefined;
+    let control = this.undoControls.get(entry);
+    if (!control) {
+      control = { label: entry.label, run: () => void this.undo() };
+      this.undoControls.set(entry, control);
+    }
+    return control;
+  }
+
   /** After a dialog closes, gives focus back to a board control if nothing has it, as when a redraw replaced the control. */
   private refocus(key: string): void {
     this.containerEl.win.setTimeout(() => {
@@ -218,14 +237,14 @@ export class BoardView extends FileView {
             else delete fm[FM.columnWidths];
           });
         } catch (error) {
-          new Notice('Task Trellis: could not save column widths. The previous widths have been restored.');
+          this.alert('Task Trellis: could not save column widths. The previous widths have been restored.');
           throw error;
         }
       },
       onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section, () => this.refocus('settings')).open(); },
       onRename: () => { if (this.file) new RenameBoardModal(this.app, this.file, this.plugin.boardRenames).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
-      undo: this.undoAction ? { label: this.undoAction.label, run: () => void this.undo() } : undefined,
+      undo: this.undoControl(),
       renderText: (el, task) => {
         void MarkdownRenderer.render(this.app, task.text, el, task.path, this.textScope ?? this).then(() => {
           // A rendered task text is one paragraph; unwrap it so it sits beside the checkbox.
@@ -295,17 +314,17 @@ export class BoardView extends FileView {
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action, ids: [task.id] };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
-      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); new Notice(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task. Check that its note can be edited, then try again.`); }),
-      onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); new Notice('Task Trellis: could not open the task editor, so nothing was changed. Check that the Tasks plugin is enabled, or open the task from its note link.'); }) : this.openSource(task, false),
+      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); this.alert(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task. Check that its note can be edited, then try again.`); }),
+      onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); this.alert('Task Trellis: could not open the task editor, so nothing was changed. Check that the Tasks plugin is enabled, or open the task from its note link.'); }) : this.openSource(task, false),
       onOpenSource: (task, newTab) => this.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
       onAddTask: async (target, text, detailed) => {
         try { return this.model ? await this.plugin.quickAdd.addFromBoard(this.model, target, text, detailed) : false; }
-        catch (error) { console.error('[Task Trellis] add failed', error); new Notice('Task Trellis: could not save the task. Your text has been kept; check the destination and try again.'); return false; }
+        catch (error) { console.error('[Task Trellis] add failed', error); this.alert('Task Trellis: could not save the task. Your text has been kept; check the destination and try again.'); return false; }
       },
       onAddSubtask: async (parent, text, detailed) => {
         try { return await this.plugin.quickAdd.addSubtask(this.plugin.index.currentSnapshot(parent), text, detailed); }
-        catch (error) { console.error('[Task Trellis] subtask failed', error); new Notice('Task Trellis: could not save the subtask. Your text has been kept; try again.'); return false; }
+        catch (error) { console.error('[Task Trellis] subtask failed', error); this.alert('Task Trellis: could not save the subtask. Your text has been kept; try again.'); return false; }
       },
       onUnsavedText: (text, retry) => recoverDraft(this.app, text, retry),
       // A bottom sheet on phones.
@@ -416,7 +435,7 @@ export class BoardView extends FileView {
     } catch (error) {
       console.error('[Task Trellis] undo failed', error);
       const notes = entry.action.paths.length === 1 ? 'note' : `${entry.action.paths.length} notes`;
-      new Notice(`Task Trellis: could not finish undoing. Some changes may already be undone; check the affected ${notes}.`);
+      this.alert(`Task Trellis: could not finish undoing. Some changes may already be undone; check the affected ${notes}.`);
     }
     this.render();
   }
@@ -470,7 +489,7 @@ export class BoardView extends FileView {
         await this.plugin.index.refresh([move.parent.path]);
       } catch (error) {
         console.error('[Task Trellis] subtask reorder failed', error);
-        new Notice('Task Trellis: could not reorder the subtasks. Refresh the board and check that the note can be edited, then try again.');
+        this.alert('Task Trellis: could not reorder the subtasks. Refresh the board and check that the note can be edited, then try again.');
       }
       this.renderWhenIdle();
     });
@@ -501,7 +520,7 @@ export class BoardView extends FileView {
     try {
       const result = await this.plugin.writer.applyEdits(tasks, edits, slug, promote ?? undefined);
       if (promote && result.failedPaths.includes(promote.subtask.path)) {
-        new Notice('Task Trellis: could not move the subtask out. The note could not be updated. Check that it is writable and the subtask is still under its parent, then try again.');
+        this.alert('Task Trellis: could not move the subtask out. The note could not be updated. Check that it is writable and the subtask is still under its parent, then try again.');
       }
       const action = result.action;
       if (action) {
@@ -514,7 +533,7 @@ export class BoardView extends FileView {
       this.renderWhenIdle();
     } catch (err) {
       console.error('[Task Trellis] write failed', err);
-      new Notice('Task Trellis: could not move the task. Check that its note can be edited, then try again.');
+      this.alert('Task Trellis: could not move the task. Check that its note can be edited, then try again.');
       for (const id of edits.keys()) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
       this.renderWhenIdle();
     }

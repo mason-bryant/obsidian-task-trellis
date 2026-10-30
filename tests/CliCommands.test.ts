@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
-import { Events, TFile, TFolder, notices } from './mocks/obsidian.ts';
+import { Events, TFile, TFolder, Workspace, notices } from './mocks/obsidian.ts';
 import { CliCommands } from '../src/obsidian/CliCommands.ts';
 import { BoardRegistry } from '../src/obsidian/BoardRegistry.ts';
 import { QuickAdd } from '../src/obsidian/QuickAdd.ts';
@@ -70,7 +70,7 @@ function fixture(files: Record<string, string> = {}, frontmatter: Record<string,
     create: async (path: string, data: string) => { notes[path] = data; return fileFor(path); },
     createFolder: async () => undefined,
   });
-  const app = { vault, metadataCache, workspace: new Events(), plugins: { enabledPlugins: new Set<string>(), plugins: {} } } as unknown as App;
+  const app = { vault, metadataCache, workspace: new Workspace(), plugins: { enabledPlugins: new Set<string>(), plugins: {} } } as unknown as App;
   const cleanups: (() => void)[] = [];
   const isExcludedFromIndex = (path: string) => path.startsWith('Boards/');
   const plugin = {

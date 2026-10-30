@@ -4,7 +4,7 @@ import { buildBoard, type BoardTask } from '../src/core/board.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import { Events, notices, TFile } from './mocks/obsidian.ts';
+import { notices, TFile, Workspace } from './mocks/obsidian.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
 beforeEach(() => { notices.length = 0; });
@@ -14,7 +14,7 @@ it('cancels Templater recovery when disabled without writing the task again', as
   vi.useFakeTimers();
   vi.stubGlobal('window', globalThis);
   const file = new TFile('Inbox.md');
-  const workspace = new Events();
+  const workspace = new Workspace();
   const offref = vi.spyOn(workspace, 'offref');
   const read = vi.fn(async () => '');
   const process = vi.fn(async () => undefined);
@@ -55,6 +55,7 @@ describe('new-task filter feedback', () => {
     const plugin = {
       register: () => undefined,
       app: {
+        workspace: new Workspace(),
         vault: { configDir: '.obsidian', getFileByPath: () => file,
           adapter: { read: async () => '{}' }, process: async (_file: TFile, transform: (text: string) => string) => { content = transform(content); } },
         metadataCache: { getFileCache: () => ({ frontmatter: { tags: pageTags },
@@ -74,6 +75,7 @@ describe('new-task filter feedback', () => {
     const plugin = {
       register: () => undefined,
       app: {
+        workspace: new Workspace(),
         vault: { configDir: '.obsidian', getFileByPath: () => file,
           adapter: { read: async () => '{}' }, process: async (_file: TFile, transform: (text: string) => string) => { content = transform(content); } },
         metadataCache: { getFileCache: () => ({ frontmatter: status === undefined ? {} : { status } }) },
@@ -96,6 +98,7 @@ describe('new cards appear first', () => {
     const plugin = {
       register: () => undefined,
       app: {
+        workspace: new Workspace(),
         vault: { configDir: '.obsidian', getFileByPath: (path: string) => refs.get(path),
           getAbstractFileByPath: (path: string) => refs.get(path),
           adapter: { read: async () => '{}' },
@@ -131,7 +134,7 @@ describe('new cards appear first', () => {
 });
 
 it('reports a missing destination as failure without pretending the task was saved', async () => {
-  const plugin = { register: () => {}, app: { vault: { adapter: { read: async () => '{}' } } },
+  const plugin = { register: () => {}, app: { workspace: new Workspace(), vault: { adapter: { read: async () => '{}' } } },
     settings: { newTaskKind: 'daily', newTaskHeading: '' } } as unknown as TaskTrellisPlugin;
   const config = parseBoardConfig('Review', {}).config;
   expect(await new QuickAdd(plugin).addFromBoard(buildBoard([], config, '2026-10-25', () => undefined), { rowId: 'now', columnId: 'backlog' }, 'Keep me', false)).toBe(false);

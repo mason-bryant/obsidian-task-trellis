@@ -17,6 +17,7 @@ export function installColumnResize(grid: HTMLElement, initial: ColumnWidths, ho
   let saving = false;
   let drag: { handle: HTMLElement; id: number; x: number; width: number; before: ColumnWidths } | null = null;
   const bounded = (width: number) => Math.round(Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, width)));
+  const title = (header: HTMLElement) => header.querySelector('.tt-col-title')?.textContent ?? header.dataset.column!;
   const apply = () => {
     grid.style.setProperty('--tt-column-tracks', headers.map((header) => {
       const width = widths[header.dataset.column!];
@@ -26,7 +27,8 @@ export function installColumnResize(grid: HTMLElement, initial: ColumnWidths, ho
       const handle = header.querySelector('.tt-column-resize');
       const width = widths[header.dataset.column!] ?? Math.round(header.getBoundingClientRect().width);
       handle?.setAttribute('aria-valuenow', String(width));
-      handle?.setAttribute('aria-valuetext', `${width} pixels`);
+      // VoiceOver reads a separator's value but not its name, so the value says which column it sizes.
+      handle?.setAttribute('aria-valuetext', `${title(header)} column, ${width} pixels`);
     }
   };
   // Freeze the other columns at their current sizes, like spreadsheet columns.
@@ -64,7 +66,7 @@ export function installColumnResize(grid: HTMLElement, initial: ColumnWidths, ho
     handle.dataset.boardFocus = `resize:${column}`;
     handle.setAttribute('role', 'separator');
     handle.setAttribute('aria-orientation', 'vertical');
-    handle.setAttribute('aria-label', `Resize ${header.querySelector('.tt-col-title')?.textContent ?? column} column. Drag to resize. Double-click or press Home to reset all column widths. Arrow keys adjust width.`);
+    handle.setAttribute('aria-label', `Resize ${title(header)} column. Drag to resize. Double-click or press Home to reset all column widths. Arrow keys adjust width.`);
     handle.setAttribute('aria-valuemin', String(MIN_COLUMN_WIDTH));
     handle.setAttribute('aria-valuemax', String(MAX_COLUMN_WIDTH));
     header.classList.add('tt-col-header--resizable');

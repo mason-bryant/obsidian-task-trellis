@@ -8,6 +8,7 @@ import { hasCriteria, parseQuickFilters, taskMatchesQuickFilter } from '../src/c
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 import { renderBoardSettings, type SettingsFormHost } from '../src/ui/renderBoardSettings.ts';
+import { ANNOUNCE_DELAY_MS } from '../src/ui/announce.ts';
 
 // Wednesday.
 const TODAY = '2026-10-21';
@@ -245,6 +246,7 @@ describe('quick filter settings', () => {
   });
 
   it('keeps edited fields and expanded state when moving several positions', () => {
+    vi.useFakeTimers();
     const ui = editor(); ui.expand(0); ui.tick(0, 'Match subtasks');
     const name = ui.control<HTMLInputElement>('Quick filter 1 name');
     name.value = 'Important'; name.dispatchEvent(new Event('input'));
@@ -253,8 +255,10 @@ describe('quick filter settings', () => {
     expect(ui.control<HTMLInputElement>('Quick filter 3 name').value).toBe('Important');
     expect(ui.checkbox(2, 'Match subtasks').checked).toBe(true);
     expect(document.activeElement).toBe(ui.control('Reorder Important'));
-    expect(ui.root.querySelector('.tt-reorder-status')?.textContent).toBe('Important moved to position 3 of 3.');
+    vi.advanceTimersByTime(ANNOUNCE_DELAY_MS);
+    expect(ui.root.querySelector('.tt-live [role="status"]')?.textContent).toBe('Important moved to position 3 of 3.');
     expect(ui.original.quickFilters[0]!.name).toBe('High priority');
+    vi.useRealTimers();
   });
 
   it('defaults Match subtasks off and preserves it through saving, reopening and cloning', () => {

@@ -7,7 +7,7 @@ vi.mock('../src/ui/renderBoard.ts', async (importOriginal) => ({ ...await import
 import { BoardView } from '../src/obsidian/BoardView.ts';
 import { TaskWriter, type UndoAction } from '../src/obsidian/TaskWriter.ts';
 import { TaskIndex } from '../src/obsidian/TaskIndex.ts';
-import { Events, notices, TFile } from './mocks/obsidian.ts';
+import { Events, notices, TFile, Workspace } from './mocks/obsidian.ts';
 import { buildBoard, type BoardModel, type DropTarget } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
@@ -31,7 +31,7 @@ function fixture(content = '- [ ] same\n- [ ] same\n') {
     getMarkdownFiles: () => [file], cachedRead: async () => content,
     process: async (_file: unknown, transform: (value: string) => string) => { content = transform(content); return content; },
   });
-  const app = { vault, metadataCache } as unknown as App;
+  const app = { vault, metadataCache, workspace: new Workspace() } as unknown as App;
   const index = new TaskIndex(app, () => false);
   const writer = new TaskWriter(app);
   const plugin = { app, writer, index, quickAdd: { addFromBoard: vi.fn(), addSubtask: vi.fn() } } as unknown as TaskTrellisPlugin;

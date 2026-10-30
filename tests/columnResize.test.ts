@@ -50,6 +50,8 @@ describe('column resize', () => {
     expect(host.save).toHaveBeenCalledExactlyOnceWith({ backlog: 420, doing: 400, done: 280 });
     expect(isColumnResizing(document.body)).toBe(false);
     expect(handles[0]!.getAttribute('aria-valuenow')).toBe('420');
+    // VoiceOver reads the value text but not the name, so the value names the column.
+    expect(handles[0]!.getAttribute('aria-valuetext')).toBe('backlog column, 420 pixels');
   });
   it.each(['pointercancel', 'lostpointercapture', 'Escape'])('rolls back on %s without saving', (type) => {
     setup({ backlog: 330 });

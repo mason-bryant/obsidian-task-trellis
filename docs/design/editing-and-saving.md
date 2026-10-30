@@ -12,7 +12,7 @@ An editor that saves explicitly has a header with a green check on the left, the
 | Label definition (pencil), color scheme, bulk editor | The check (Save label, Apply color scheme, Apply to ‹n› tasks) commits the draft. | Cancel discards it. |
 | Quick-filter order | Reordering changes the settings draft; saving the settings commits it. | Cancelling the settings discards it. |
 | Label checkboxes | Each checkbox saves as soon as it changes. A failed write restores the checkbox. | Closing the picker keeps what was saved. |
-| Inline task and subtask composer | The check adds the task. The text clears only once it's saved, and the composer stays open for the next task. | X or Escape closes it. |
+| Inline task and subtask composer | The check adds the task. The text clears only once it's saved, and the composer stays open for the next task, with focus in its text box. | X or Escape closes it. |
 | New board | Create board makes the board note, then opens the board and its settings. | X closes it. |
 | Board name (click the board's name) | Save board name renames the board. With Also rename board tags on, the check first previews the affected notes, then renames the board and its tags. | X closes it. Nothing changes until the rename is applied. |
 | Restore board rename (command) | Restore selected rename restores a saved rename from its recovery copy. | X closes it. |

@@ -1,4 +1,5 @@
-import { Modal, Notice, setIcon, type App } from 'obsidian';
+import { Modal, setIcon, type App } from 'obsidian';
+import { notice } from './notice.ts';
 import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
 
 /** Keep a failed external-editor/command draft available for copying or an explicit retry. */
@@ -14,7 +15,7 @@ export function recoverDraft(app: App, value: string, save: (value: string) => P
     if (busy || !input.value.trim()) return;
     busy = true; header.setBusy(true);
     void save(input.value).then((saved) => { if (saved) modal.close(); })
-      .catch((error: unknown) => { console.error('[Task Trellis] retry failed', error); new Notice('Task Trellis: could not save. Your draft is still available.'); })
+      .catch((error: unknown) => { console.error('[Task Trellis] retry failed', error); notice(app, 'Task Trellis: could not save. Your draft is still available.', { alert: true }); })
       .finally(() => { busy = false; header.setBusy(false); });
   }, () => modal.close(), 'Retry saving');
   modal.onClose = () => chrome.destroy();
