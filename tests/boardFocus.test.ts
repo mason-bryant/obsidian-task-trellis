@@ -82,7 +82,11 @@ it('closing a composer with Escape or X returns focus to the button that opened 
   expect(document.activeElement).toBe(addSubtask());
 });
 
-it('names each card and subtask action after its task, and lets the keyboard edit subtasks', () => {
+it('names each card and subtask action after its task, and each Add task button after its cell', () => {
+  const adds = [...root.querySelectorAll('.tt-add-button')].map((b) => b.getAttribute('aria-label'));
+  expect(adds).toContain('Add task to Backlog, Due now');
+  expect(adds).toContain('Add task to Waiting, No due date');
+  expect(new Set(adds).size).toBe(adds.length);
   expect(card(paint).querySelector('.tt-add-subtask')?.getAttribute('aria-label')).toBe('Add subtask to Paint the kitchen');
   expect(key(`move-menu:${paint.id}`).getAttribute('aria-label')).toBe('Move Paint the kitchen to…');
   expect(key(`move-menu:${walls.id}`).getAttribute('aria-label')).toBe('Move Prepare walls to…');
@@ -90,6 +94,24 @@ it('names each card and subtask action after its task, and lets the keyboard edi
   expect(row.tabIndex).toBe(0); expect(row.getAttribute('aria-label')).toBe('Prepare walls');
   row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   expect(host.onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: walls.id }));
+});
+
+it('keeps focus in the composer while its check button saves, ready for the next task', async () => {
+  let finish!: (saved: boolean) => void;
+  host.onAddTask = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve; })); draw();
+  root.querySelector<HTMLButtonElement>('.tt-add-button')!.click();
+  const input = root.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
+  input.value = 'Buy paint'; input.dispatchEvent(new Event('input'));
+  const save = root.querySelector<HTMLButtonElement>('.tt-add-box .tt-editor-save')!;
+  save.focus(); save.click();
+  // The check button is disabled while saving; focus moves to the text box rather than the page.
+  expect(save.disabled).toBe(true);
+  expect(document.activeElement).toBe(input);
+  finish(true); await Promise.resolve(); await Promise.resolve();
+  draw(); await Promise.resolve();
+  const next = root.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
+  expect(document.activeElement).toBe(next); expect(next.value).toBe('');
+  next.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 });
 
 it('keeps an opened composer above the phone keyboard as it opens, and below the column header', async () => {

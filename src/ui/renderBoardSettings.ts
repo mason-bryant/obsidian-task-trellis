@@ -1,4 +1,5 @@
 import { uiElement, isComposing } from './dom.ts';
+import { announce, clearForRedraw } from './announce.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 import { installRowReorder } from './reorderRows.ts';
 import { quickFilterColors } from './quickFilterColors.ts';
@@ -122,6 +123,15 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
 
   function updateWarnings(): void {
     root.querySelector('.tt-filter-warnings')?.replaceChildren(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text)));
+    sayNewWarnings();
+  }
+
+  /** Warnings shown when the form opened, or already said, aren't said again. */
+  let warned = new Set(filterWarnings(draft));
+  function sayNewWarnings(): void {
+    const now = filterWarnings(draft);
+    announce(root, now.filter((text) => !warned.has(text)).join(' '));
+    warned = new Set(now);
   }
 
   // Empty tag/folder rows are UI drafts only; existing serialized filters keep their semantics.
@@ -311,12 +321,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       }
       body.append(item);
     });
-    const status = el('div', 'tt-reorder-status'); status.setAttribute('role', 'status'); body.append(status);
     attach(installRowReorder(body, '.tt-quick-filter-editor', (from, to) => {
       const [moved] = list.splice(from, 1); list.splice(to, 0, moved!);
       redraw(`quick-${to}-drag`);
-      const announcement = root.querySelector('.tt-reorder-status');
-      if (announcement) announcement.textContent = `${moved!.name || 'Quick filter'} moved to position ${to + 1} of ${list.length}.`;
+      announce(root, `${moved!.name || 'Quick filter'} moved to position ${to + 1} of ${list.length}.`);
     }));
     if (!list.length) body.append(el('p', 'tt-filter-empty', 'No quick filters.'));
     const add = button('Add quick filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.dataset.focus = 'quick-add';
@@ -336,7 +344,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const focused = root.ownerDocument.activeElement as HTMLInputElement | null;
     const restoreKey = focusNext ?? (focused && root.contains(focused) ? focused.dataset.focus : undefined);
     const selection = focused?.selectionStart;
-    dispose(); root.replaceChildren(); root.classList.add('tt-settings');
+    dispose(); clearForRedraw(root); root.classList.add('tt-settings');
     const nav = el('div', 'tt-settings-tabs'); nav.setAttribute('role', 'tablist'); nav.setAttribute('aria-label', 'Board settings sections');
     const sections: [Section, string, string][] = [['columns', 'Columns', 'columns-3'], ['dates', 'Dates', 'calendar-days'], ['filters', 'Filters', 'list-filter'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
     for (const [id, title, glyph] of sections) {
@@ -377,15 +385,13 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         }, draft.columns.length === 1), drag);
         body.append(row);
       });
-      const status = el('div', 'tt-reorder-status'); status.setAttribute('role', 'status'); body.append(status);
       attach(installRowReorder(body, '.tt-column-editor', (from, to) => {
         const [moved] = draft.columns.splice(from, 1); draft.columns.splice(to, 0, moved!);
         // The Done and No due date columns follow their column to its new place.
         const follow = (at: number) => at === from ? to : from < to && at > from && at <= to ? at - 1 : from > to && at >= to && at < from ? at + 1 : at;
         draft.doneIndex = follow(draft.doneIndex); draft.undatedIndex = follow(draft.undatedIndex);
         redraw(`column-${to}-drag`);
-        const announcement = root.querySelector('.tt-reorder-status');
-        if (announcement) announcement.textContent = `${moved!.label.trim() || 'Column'} moved to position ${to + 1} of ${draft.columns.length}.`;
+        announce(root, `${moved!.label.trim() || 'Column'} moved to position ${to + 1} of ${draft.columns.length}.`);
       }));
       const add = button('Add column', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.onclick = () => { draft.columns.push({ label: '' }); redraw(`column-${draft.columns.length - 1}`); }; body.append(add);
       for (const c of original.columns.filter((c) => !draft.columns.some((d) => d.originalId === c.id))) {
@@ -410,7 +416,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     } else if (section === 'filters') {
       heading(body, 'Choose what belongs here', 'Choose a field, a condition and its values. A matching exclusion always wins.');
       const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(draft, false), filterGroup(draft, true)); body.append(groups);
-      const warnings = el('div', 'tt-filter-warnings'); warnings.setAttribute('role', 'status');
+      const warnings = el('div', 'tt-filter-warnings');
       warnings.append(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text))); body.append(warnings);
       body.append(el('p', 'tt-scope-note', 'Tags match the task or its page, including nested tags. Folders include their descendants. Properties belong to the source note. Press Enter or choose a suggestion to add a value. Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
     } else if (section === 'quick') {
@@ -466,6 +472,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       if (focusNext && !focusNext.startsWith('tt-tab-')) target?.scrollIntoView({ block: 'nearest' });
     }
     focusNext = null;
+    sayNewWarnings();
   }
   draw();
   return {

@@ -2,7 +2,7 @@ import { taskLabels } from '../src/core/labels.ts';
 import type { UndoAction } from '../src/obsidian/TaskWriter.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
-import { notices, TFile } from './mocks/obsidian.ts';
+import { notices, TFile, Workspace } from './mocks/obsidian.ts';
 import { taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
@@ -15,6 +15,7 @@ type TasksApi = {
 function fakeApp(files: Record<string, string>, tasksApi?: TasksApi) {
   const entries = new Map(Object.keys(files).map((path) => [path, new TFile(path)]));
   const app = {
+    workspace: new Workspace(),
     vault: {
       getAbstractFileByPath: (path: string) => (path in files ? entries.get(path) ?? null : null),
       process: async (file: TFile, fn: (content: string) => string) => {

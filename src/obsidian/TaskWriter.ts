@@ -1,7 +1,8 @@
 import { joinEditedLines, replaceNoteLine } from '../core/lineEndings.ts';
 import { recoverDraft } from './recoverDraft.ts';
+import { notice } from './notice.ts';
 import { setTaskLabels } from '../core/labels.ts';
-import { Notice, TFile, type App, type WorkspaceLeaf } from 'obsidian';
+import { TFile, type App, type WorkspaceLeaf } from 'obsidian';
 import { applyEdit, taskId, type BoardTask, type TaskEdit } from '../core/board.ts';
 import { todayISO } from '../core/dates.ts';
 import { insertSubtaskAt, promoteSubtask } from '../core/subtasks.ts';
@@ -115,7 +116,7 @@ export class TaskWriter {
     const applied = new Set(result.appliedIds);
     result.skippedIds = [...edits.keys()].filter((id) => !applied.has(id));
     // BoardView explains a subtask that couldn't move out.
-    if (result.skippedIds.length && !(promote && result.failedPaths.includes(promote.subtask.path))) new Notice(`Task Trellis: ${result.skippedIds.length === 1 ? '1 task' : `${result.skippedIds.length} tasks`} could not be updated. Check the affected notes and try again.`);
+    if (result.skippedIds.length && !(promote && result.failedPaths.includes(promote.subtask.path))) notice(this.app, `Task Trellis: ${result.skippedIds.length === 1 ? '1 task' : `${result.skippedIds.length} tasks`} could not be updated. Check the affected notes and try again.`, { alert: true });
     result.action = this.undoFor(changes);
     return result;
   }
@@ -127,7 +128,7 @@ export class TaskWriter {
     const missed = await this.rewrite(task.path, [task], (t) => (written = this.toggleLine(t.raw, t.path)), changes);
     const undo = this.undoFor(changes);
     if (undo) onUndo?.(undo);
-    if (missed > 0) new Notice('Task Trellis: that task changed since the board loaded. Try again.');
+    if (missed > 0) notice(this.app, 'Task Trellis: that task changed since the board loaded. Try again.', { alert: true });
     return missed > 0 ? null : written;
   }
 
@@ -160,14 +161,14 @@ export class TaskWriter {
     const lines = result.split('\n').map((l) => movePlacementsToEnd(dedupeFields(l)));
     const save = async (draft: string): Promise<boolean> => {
       const missed = await this.rewrite(task.path, [task], () => draft.split('\n').map((l) => movePlacementsToEnd(dedupeFields(l))));
-      if (missed) new Notice('Task Trellis: that task changed while you were editing. Copy your draft and reopen the task.');
+      if (missed) notice(this.app, 'Task Trellis: that task changed while you were editing. Copy your draft and reopen the task.', { alert: true });
       return missed === 0;
     };
     try {
       if (await save(lines.join('\n'))) return lines;
     } catch (error) {
       console.error('[Task Trellis] edit failed', error);
-      new Notice('Task Trellis: could not save the edit. Your draft has been kept.');
+      notice(this.app, 'Task Trellis: could not save the edit. Your draft has been kept.', { alert: true });
     }
     recoverDraft(this.app, lines.join('\n'), save);
     return null;
@@ -176,7 +177,7 @@ export class TaskWriter {
   /** Adds `line` as the parent's last subtask, indented the way the editor would (Settings → Editor → Indent using tabs). */
   async insertSubtask(parent: BoardTask, line: string): Promise<boolean> {
     const found = (await this.insertSubtasks(parent, [line])).at >= 0;
-    if (!found) new Notice('Task Trellis: that task changed since the board loaded, so the subtask was not added. Try again.');
+    if (!found) notice(this.app, 'Task Trellis: that task changed since the board loaded, so the subtask was not added. Try again.', { alert: true });
     return found;
   }
 
@@ -258,7 +259,7 @@ export class TaskWriter {
           return change.before;
         });
       }
-      if (skipped) new Notice(`Task Trellis: ${skipped === 1 ? '1 note' : `${skipped} notes`} changed after this action and ${skipped === 1 ? 'was' : 'were'} not undone.`);
+      if (skipped) notice(this.app, `Task Trellis: ${skipped === 1 ? '1 note' : `${skipped} notes`} changed after this action and ${skipped === 1 ? 'was' : 'were'} not undone.`, { alert: true });
       return skipped === 0;
     } };
   }

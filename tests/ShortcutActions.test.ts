@@ -3,7 +3,7 @@ import { ShortcutActions } from '../src/obsidian/ShortcutActions.ts';
 import { QuickAdd } from '../src/obsidian/QuickAdd.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
-import { Events, TFile, notices } from './mocks/obsidian.ts';
+import { Events, TFile, Workspace, notices } from './mocks/obsidian.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
 function fixture(options: { filtered?: boolean; created?: boolean; daily?: boolean; templater?: boolean; frontmatter?: Record<string, unknown>; indexed?: boolean } = {}) {
@@ -30,7 +30,7 @@ function fixture(options: { filtered?: boolean; created?: boolean; daily?: boole
     openBoard: vi.fn(async () => undefined),
     settings: { newTaskKind: 'daily', newTaskNote: '', newTaskHeading: 'Tasks' },
     app: {
-      workspace: new Events(),
+      workspace: new Workspace(),
       plugins: { enabledPlugins: new Set(options.templater ? ['templater-obsidian'] : []) },
       metadataCache,
       internalPlugins: { getEnabledPluginById: () => ({ getDailyNote }) },

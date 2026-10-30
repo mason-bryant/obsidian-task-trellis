@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { App } from 'obsidian';
-import { TFile } from './mocks/obsidian.ts';
+import { TFile, Workspace } from './mocks/obsidian.ts';
 import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { type BoardTask, type TaskEdit } from '../src/core/board.ts';
@@ -68,7 +68,7 @@ it('writes 5,000 tasks across 100 notes without touching surrounding content or 
     lines.push('```md', '- [ ] Do not touch this code sample', '```', 'Trailing prose', '');
     const text = lines.join(eol); originals.set(path, text); files.set(path, text); refs.set(path, new TFile(path));
   }
-  const app = { vault: {
+  const app = { workspace: new Workspace(), vault: {
     getAbstractFileByPath: (path: string) => refs.get(path),
     process: async (file: TFile, transform: (text: string) => string) => { files.set(file.path, transform(files.get(file.path)!)); },
   } } as unknown as App;
@@ -103,7 +103,7 @@ it('preserves 250 concurrent label writes while refusing stale checkbox writes o
   const file = new TFile('Concurrent.md');
   let content = lines.join('\n');
   let queue = Promise.resolve();
-  const app = { vault: {
+  const app = { workspace: new Workspace(), vault: {
     getAbstractFileByPath: () => file,
     process: (_file: TFile, transform: (text: string) => string) => {
       const write = queue.then(() => { content = transform(content); });

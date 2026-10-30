@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
-import { notices, TFile } from './mocks/obsidian.ts';
+import { notices, TFile, Workspace } from './mocks/obsidian.ts';
 import { buildBoard, moveChoices, planPromotion, taskId, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
@@ -68,7 +68,7 @@ describe('moveChoices for a subtask', () => {
 
 function fakeApp(files: Record<string, string>) {
   const entries = new Map(Object.keys(files).map((path) => [path, new TFile(path)]));
-  return { vault: {
+  return { workspace: new Workspace(), vault: {
     getAbstractFileByPath: (path: string) => entries.get(path) ?? null,
     process: async (file: TFile, fn: (content: string) => string) => (files[file.path] = fn(files[file.path]!)),
   }, plugins: { enabledPlugins: new Set<string>(), plugins: {} } } as unknown as App;

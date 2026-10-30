@@ -33,6 +33,11 @@ export class Events {
   }
 }
 
+/** Obsidian's workspace, with no view active. */
+export class Workspace extends Events {
+  getActiveViewOfType(): null { return null; }
+}
+
 export class TFolder { constructor(public path: string) {} }
 export class Modal {}
 export class Setting {}
@@ -47,11 +52,12 @@ export function getAllTags(cache: { frontmatter?: Record<string, unknown>; tags?
 }
 
 export class Component { load() {} unload() {} }
-export class FileView {
+export class ItemView {
   app: unknown;
   contentEl: HTMLElement;
   constructor(leaf: { app: unknown }) { this.app = leaf.app; this.contentEl = document.createElement('div'); }
 }
+export class FileView extends ItemView {}
 export const MarkdownRenderer = { render: async () => {} };
 export class Menu {}
 export const setIcon = () => {};

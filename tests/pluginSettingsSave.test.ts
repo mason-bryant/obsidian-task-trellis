@@ -8,7 +8,7 @@ import { parseTaskLine } from '../src/core/taskLine.ts';
 import { taskId } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftFromConfig } from '../src/core/boardDraft.ts';
-import { TFile } from './mocks/obsidian.ts';
+import { TFile, Workspace } from './mocks/obsidian.ts';
 import type { App } from 'obsidian';
 
 it.each(['partial', 'board-write', 'success'])('column rename handles %s without silently leaving an inconsistent board', async (mode) => {
@@ -20,7 +20,7 @@ it.each(['partial', 'board-write', 'success'])('column rename handles %s without
   const writeBoard = vi.fn(async (_file: unknown, fn: (fm: Record<string, unknown>) => void) => {
     if (mode === 'board-write') throw new Error('Cannot save board'); fn({});
   });
-  const app = { vault: { getAbstractFileByPath: () => file,
+  const app = { workspace: new Workspace(), vault: { getAbstractFileByPath: () => file,
     process: async (_file: unknown, fn: (s: string) => string) => { content = fn(content); return content; } },
     fileManager: { processFrontMatter: writeBoard } } as unknown as App;
   const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
@@ -44,7 +44,7 @@ it.each([
   const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
   Object.assign(plugin, {
     settings: { boardsFolder: 'Boards' }, boards: { boards: () => [] },
-    app: { vault: { getFolderByPath: () => ({}), getAbstractFileByPath: () => null, create },
+    app: { workspace: new Workspace(), vault: { getFolderByPath: () => ({}), getAbstractFileByPath: () => null, create },
       fileManager: { processFrontMatter: async () => { if (step === 'settings') throw new Error('Disk full'); } } },
     openBoard: async () => { throw new Error('No leaf'); },
   });

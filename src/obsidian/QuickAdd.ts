@@ -1,7 +1,8 @@
 import { isComposing } from '../ui/dom.ts';
 import { recoverDraft } from './recoverDraft.ts';
+import { notice } from './notice.ts';
 import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
-import { getFrontMatterInfo, setIcon, Modal, Notice, Setting, TFile, TFolder, normalizePath, type App, type CachedMetadata, type Events } from 'obsidian';
+import { getFrontMatterInfo, setIcon, Modal, Setting, TFile, TFolder, normalizePath, type App, type CachedMetadata, type Events } from 'obsidian';
 import type { BoardModel, BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
@@ -124,7 +125,7 @@ export class QuickAdd {
       if (line && !await this.add(line, this.defaultDestination(), null)) recoverDraft(this.app, line, (draft) => this.add(draft, this.defaultDestination(), null));
     } catch (error) {
       console.error('[Task Trellis] add failed', error);
-      new Notice('Task Trellis: could not save the task. Your draft has been kept.');
+      notice(this.plugin.app, 'Task Trellis: could not save the task. Your draft has been kept.', { alert: true });
       if (line) recoverDraft(this.app, line, (draft) => this.add(draft, this.defaultDestination(), null));
     }
   }
@@ -248,17 +249,17 @@ export class QuickAdd {
     if (created) {
       if (!templated) void this.keepThroughTemplater(file, dest.heading, [line]).catch((error: unknown) => {
         console.error('Task Trellis: could not preserve the new task after template processing.', error);
-        new Notice('Task Trellis: template processing may have replaced the new task. Check the destination note.');
+        notice(this.plugin.app, 'Task Trellis: template processing may have replaced the new task. Check the destination note.', { alert: true });
       });
-      if (!board) new Notice(`Task Trellis: added to ${file.basename}.`);
+      if (!board) notice(this.plugin.app, `Task Trellis: added to ${file.basename}.`);
       return true;
     }
     const cache = this.app.metadataCache.getFileCache(file);
     const tags = parseTaskLine(line)?.tags ?? [];
     if (board && !taskMatchesBoard({ path: file.path, tags }, board, cache?.frontmatter, noteTags(cache))) {
-      new Notice(`Task Trellis: added to ${file.basename}, but this board’s filters hide tasks from that note.`);
+      notice(this.plugin.app, `Task Trellis: added to ${file.basename}, but this board’s filters hide tasks from that note.`);
     } else if (!board) {
-      new Notice(`Task Trellis: added to ${file.basename}.`);
+      notice(this.plugin.app, `Task Trellis: added to ${file.basename}.`);
     }
     return true;
   }
@@ -268,7 +269,7 @@ export class QuickAdd {
     if (dest.kind === 'daily') {
       const daily = this.dailyNotes();
       if (!daily) {
-        new Notice('Task Trellis: turn on the core Daily notes plugin, or choose a specific note for new tasks.');
+        notice(this.plugin.app, 'Task Trellis: turn on the core Daily notes plugin, or choose a specific note for new tasks.', { alert: true });
         return null;
       }
       let createdPath: string | null = null;
@@ -276,7 +277,7 @@ export class QuickAdd {
       try {
         const file = await daily.getDailyNote();
         if (!file) {
-          new Notice('Task Trellis: couldn’t open today’s daily note. Check the Daily notes settings.');
+          notice(this.plugin.app, 'Task Trellis: couldn’t open today’s daily note. Check the Daily notes settings.', { alert: true });
           return null;
         }
         return { file, created: createdPath === file.path };
@@ -286,7 +287,7 @@ export class QuickAdd {
     }
 
     if (!dest.note.trim()) {
-      new Notice('Task Trellis: choose the note new tasks go to, in the plugin or board settings.');
+      notice(this.plugin.app, 'Task Trellis: choose the note new tasks go to, in the plugin or board settings.', { alert: true });
       return null;
     }
     const path = normalizePath(dest.note.endsWith('.md') ? dest.note : `${dest.note}.md`);

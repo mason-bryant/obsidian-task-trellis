@@ -70,7 +70,7 @@ describe('board settings header', () => {
     expect(open.textContent).toBe('Save & open board');
     open.click(); expect(openBoard).toHaveBeenCalledTimes(1);
     form.showErrors(['Could not save.']);
-    expect(root.querySelector('[role="alert"]')!.textContent).toContain('Could not save.');
+    expect(root.querySelector('.tt-settings-errors')!.textContent).toContain('Could not save.');
     header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(2);
     header.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.click(); expect(discard).toHaveBeenCalledTimes(1);
     form.destroy();
