@@ -78,6 +78,15 @@ function disposeSubtaskReorders(root: HTMLElement): void {
 }
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 const quickDisclosures = new WeakMap<HTMLElement, { scope: string; collapsed: Set<string>; all: Set<string> }>();
+/**
+ * How many cards a cell draws at a time; its "more" button draws the next page. Every card drawn
+ * costs memory, and on an iPhone a board that drew about a thousand restarted Obsidian.
+ */
+export const CELL_PAGE = 25;
+/** Extra pages shown in long cells, by cell. They last while the board stays open, and aren't saved. */
+const cellPages = new WeakMap<HTMLElement, { slug: string; pages: Map<string, number> }>();
+/** Shared by a board's cells: the pages shown, cards that must stay drawn, and a redraw. */
+type Paging = { pages: Map<string, number>; keep: Set<string>; redraw(): void };
 
 /** Undo invalidates selected snapshots; keep selection mode but require a fresh choice. */
 export function clearBulkSelection(root: HTMLElement): void { bulkStates.get(root)?.clear(); }
@@ -89,6 +98,7 @@ export function disposeBoardSelection(root: HTMLElement): void {
   selectionClickCleanup.get(root)?.();
   bulkStates.delete(root);
   quickDisclosures.delete(root);
+  cellPages.delete(root);
 }
 
 const DRAG_TYPE = 'application/x-task-trellis';
@@ -148,6 +158,10 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
   const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
+  // A focused card, or one an action just changed, stays drawn even when it moved past its cell's page.
+  const active = root.ownerDocument.activeElement;
+  const focusedCard = active && root.contains(active) ? active.closest<HTMLElement>('.tt-card')?.dataset.id : undefined;
+  const keep = new Set([...host.highlightIds ?? [], ...focusedCard ? [focusedCard] : []]);
   composerViewportCleanup.get(root)?.();
   disposeSubtaskReorders(root);
   root.replaceChildren();
@@ -183,6 +197,12 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const latest = renderInputs.get(root)!;
     renderBoard(root, latest.model, latest.host, latest.notes);
   };
+  let paged = cellPages.get(root);
+  if (!paged || paged.slug !== config.slug) {
+    paged = { slug: config.slug, pages: new Map() };
+    cellPages.set(root, paged);
+  }
+  const paging: Paging = { pages: paged.pages, keep, redraw };
   const quickScope = JSON.stringify([config.slug, model.activeQuickFilters, config.quickFilters]);
   let disclosures = quickDisclosures.get(root);
   if (!disclosures || disclosures.scope !== quickScope) {
@@ -416,7 +436,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       ? ['1 / -1']
       : [undatedAt > 0 ? `1 / ${undatedAt + 1}` : '', undatedAt < visibleColumns.length - 1 ? `${undatedAt + 2} / -1` : ''].filter(Boolean);
   if (undatedAt >= 0) {
-    const undated = cell('none', visibleColumns[undatedAt]!, model, host);
+    const undated = cell('none', visibleColumns[undatedAt]!, model, host, paging);
     undated.classList.add('tt-cell--undated');
     undated.style.gridColumn = String(undatedAt + 1);
     undated.style.gridRow = visibleColumns.length === 1 ? '2' : `2 / span ${rows.reduce((n, r) => n + (rowCollapsed(r.id) ? 1 : 2), 0)}`;
@@ -477,7 +497,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     if (collapsed) continue;
 
     for (const column of visibleColumns) {
-      if (column.id !== config.undatedColumn) grid.append(cell(row.id, column, model, host));
+      if (column.id !== config.undatedColumn) grid.append(cell(row.id, column, model, host, paging));
     }
   }
 
@@ -530,7 +550,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   }, () => verticalScroller(scrollEl), () => swipesColumns(scrollEl) ? columnPositions() : []);
 }
 
-function cell(rowId: string, column: BoardColumn, model: BoardModel, host: RenderHost): HTMLElement {
+function cell(rowId: string, column: BoardColumn, model: BoardModel, host: RenderHost, paging: Paging): HTMLElement {
   const c = el('div', 'tt-cell');
   c.dataset.row = rowId;
   c.dataset.column = column.id;
@@ -538,8 +558,33 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   const limit = cardLimit(column.id, model.config);
   const capped = limit !== null && cards.length > limit && !cards.some((task) => model.quickContext?.branches.has(task.id));
   const hidden = capped && host.isCollapsed(moreKey(rowId));
-  for (const task of hidden ? cards.slice(0, limit) : cards) c.append(card(task, model, host));
-  if (capped) c.append(moreToggle(hidden, cards.length - limit, `more:${rowId}:${column.id}`, host, () => host.onToggleRow(moreKey(rowId))));
+  // Otherwise a cell draws a page of cards at a time, and enough pages to include any card that must stay drawn.
+  const key = `${rowId}:${column.id}`;
+  const first = Math.max(limit ?? 0, CELL_PAGE);
+  const kept = cards.reduce((last, task, i) => paging.keep.has(task.id) ? i : last, -1);
+  if (!hidden && kept >= first) paging.pages.set(key, Math.max(paging.pages.get(key) ?? 0, Math.floor((kept - first) / CELL_PAGE) + 1));
+  const pages = hidden ? 0 : paging.pages.get(key) ?? 0;
+  const shown = hidden ? limit : Math.min(cards.length, first + CELL_PAGE * pages);
+  for (const task of cards.slice(0, shown)) c.append(card(task, model, host));
+  if (shown < cards.length && !hidden) {
+    const more = moreToggle(true, cards.length - shown, `more-cards:${key}`, host, () => {
+      // Focus goes on to the first card it adds, which takes the button's place.
+      more.dataset.boardFocus = `card:${cards[shown]!.id}`;
+      paging.pages.set(key, pages + 1);
+      paging.redraw();
+    });
+    more.title = `Show the next ${Math.min(CELL_PAGE, cards.length - shown)}`;
+    c.append(more);
+  }
+  if (capped || shown > first) {
+    const toggle = moreToggle(hidden, cards.length - (limit ?? 0), `more:${key}`, host, () => {
+      paging.pages.delete(key);
+      if (capped) { host.onToggleRow(moreKey(rowId)); return; }
+      toggle.dataset.boardFocus = `more-cards:${key}`;
+      paging.redraw();
+    });
+    c.append(toggle);
+  }
   // Done fills itself by completing tasks, so it gets no add button.
   if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, host));
   if (!host.selection) addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
@@ -707,7 +752,7 @@ function addBox(
   return box;
 }
 
-/** "▸ 3 more" under a capped Done cell, or "▾ Show fewer" once it is open. */
+/** "▸ 3 more" under a capped or long cell, or "▾ Show fewer" once more of it shows. */
 function moreToggle(collapsed: boolean, extra: number, focusKey: string, host: RenderHost, onClick: () => void): HTMLElement {
   const b = el('button', `tt-more${collapsed ? ' is-collapsed' : ''}`);
   b.type = 'button';

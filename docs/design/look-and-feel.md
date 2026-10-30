@@ -56,6 +56,7 @@ Icons are Obsidian's line icons, drawn through the host's icon function (`setIco
 
 - **Board toolbar:** the board name, which renames the board when clicked, and the card count on the left. Then Subtasks, the optional column picker, the quick filters, Select (or Done selecting), and Settings last. Settings stays last in visual and keyboard order when controls are hidden or the toolbar wraps.
 - **Columns and rows:** each column has a sticky header with an icon, its title and a count. Each date row has a sticky label with a chevron that collapses it.
+- **Long cells:** a cell shows its first 25 cards. Below them, ▸ *N* more counts the cards not shown and shows the next 25 each time; ▾ Show fewer goes back to the first 25. Done and No due date start from their own limits (5 and 10 by default), and whether they're expanded is saved, but the extra pages aren't: a board never opens with every card drawn, which a phone can't hold. More moves focus to the first card it adds, in the button's place. A card that has focus or was just changed stays shown. Counts, Select all and Select column include every card.
 - **Card:** labels at the top left, in the board's label shape, then the checkbox and text, then a metadata row: the source note, due date, priority and the card's actions. A card with subtasks puts its actions on the subtask row instead, after the count, above the subtask list.
 - **Editor:** a header with the check on the left, the title in the middle and the X on the right, above the scrolling fields.
 - **Board settings:** Card spacing and Hide column selector live in Appearance, use the normal draft/save flow, and are saved per board. Every Appearance checkbox is checked to hide and unchecked to show. Spacing and subtask ordering use dropdowns, since they are not visibility choices. The column selector starts visible; hiding it clears the chosen-column filter without disabling narrow-board page navigation. Tabs at the top, the chosen section below them, and a footer with Save & open board.
@@ -75,6 +76,6 @@ Motion is brief and only decorates what already happened: a card lifting on hove
 ## Where it lives
 
 - All styles: [styles.css](../../styles.css), scoped by component class.
-- Board, toolbar and cards: [renderBoard.ts](../../src/ui/renderBoard.ts). Editor headers: [editorHeader.ts](../../src/ui/editorHeader.ts).
+- Board, toolbar and cards: [renderBoard.ts](../../src/ui/renderBoard.ts), where `cell` and `CELL_PAGE` limit long cells. Editor headers: [editorHeader.ts](../../src/ui/editorHeader.ts).
 - Label text contrast: [labels.ts](../../src/core/labels.ts). Label color squares in the toolbar, menu and settings: [quickFilterColors.ts](../../src/ui/quickFilterColors.ts).
 - Boards sidebar: [BoardListView.ts](../../src/obsidian/BoardListView.ts). Plugin settings tab: [settings.ts](../../src/settings.ts).
