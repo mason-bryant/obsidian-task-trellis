@@ -76,7 +76,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - No lost input, false success, spinner left running, duplicate submission or card preview left in the wrong place.
 - Edit a note before using Undo, and check that the edit survives.
 - A successful save followed by failed navigation, and a retry after a failure.
-- Tests: [saveReliability](../../tests/saveReliability.test.ts), [TaskWriter](../../tests/TaskWriter.test.ts), [BoardView](../../tests/BoardView.test.ts), [boardTagRename](../../tests/boardTagRename.test.ts) (the rename service), [boardRename](../../tests/boardRename.test.ts) (the board name editor), [NotePopup](../../tests/NotePopup.test.ts) and [ShortcutActions](../../tests/ShortcutActions.test.ts) (saved, then the board fails to open). No test yet covers Save & open board when opening the board fails.
+- Tests: [saveReliability](../../tests/saveReliability.test.ts), [TaskWriter](../../tests/TaskWriter.test.ts), [BoardView](../../tests/BoardView.test.ts), [boardTagRename](../../tests/boardTagRename.test.ts) (the rename service), [boardRename](../../tests/boardRename.test.ts) (the board name editor), [NotePopup](../../tests/NotePopup.test.ts) and [ShortcutActions](../../tests/ShortcutActions.test.ts) (saved, then the board fails to open).
 
 ## Accessibility
 

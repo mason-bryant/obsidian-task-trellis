@@ -46,7 +46,7 @@ describe('quick filter menu settings', () => {
     const host: SettingsFormHost = {
       initialSection: 'quick', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(),
       attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(), countTagged: () => 0,
-      onSave: vi.fn(), onDiscard: vi.fn(), onOpenBoard: vi.fn(),
+      onSave: vi.fn(), onDiscard: vi.fn(),
     };
     const form = renderBoardSettings(root, draft, original, host);
     const check = () => root.querySelector<HTMLInputElement>('[data-focus="Group filters in a menu"]')!;

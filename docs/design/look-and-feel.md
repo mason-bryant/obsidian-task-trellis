@@ -31,7 +31,7 @@ Icons are Obsidian's line icons, drawn through the host's icon function (`setIco
 | Control | Looks like | Used for |
 | --- | --- | --- |
 | Toolbar button (`.tt-toolbar-button`, `.tt-button`) | Bordered, 7px corners, icon before text | Board toolbar actions and labeled buttons in settings |
-| Subtle button (`.tt-button--subtle`) | The same without a background | Secondary actions, such as Add quick filter and Save & open board |
+| Subtle button (`.tt-button--subtle`) | The same without a background | Secondary actions, such as Add quick filter and Add column |
 | Icon button (`.tt-icon-button`, `.tt-card-icon`) | No border, 6px corners, a fill on hover | Compact, repeated actions on cards and settings rows |
 | Editor save and close | 44px circles: a green check and an X | Editor headers only |
 | Add task (`.tt-add-button`) | Plain text after a plus, faint until its cell is hovered | Adding a task to a cell |
@@ -59,7 +59,7 @@ Icons are Obsidian's line icons, drawn through the host's icon function (`setIco
 - **Long cells:** a cell shows its first 25 cards. Below them, ▸ *N* more counts the cards not shown and shows the next 25 each time; ▾ Show fewer goes back to the first 25. Done and No due date start from their own limits (5 and 10 by default), and whether they're expanded is saved, but the extra pages aren't: a board never opens with every card drawn, which a phone can't hold. More moves focus to the first card it adds, in the button's place. A card that has focus or was just changed stays shown. Counts, Select all and Select column include every card.
 - **Card:** labels at the top left, in the board's label shape, then the checkbox and text, then a metadata row: the source note, due date, priority and the card's actions. A card with subtasks puts its actions on the subtask row instead, after the count, above the subtask list.
 - **Editor:** a header with the check on the left, the title in the middle and the X on the right, above the scrolling fields.
-- **Board settings:** Card spacing and Hide column selector live in Appearance, use the normal draft/save flow, and are saved per board. Every Appearance checkbox is checked to hide and unchecked to show. Spacing and subtask ordering use dropdowns, since they are not visibility choices. The column selector starts visible; hiding it clears the chosen-column filter without disabling narrow-board page navigation. Tabs at the top, the chosen section below them, and a footer with Save & open board.
+- **Board settings:** Card spacing and Hide column selector live in Appearance, use the normal draft/save flow, and are saved per board. Every Appearance checkbox is checked to hide and unchecked to show. Spacing and subtask ordering use dropdowns, since they are not visibility choices. The column selector starts visible; hiding it clears the chosen-column filter without disabling narrow-board page navigation. Tabs at the top, the chosen section below them, and a footer with Save, a green check and the word.
 - **Menus:** Obsidian menus. Items can have an icon, active choices show a checkmark, and muted text after a choice explains what else it changes.
 - **Boards sidebar:** a Boards heading, a full-width Create new board button, then a row for each board with the kanban icon. The open board uses Obsidian's active navigation colors. When two boards share a name, each shows its folder too.
 - **Plugin settings tab:** Obsidian's own searchable setting rows, like other plugins' settings.

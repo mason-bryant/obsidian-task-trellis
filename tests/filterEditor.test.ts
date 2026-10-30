@@ -13,7 +13,7 @@ function editor(properties: Record<string, unknown> = {}) {
   const host: SettingsFormHost = {
     initialSection: 'filters', icon: vi.fn(), attachKeySuggest: vi.fn(() => dispose), attachValueSuggest: vi.fn(() => dispose),
     attachTagSuggest: vi.fn(() => dispose), attachFolderSuggest: vi.fn(() => dispose), countTagged: () => 0,
-    onSave: vi.fn(), onDiscard: vi.fn(), onOpenBoard: vi.fn(),
+    onSave: vi.fn(), onDiscard: vi.fn(),
     createTextInput: vi.fn(() => document.createElement('input')), createDropdown: vi.fn(() => document.createElement('select')),
   };
   const form = renderBoardSettings(root, draft, config, host);

@@ -22,7 +22,6 @@ export type SettingsFormHost = {
   countTagged(columnId: string): number;
   onDiscard(): void;
   onSave(): void;
-  onOpenBoard(): void;
   onCopyShortcut?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
@@ -456,9 +455,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const header = renderEditorHeader(headerSlot, 'Board settings', (el, name) => host.icon(el, name), () => host.onSave(), () => host.onDiscard());
     header.setBusy(saving, 'Saving settings…');
     const footer = el('div', 'tt-settings-footer');
-    const open = button('Save & open board', 'tt-button tt-button--subtle'); open.onclick = () => host.onOpenBoard();
-    open.disabled = saving;
-    footer.append(open);
+    // The same save as the header's check, at the end of a long form.
+    const save = button('Save', 'tt-button tt-settings-save'); save.prepend(icon('check')); save.onclick = () => host.onSave();
+    save.disabled = saving;
+    footer.append(save);
     if (!host.header) root.append(headerSlot);
     root.append(nav, body, footer);
     if (saving) root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input, select, button').forEach((control) => control.disabled = true);

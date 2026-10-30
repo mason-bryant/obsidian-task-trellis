@@ -12,7 +12,7 @@ function editor() {
   const root = document.createElement('div'); document.body.replaceChildren(root);
   const host: SettingsFormHost = {
     initialSection: 'columns', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
-    attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(), onOpenBoard: vi.fn(),
+    attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(),
   };
   renderBoardSettings(root, draft, original, host);
   const control = (label: string) => root.querySelector<HTMLElement>(`[aria-label="${label}"]`)!;

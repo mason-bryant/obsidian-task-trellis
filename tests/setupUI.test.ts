@@ -12,7 +12,7 @@ it('opens first-run settings at New tasks and updates advice without resetting t
     initialSection: 'destination', icon: () => {}, attachKeySuggest: () => {}, attachValueSuggest: () => {},
     attachTagSuggest: () => {}, attachFolderSuggest: () => {}, countTagged: () => 0,
     destinationAdvice: (draft) => [draft.newTasksNote ? `Destination: ${draft.newTasksNote}` : 'Choose a note'],
-    onDiscard: vi.fn(), onSave: vi.fn(), onOpenBoard: vi.fn(),
+    onDiscard: vi.fn(), onSave: vi.fn(),
   };
   const form = renderBoardSettings(root, draft, config, host);
   expect(root.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('New tasks');
