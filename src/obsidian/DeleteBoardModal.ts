@@ -27,7 +27,7 @@ export class DeleteBoardModal extends Modal {
       ? ` ${one ? 'The task on this board stays in its note' : `The ${this.taggedTasks} tasks on this board stay in their notes`}, unchanged, with this board’s tags. Restoring the note from the trash, or creating a board with the same name, shows ${one ? 'it' : 'them'} again.`
       : ' Tasks stay in their notes, unchanged.');
     const error = this.contentEl.createEl('p', { cls: 'tt-field-error', attr: { role: 'alert' } });
-    const actions = this.contentEl.createDiv('tt-delete-board-actions');
+    const actions = this.contentEl.createDiv('tt-confirm-actions');
     const cancel = actions.createEl('button', { cls: 'tt-button', text: 'Cancel', attr: { type: 'button' } });
     cancel.onclick = () => this.close();
     const remove = actions.createEl('button', { cls: 'tt-button tt-button--danger', text: 'Delete board', attr: { type: 'button' } });

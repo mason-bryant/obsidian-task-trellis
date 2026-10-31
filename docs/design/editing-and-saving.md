@@ -8,7 +8,7 @@ An editor that saves explicitly has a header with a green check on the left, the
 
 | Editor | Saving | Cancelling and closing |
 | --- | --- | --- |
-| Board settings | The check saves the draft and closes the dialog. Save, at the end of the form, does the same; see Exceptions. | Cancel, Escape and closing discard the draft. |
+| Board settings | The check saves the draft and closes the dialog. Save, at the end of the form, does the same; see Exceptions. | Cancel, Escape and closing close it at once when nothing changed. With unsaved changes they ask first: Keep editing, which has focus, goes back to the draft; a red Discard changes closes without saving. |
 | Label definition (pencil), color scheme, bulk editor | The check (Save label, Apply color scheme, Apply to ‹n› tasks) commits the draft. | Cancel discards it. |
 | Quick-filter order | Reordering changes the settings draft; saving the settings commits it. | Cancelling the settings discards it. |
 | Label checkboxes | Each checkbox saves as soon as it changes. A failed write restores the checkbox. | Closing the picker keeps what was saved. |
@@ -23,6 +23,8 @@ An editor that saves explicitly has a header with a green check on the left, the
 | Source-note popup | Obsidian's own editor. It saves when it closes or expands into a tab. A failed save keeps it open. | Closing saves; it doesn't discard. |
 | Tasks plugin editor | Another plugin's editor, with its own controls. | |
 | Plugin settings tab | Each change saves as it's made, like Obsidian's own settings. | |
+
+Board settings is the one editor that asks before discarding: its draft can span six tabs. The other editors hold a name or a few choices, so closing them discards at once.
 
 Saving board settings writes only the settings you edited. A change made elsewhere while the dialog was open, such as a toolbar toggle or a Properties edit, survives the save.
 
@@ -47,7 +49,7 @@ After a nested editor closes, focus returns to the item that was edited or the c
 ## Where it lives
 
 - Header and keyboard-safe modal sizing: `renderEditorHeader` and `prepareEditorModal` in [editorHeader.ts](../../src/ui/editorHeader.ts). A modal destroys its viewport listeners when it closes. The IME check is `isComposing` in [dom.ts](../../src/ui/dom.ts).
-- Editors: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts) in [BoardSettingsModal.ts](../../src/obsidian/BoardSettingsModal.ts), [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts) in [LabelPickerModal.ts](../../src/obsidian/LabelPickerModal.ts), [renderBulkEditor.ts](../../src/ui/renderBulkEditor.ts) in [BulkEditModal.ts](../../src/obsidian/BulkEditModal.ts), [renderBoardNameEditor.ts](../../src/ui/renderBoardNameEditor.ts) in [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts) and [DuplicateBoardModal.ts](../../src/obsidian/DuplicateBoardModal.ts), with the copy made by `duplicateBoard` in [main.ts](../../main.ts), [RestoreBoardRenameModal.ts](../../src/obsidian/RestoreBoardRenameModal.ts), and the New board dialog in [main.ts](../../main.ts).
+- Editors: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts) in [BoardSettingsModal.ts](../../src/obsidian/BoardSettingsModal.ts), which asks before discarding through [DiscardChangesModal.ts](../../src/obsidian/DiscardChangesModal.ts), [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts) in [LabelPickerModal.ts](../../src/obsidian/LabelPickerModal.ts), [renderBulkEditor.ts](../../src/ui/renderBulkEditor.ts) in [BulkEditModal.ts](../../src/obsidian/BulkEditModal.ts), [renderBoardNameEditor.ts](../../src/ui/renderBoardNameEditor.ts) in [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts) and [DuplicateBoardModal.ts](../../src/obsidian/DuplicateBoardModal.ts), with the copy made by `duplicateBoard` in [main.ts](../../main.ts), [RestoreBoardRenameModal.ts](../../src/obsidian/RestoreBoardRenameModal.ts), and the New board dialog in [main.ts](../../main.ts).
 - Inline composer: `addBox` in [renderBoard.ts](../../src/ui/renderBoard.ts), saving through [BoardView.ts](../../src/obsidian/BoardView.ts) and [QuickAdd.ts](../../src/obsidian/QuickAdd.ts), which also owns Details… and the New task prompt. The sidebar's: [renderBoardList.ts](../../src/ui/renderBoardList.ts) and `addToBacklog` in QuickAdd.ts, with the backlog cell from `backlogCell` in [newTask.ts](../../src/core/newTask.ts). A composer's label picker: `pickComposerLabels` in [LabelPickerModal.ts](../../src/obsidian/LabelPickerModal.ts).
 - Task not saved: [recoverDraft.ts](../../src/obsidian/recoverDraft.ts). Source-note popup: [NotePopup.ts](../../src/obsidian/NotePopup.ts).
 - Delete board warning: [DeleteBoardModal.ts](../../src/obsidian/DeleteBoardModal.ts), opened from General in [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).

@@ -17,6 +17,7 @@
 - Renaming a board's tags is a bigger operation, with a preview of the affected notes and a recovery copy. Keep both, rather than treating it like a title edit.
 - Removing a column in board settings doesn't rewrite its tasks, so adding it back undoes it. Before saving, the Columns tab says how many open cards the column shows and which column they'll show in, and keeps that note current as other columns are renamed.
 - Duplicating a board writes one new note, with its settings, so a failure leaves nothing behind and keeps the name to try again. It never edits a task, and its dialog says so. The new board opening is the confirmation; there's a notice only when the settings stay open in front of it.
+- Closing board settings with unsaved changes asks before discarding them, with keeping them as the default.
 - Deleting a board moves only its note to the trash, and its warning says that no tasks are deleted. The trash is how it's undone: restoring the note restores the board. A failure keeps the warning open and says nothing was changed.
 - Applying a color scheme keeps one Previous scheme: the outgoing colors, by label id. Names and assignments don't change. Editing a single label's name or color updates the palette without keeping a copy. Neither is task Undo.
 

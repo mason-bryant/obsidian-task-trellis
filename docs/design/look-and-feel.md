@@ -32,7 +32,7 @@ Icons are Obsidian's line icons, drawn through the host's icon function (`setIco
 | --- | --- | --- |
 | Toolbar button (`.tt-toolbar-button`, `.tt-button`) | Bordered, 7px corners, icon before text | Board toolbar actions and labeled buttons in settings |
 | Subtle button (`.tt-button--subtle`) | The same without a background | Secondary actions, such as Add quick filter and Add column |
-| Danger button (`.tt-button--danger`) | Red fill and white text, in Obsidian's error color | Destructive actions only: Delete board… and the warning's Delete board |
+| Danger button (`.tt-button--danger`) | Red fill and white text, in Obsidian's error color | Destructive actions only: Delete board… and the warning's Delete board, and Discard changes |
 | Icon button (`.tt-icon-button`, `.tt-card-icon`) | No border, 6px corners, a fill on hover | Compact, repeated actions on cards and settings rows |
 | Editor save and close | 44px circles: a green check and an X | Editor headers only |
 | Add task (`.tt-add-button`) | Plain text after a plus, faint until its cell is hovered | Adding a task to a cell |

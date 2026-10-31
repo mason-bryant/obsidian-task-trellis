@@ -12,6 +12,7 @@ import { noteTags } from './noteTags.ts';
 import { notice } from './notice.ts';
 import { shortcutURL } from '../core/shortcut.ts';
 import { DeleteBoardModal } from './DeleteBoardModal.ts';
+import { DiscardChangesModal } from './DiscardChangesModal.ts';
 import { DuplicateBoardModal } from './DuplicateBoardModal.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
 
@@ -24,6 +25,8 @@ export class BoardSettingsModal extends Modal {
   private draft: BoardDraft;
   private form: SettingsForm | null = null;
   private saving = false;
+  /** The warning about unsaved changes is open. */
+  private confirming = false;
   /** Tasks by the column their tag names on this board, for the removed-column notes and Delete board. Counted when first needed. */
   private tagged: Map<string, BoardTask[]> | null = null;
 
@@ -39,8 +42,23 @@ export class BoardSettingsModal extends Modal {
     this.draft = draftFromConfig(this.config);
   }
 
+  /**
+   * The X, Escape and clicking outside. A save in progress can't be interrupted, and unsaved changes
+   * are discarded only once the user says so.
+   */
   close(): void {
-    if (!this.saving) super.close();
+    if (this.saving || this.confirming) return;
+    if (!draftChanged(this.draft, this.config)) { super.close(); return; }
+    this.confirming = true;
+    new DiscardChangesModal(this.app, this.file.basename, (discarded) => {
+      this.confirming = false;
+      if (discarded) super.close();
+    }).open();
+  }
+
+  /** After saving, or deleting the board, nothing is left to lose. */
+  private closeSettings(): void {
+    super.close();
   }
 
   private async save(): Promise<void> {
@@ -55,7 +73,7 @@ export class BoardSettingsModal extends Modal {
         if (failed.length) { this.form?.showErrors(failed); return; }
       }
       this.saving = false;
-      this.close();
+      this.closeSettings();
     } catch (error) {
       console.error('[Task Trellis] settings save failed', error);
       notice(this.app, 'Task Trellis: could not save board settings. Your draft is still open.', { alert: true, region: this.contentEl });
@@ -118,7 +136,7 @@ export class BoardSettingsModal extends Modal {
       },
       onDeleteBoard: () => {
         const count = [...this.taggedTasks().values()].reduce((sum, list) => sum + list.length, 0);
-        new DeleteBoardModal(this.app, this.file, count, () => this.close()).open();
+        new DeleteBoardModal(this.app, this.file, count, () => this.closeSettings()).open();
       },
       onCopyShortcut: () => {
         const matches = this.plugin.boards.boards().filter((b) => b.config.slug === this.config.slug);
