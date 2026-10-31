@@ -467,7 +467,7 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   color: var(--text-normal); font-size: var(--font-ui-small); box-shadow: none;
 }
 .tt-toolbar-button[aria-pressed='true'], .tt-quick-filter-menu.is-active { color: var(--text-accent); border-color: var(--interactive-accent); }
-.tt-subtasks-menu { min-width: 32px; flex: none; }
+.tt-arrange-menu { min-width: 32px; flex: none; }
 .tt-quick-filter-colors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .tt-quick-filter-colors[hidden] { display: none; }
 .tt-filter-context-note, .tt-filter-match-note { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
@@ -937,7 +937,7 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 }
 
 .tt-bulk-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
-.tt-board--selecting .tt-subtasks-menu { display: none; }
+.tt-board--selecting .tt-arrange-menu { display: none; }
 
 /* Container-driven filter overflow uses the same breakpoint as column paging. */
 .tt-quick-filter-tools, .tt-quick-filter-group { display: contents; }

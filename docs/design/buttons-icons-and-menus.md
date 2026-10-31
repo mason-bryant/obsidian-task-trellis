@@ -14,7 +14,7 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 | Copy / remove a quick filter | Copy and trash icons, named for the filter. Removing a filter changes the settings draft. |
 | Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, and cards on touch screens |
 | More card actions | ⋯ opens Move to…, whose choices say what else the move changes, such as the due date it sets |
-| All subtasks | One Subtasks button on the toolbar opens a menu with Collapse all subtasks and Expand all subtasks. Hiding completed subtasks is a setting under Appearance, not a toolbar button. |
+| Arrange the board | One Arrange button on the toolbar opens a menu: Collapse all subtasks and Expand all subtasks when the board has subtasks, then, after a separator, Sort by due date. Hiding completed subtasks is a setting under Appearance, not a toolbar button. |
 
 A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks or Show subtasks.
 
@@ -37,7 +37,7 @@ Menus use Obsidian's public `Menu` API.
 ## Where it lives
 
 - Toolbar quick filters and their menu trigger: [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts). Color squares: [quickFilterColors.ts](../../src/ui/quickFilterColors.ts).
-- Card actions, the Subtasks button and selection controls: [renderBoard.ts](../../src/ui/renderBoard.ts).
-- The Subtasks, Move to… and quick-filter menus: [BoardView.ts](../../src/obsidian/BoardView.ts).
+- Card actions, the Arrange button and selection controls: [renderBoard.ts](../../src/ui/renderBoard.ts). The due-date sort is planned in [dueSort.ts](../../src/core/dueSort.ts).
+- The Arrange, Move to… and quick-filter menus: [BoardView.ts](../../src/obsidian/BoardView.ts).
 - Add label and the pencil: [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts). The column and quick-filter grips, copy, trash and Add quick filter: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts), with dragging in [reorderRows.ts](../../src/ui/reorderRows.ts).
 - Editor headers: [editorHeader.ts](../../src/ui/editorHeader.ts).

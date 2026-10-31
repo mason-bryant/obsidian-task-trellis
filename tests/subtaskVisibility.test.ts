@@ -4,7 +4,7 @@ import { buildBoard, subtasksKey, taskId, type BoardTask } from '../src/core/boa
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { setSubtaskCollapse } from '../src/core/collapse.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
-import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
+import { renderBoard, type ArrangeChoice, type RenderHost } from '../src/ui/renderBoard.ts';
 
 const today = '2026-10-23';
 function task(raw: string, line: number, parentLine?: number): BoardTask {
@@ -25,8 +25,9 @@ let root: HTMLElement;
 let collapsed: Record<string, boolean>;
 let persisted: string;
 let host: RenderHost;
-let selectSubtasks: (collapsed: boolean) => void;
-let closeSubtasks: () => void;
+let chooseArrange: (choice: ArrangeChoice) => void;
+let closeArrange: () => void;
+let offered: ArrangeChoice[];
 const setCompact = (compact: boolean) => { config = { ...config, compact }; draw(); };
 const draw = () => renderBoard(root, buildBoard(tasks, config, today, () => undefined), host, { warnings: [], info: [] });
 const button = (label: string) => [...root.querySelectorAll<HTMLButtonElement>('button')]
@@ -34,7 +35,7 @@ const button = (label: string) => [...root.querySelectorAll<HTMLButtonElement>('
 const owner = (t: BoardTask) => [...root.querySelectorAll<HTMLElement>('[data-id]')].find((el) => el.dataset.id === t.id)!;
 const toggle = (t: BoardTask) => owner(t).querySelector<HTMLButtonElement>(':scope > .tt-subtask-controls > .tt-subtask-toggle')!;
 const click = (b: HTMLButtonElement) => { b.focus(); b.click(); };
-const chooseSubtasks = (collapsed: boolean) => { click(button('Subtasks')); selectSubtasks(collapsed); closeSubtasks(); };
+const chooseSubtasks = (collapsed: boolean) => { click(button('Arrange')); chooseArrange(collapsed ? 'collapse' : 'expand'); closeArrange(); };
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'queueMicrotask'] });
@@ -53,7 +54,7 @@ beforeEach(() => {
       collapsed = setSubtaskCollapse(collapsed, keys, value);
       persisted = JSON.stringify(collapsed); draw();
     }),
-    onSubtasksMenu: vi.fn((_anchor, select, close) => { selectSubtasks = select; closeSubtasks = close; }),
+    onArrangeMenu: vi.fn((_anchor, choices, choose, close) => { offered = choices; chooseArrange = choose; closeArrange = close; }),
     onDrop: vi.fn(), onToggle: vi.fn(), onEdit: vi.fn(), onOpenSource: vi.fn(),
     onDragEnd: vi.fn(), onAddTask: vi.fn(), onAddSubtask: vi.fn(),
 
@@ -109,7 +110,7 @@ describe('subtask visibility controls', () => {
       [subtasksKey(parent)]: true, [subtasksKey(child)]: true, [subtasksKey(laterParent)]: true,
     });
     expect(owner(child)).toBeUndefined();
-    expect(document.activeElement).toBe(button('Subtasks'));
+    expect(document.activeElement).toBe(button('Arrange'));
     chooseSubtasks(false);
     expect(owner(grandchild)).toBeDefined();
     expect(host.isCollapsed(subtasksKey(laterParent))).toBe(false);
@@ -144,7 +145,7 @@ describe('subtask visibility controls', () => {
     chooseSubtasks(true); expect(root.querySelector('.tt-add-input')).toBeNull();
     chooseSubtasks(false); vi.runAllTimers();
     expect(root.querySelector<HTMLTextAreaElement>('.tt-add-input')?.value).toBe('Unfinished');
-    expect(document.activeElement).toBe(button('Subtasks'));
+    expect(document.activeElement).toBe(button('Arrange'));
   });
 
   it('handles quote characters in task paths while restoring focus', () => {
@@ -164,8 +165,8 @@ describe('subtask visibility controls', () => {
     expect(toggle(parent).textContent).toBe('1/2');
   });
 
-  it('offers a Subtasks icon without Compact and supports keyboard opening and cancellation', () => {
-    const menu = button('Subtasks');
+  it('offers an Arrange icon without Compact and supports keyboard opening and cancellation', () => {
+    const menu = button('Arrange');
     expect(button('Compact')).toBeUndefined();
     expect(menu.parentElement?.firstElementChild).toBe(menu);
     expect(menu.textContent).toBe('');
@@ -174,10 +175,10 @@ describe('subtask visibility controls', () => {
     expect(button('Expand all subtasks')).toBeUndefined();
     menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     expect(menu.getAttribute('aria-expanded')).toBe('true');
-    expect(host.onSubtasksMenu).toHaveBeenCalledTimes(1);
+    expect(host.onArrangeMenu).toHaveBeenCalledTimes(1);
     menu.click();
-    expect(host.onSubtasksMenu).toHaveBeenCalledTimes(1);
-    closeSubtasks();
+    expect(host.onArrangeMenu).toHaveBeenCalledTimes(1);
+    closeArrange();
     expect(menu.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(menu);
     expect(host.onSetSubtasksCollapsed).not.toHaveBeenCalled();
@@ -185,7 +186,20 @@ describe('subtask visibility controls', () => {
 
   it('omits the menu when there are no subtask lists', () => {
     renderBoard(root, buildBoard([parent], config, today, () => undefined), host, { warnings: [], info: [] });
-    expect(button('Subtasks')).toBeUndefined();
+    expect(button('Arrange')).toBeUndefined();
+  });
+
+  it('offers Sort by due date in Arrange, after the subtask choices or on its own', () => {
+    host.onSortByDueDate = vi.fn(); draw();
+    click(button('Arrange'));
+    expect(offered).toEqual(['collapse', 'expand', 'sort']);
+    chooseArrange('sort'); closeArrange();
+    expect(host.onSortByDueDate).toHaveBeenCalledTimes(1);
+    expect(host.onSetSubtasksCollapsed).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(button('Arrange'));
+    renderBoard(root, buildBoard([parent], config, today, () => undefined), host, { warnings: [], info: [] });
+    click(button('Arrange'));
+    expect(offered).toEqual(['sort']);
   });
 
   it('keeps a completed subtask that still has open subtasks', () => {
