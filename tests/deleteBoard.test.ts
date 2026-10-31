@@ -44,7 +44,7 @@ describe('the General tab', () => {
     const original = parseBoardConfig('House', { slug: 'house' }).config;
     renderBoardSettings(root, draftFromConfig(original), original, {
       icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
-      countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(), ...(onDeleteBoard ? { onDeleteBoard } : {}),
+      taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(), ...(onDeleteBoard ? { onDeleteBoard } : {}),
     });
     return root;
   };

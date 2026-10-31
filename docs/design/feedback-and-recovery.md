@@ -15,6 +15,7 @@
 - Writes check the task's snapshot before changing a note, including duplicate task lines and edits from sync. When a bulk edit partly succeeds, the result reports which tasks were updated and which were skipped.
 - Undo restores only writes that succeeded, and never overwrites newer edits: a note that changed after the action is skipped as a whole. There's no history to step back through; the board offers its latest action.
 - Renaming a board's tags is a bigger operation, with a preview of the affected notes and a recovery copy. Keep both, rather than treating it like a title edit.
+- Removing a column in board settings doesn't rewrite its tasks, so adding it back undoes it. Before saving, the Columns tab says how many open cards the column shows and which column they'll show in, and keeps that note current as other columns are renamed.
 - Deleting a board moves only its note to the trash, and its warning says that no tasks are deleted. The trash is how it's undone: restoring the note restores the board. A failure keeps the warning open and says nothing was changed.
 - Applying a color scheme keeps one Previous scheme: the outgoing colors, by label id. Names and assignments don't change. Editing a single label's name or color updates the palette without keeping a copy. Neither is task Undo.
 
@@ -30,3 +31,4 @@ None recorded.
 - Board rename: progress and errors in [renderBoardNameEditor.ts](../../src/ui/renderBoardNameEditor.ts), shown by [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts). Snapshots, applying and restoring in [BoardTagRename.ts](../../src/obsidian/BoardTagRename.ts), with the restore dialog in [RestoreBoardRenameModal.ts](../../src/obsidian/RestoreBoardRenameModal.ts).
 - Drafts: the inline composer keeps its draft in [renderBoard.ts](../../src/ui/renderBoard.ts). When saving text from the Tasks editor, the New task prompt or Details… fails, [recoverDraft.ts](../../src/obsidian/recoverDraft.ts) reopens it. The source-note popup keeps its own ([NotePopup.ts](../../src/obsidian/NotePopup.ts)).
 - Previous scheme: [labelSchemes.ts](../../src/core/labelSchemes.ts).
+- Notes on removed columns: `removedColumnNotes` in [boardDraft.ts](../../src/core/boardDraft.ts), which places cards with `columnOf` from [board.ts](../../src/core/board.ts), shown in the Columns tab of [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).

@@ -68,7 +68,7 @@ function settings(properties: Record<string, unknown>) {
   const form = document.createElement('div'); document.body.replaceChildren(form);
   const formHost: SettingsFormHost = {
     initialSection: 'filters', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
-    attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(),
+    attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
   };
   renderBoardSettings(form, draftFromConfig(original), original, formHost);
   const control = <T extends HTMLElement>(label: string) => form.querySelector<T>(`[aria-label="${label}"]`)!;

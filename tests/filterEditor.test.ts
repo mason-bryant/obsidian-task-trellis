@@ -12,7 +12,7 @@ function editor(properties: Record<string, unknown> = {}) {
   const dispose = vi.fn();
   const host: SettingsFormHost = {
     initialSection: 'filters', icon: vi.fn(), attachKeySuggest: vi.fn(() => dispose), attachValueSuggest: vi.fn(() => dispose),
-    attachTagSuggest: vi.fn(() => dispose), attachFolderSuggest: vi.fn(() => dispose), countTagged: () => 0,
+    attachTagSuggest: vi.fn(() => dispose), attachFolderSuggest: vi.fn(() => dispose), taggedTasks: () => [],
     onSave: vi.fn(), onDiscard: vi.fn(),
     createTextInput: vi.fn(() => document.createElement('input')), createDropdown: vi.fn(() => document.createElement('select')),
   };

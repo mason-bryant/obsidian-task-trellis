@@ -503,3 +503,23 @@ it('starts new boards with two future weeks without changing explicit saved hori
   expect(config({ 'week-horizon': 6 }).weekHorizon).toBe(6);
   expect(config({ 'week-horizon': 0 }).weekHorizon).toBe(0);
 });
+
+describe('a removed column', () => {
+  const columns = ['Backlog', 'This Week', 'Next', 'Done'];
+  const tasks = [
+    task('- [ ] dated 📅 2026-10-22 #tt/house/this-week/100', 'a.md', 0),
+    task('- [ ] undated #tt/house/this-week/200', 'a.md', 1),
+  ];
+  const board = (cols: string[]) => buildBoard(tasks, config({ columns: cols, 'undated-column': 'Backlog' }), TODAY, () => undefined);
+
+  it('sends its cards to the first other column, or No due date when undated, and keeps their tags', () => {
+    const model = board(columns.filter((c) => c !== 'This Week'));
+    expect(model.cells.now!.next!.map((t) => t.text)).toEqual(['dated']);
+    expect(model.cells.none!.backlog!.map((t) => t.text)).toEqual(['undated']);
+    expect(model.cells.now!.next![0]!.raw).toBe('- [ ] dated 📅 2026-10-22 #tt/house/this-week/100');
+  });
+
+  it('gets its dated cards back when the column is added again', () => {
+    expect(board(columns).cells.now!['this-week']!.map((t) => t.text)).toEqual(['dated']);
+  });
+});

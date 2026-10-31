@@ -58,7 +58,7 @@ describe('board settings header', () => {
     const save = vi.fn(), discard = vi.fn();
     const form = renderBoardSettings(root, draftFromConfig(original), original, {
       header, icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
-      countTagged: () => 0, onSave: save, onDiscard: discard,
+      taggedTasks: () => [], onSave: save, onDiscard: discard,
     });
     header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(1);
     form.setSaving(true);

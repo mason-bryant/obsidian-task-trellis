@@ -1,7 +1,8 @@
-import { FM, type BoardConfig, type DueNowUnit } from './boardConfig.ts';
+import { columnOf } from './board.ts';
+import { FM, parseBoardConfig, type BoardConfig, type DueNowUnit } from './boardConfig.ts';
 import type { FilterSet } from './filters.ts';
 import { quickFilterFrontmatter, type QuickDue, type QuickPriority } from './quickFilters.ts';
-import { slugify } from './taskLine.ts';
+import { slugify, type ParsedTask } from './taskLine.ts';
 
 /** A column being edited; `originalId` ties it to the column it was, so a rename can retag its tasks. */
 export type DraftColumn = { label: string; originalId?: string };
@@ -277,6 +278,35 @@ export function filterWarnings(draft: DraftFilterSet): string[] {
   const excludesExistence = new Set(draft.excludedFilters.filter((f) => f.condition === 'exists').map((f) => f.key.trim()));
   return [...new Set(draft.filters.map((f) => f.key.trim()).filter((key) => key && excludesExistence.has(key)))]
     .map((key) => `“${key}” is required and its existence is excluded. No note can satisfy both rules.`);
+}
+
+/**
+ * Where the open tasks shown in each column the draft removes will show once it's saved. Removing
+ * a column leaves their tags alone, so the saved board places them as it places any tag for a
+ * missing column: in the first workflow column, or the No due date column when they have no date.
+ * Tasks the column's tag doesn't hold there, such as undated ones in a No due date column, don't move.
+ */
+export function removedColumnNotes(draft: BoardDraft, original: BoardConfig, tagged: (columnId: string) => ParsedTask[]): string[] {
+  const { frontmatter, removed } = draftToFrontmatter(draft, original);
+  if (!removed.length) return [];
+  const config = parseBoardConfig(original.name, { slug: original.slug, ...frontmatter }).config;
+  const label = (id: string) => config.columns.find((c) => c.id === id)?.label ?? id;
+  return removed.flatMap((id) => {
+    const counts = new Map<string, number>();
+    for (const task of tagged(id)) {
+      if (task.closed || columnOf(task, original) !== id) continue;
+      const to = columnOf(task, config);
+      if (to !== id) counts.set(to, (counts.get(to) ?? 0) + 1);
+    }
+    if (!counts.size) return [];
+    const undatedLast = [...counts].sort(([a], [b]) => Number(a === config.undatedColumn) - Number(b === config.undatedColumn));
+    const parts = undatedLast.map(([to, n], i) => {
+      const undated = to === config.undatedColumn ? ' without a due date' : '';
+      return i === 0 ? `${n} open ${n === 1 ? 'task' : 'tasks'}${undated} will show in ${label(to)}` : `${n}${undated} in ${label(to)}`;
+    });
+    const name = original.columns.find((c) => c.id === id)?.label ?? id;
+    return [`Removing ${name}: ${parts.join(', and ')}. Their tags aren’t changed, so adding ${name} back returns them.`];
+  });
 }
 
 function optionalCountField(name: string, raw: string, errors: string[]): number | null {
