@@ -17,7 +17,8 @@ import { planDueDateSort } from '../src/core/dueSort.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { propertyValueStrings } from '../src/core/filters.ts';
-import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
+import { backlogCell, planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
+import { renderBoardList, type BoardListHost } from '../src/ui/renderBoardList.ts';
 import { renderBoardSettings, type Section } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
@@ -164,36 +165,12 @@ const host: RenderHost = {
     dialog.showModal();
   }),
   onColumnWidthsChange: (widths) => { config.columnWidths = widths; },
-  onLabels: (task) => {
-    const dialog = uiElement(document, 'dialog'); dialog.className = 'tt-label-modal';
-    const body = uiElement(document, 'div'); body.className = 'modal-content';
-    dialog.append(body); document.body.append(dialog);
-    const chrome = prepareEditorModal(dialog);
-    dialog.onclose = () => { chrome.destroy(); dialog.remove(); document.querySelector<HTMLButtonElement>(`[data-board-focus="labels:${task.id}"]`)?.focus(); };
-    dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
-    renderLabelPicker(body, config.labels, taskLabels(task.raw, config.slug), {
-      header: chrome.header, onClose: () => dialog.close(),
-      showSearch: new URLSearchParams(location.search).has('label-search'),
-      icon: previewIcon,
-      previousScheme: config.previousLabelScheme,
-      saveScheme: async (id) => {
-        const next = applyLabelScheme({ labels: config.labels, previous: config.previousLabelScheme }, id);
-        config.labels = next.labels; config.previousLabelScheme = next.previous;
-        render(); return next;
-      },
-      saveSelection: async (ids) => {
-        const before = JSON.stringify(files);
-        files[task.path]![task.line] = setTaskLabels(files[task.path]![task.line]!, config.slug, ids);
-        offerUndo(before, 'Task labels updated'); render();
-      },
-      saveLabel: async (label, intent) => {
-        const result = saveLabelDefinition(config.labels, label, intent, config.labelNext);
-        config.labels = result.labels; config.labelNext = result.next;
-        render(); return result;
-      },
-    });
-    dialog.showModal();
-  },
+  onLabels: (task) => pickLabels(taskLabels(task.raw, config.slug), async (ids) => {
+    const before = JSON.stringify(files);
+    files[task.path]![task.line] = setTaskLabels(files[task.path]![task.line]!, config.slug, ids);
+    offerUndo(before, 'Task labels updated'); render();
+  }, () => document.querySelector<HTMLButtonElement>(`[data-board-focus="labels:${task.id}"]`)?.focus()),
+  onComposerLabels: (selected, choose, onClose) => pickLabels(selected, async (ids) => choose(ids), onClose),
   sourceLabel: (task) => task.path.split('/').pop()!.replace(/\.md$/, ''),
   isCollapsed: (rowId) => collapsed[rowId] ?? (rowId === 'later' || rowId.startsWith('more:')),
   onToggleRow: (rowId) => {
@@ -280,31 +257,7 @@ const host: RenderHost = {
     render();
   },
   onDragEnd: () => undefined,
-  // Mirrors QuickAdd: today's note (here Daily/Today.md) under its "## Tasks" heading.
-  onAddTask: async (target, text, detailed) => {
-    const m = model();
-    const fields = {
-      due: m.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
-      created: today,
-      placement: { slug: config.slug, column: target.columnId },
-    };
-    let line: string | null = buildNewTaskLine(text, fields);
-    if (detailed) {
-      const edited = await promptText('Task line (stands in for the Tasks modal)', buildNewTaskLine(text, { due: fields.due }));
-      line = edited ? finishNewTaskLine(edited, fields) : null;
-    }
-    if (!line || !parseTaskLine(line)?.text) return false;
-    const plan = planNewTaskAtTop(line, m);
-    for (const task of Object.values(m.cells).flatMap((columns) => Object.values(columns).flat())) {
-      const edit = plan.edits.get(task.id);
-      if (edit) files[task.path]![task.line] = setPlacement(task.raw, config.slug, edit.column!, edit.sort);
-    }
-    line = plan.line;
-    const path = 'Daily/Today.md';
-    files[path] = insertUnderHeading(files[path]!.join('\n'), '## Tasks', [line]).split('\n');
-    render();
-    return true;
-  },
+  onAddTask: (target, text, detailed, labels) => addTask(model(), target, text, detailed, labels),
   onAddSubtask: async (parent, text, detailed) => {
     let line: string | null = buildNewTaskLine(text, { created: today });
     if (detailed) {
@@ -347,6 +300,84 @@ const host: RenderHost = {
   },
 };
 
+// Mirrors QuickAdd: today's note (here Daily/Today.md) under its "## Tasks" heading, at the top of its cell.
+async function addTask(m: ReturnType<typeof model>, target: { rowId: string; columnId: string }, text: string, detailed: boolean, labels: string[]): Promise<boolean> {
+  const fields = {
+    due: m.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
+    created: today,
+    placement: { slug: config.slug, column: target.columnId },
+    labels,
+  };
+  let line: string | null = buildNewTaskLine(text, fields);
+  if (detailed) {
+    const edited = await promptText('Task line (stands in for the Tasks modal)', buildNewTaskLine(text, { due: fields.due }));
+    line = edited ? finishNewTaskLine(edited, fields) : null;
+  }
+  if (!line || !parseTaskLine(line)?.text) return false;
+  const plan = planNewTaskAtTop(line, m);
+  for (const task of Object.values(m.cells).flatMap((columns) => Object.values(columns).flat())) {
+    const edit = plan.edits.get(task.id);
+    if (edit) files[task.path]![task.line] = setPlacement(task.raw, config.slug, edit.column!, edit.sort);
+  }
+  line = plan.line;
+  const path = 'Daily/Today.md';
+  files[path] = insertUnderHeading(files[path]!.join('\n'), '## Tasks', [line]).split('\n');
+  render();
+  return true;
+}
+
+/** Stands in for LabelPickerModal; `saveSelection` decides what choosing does. */
+function pickLabels(selected: string[], saveSelection: (ids: string[]) => Promise<void>, onClose: () => void): void {
+  const dialog = uiElement(document, 'dialog'); dialog.className = 'tt-label-modal';
+  const body = uiElement(document, 'div'); body.className = 'modal-content';
+  dialog.append(body); document.body.append(dialog);
+  const chrome = prepareEditorModal(dialog);
+  dialog.onclose = () => { chrome.destroy(); dialog.remove(); onClose(); };
+  dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
+  renderLabelPicker(body, config.labels, selected, {
+    header: chrome.header, onClose: () => dialog.close(),
+    showSearch: new URLSearchParams(location.search).has('label-search'),
+    icon: previewIcon,
+    previousScheme: config.previousLabelScheme,
+    saveScheme: async (id) => {
+      const next = applyLabelScheme({ labels: config.labels, previous: config.previousLabelScheme }, id);
+      config.labels = next.labels; config.previousLabelScheme = next.previous;
+      render(); return next;
+    },
+    saveSelection,
+    saveLabel: async (label, intent) => {
+      const result = saveLabelDefinition(config.labels, label, intent, config.labelNext);
+      config.labels = result.labels; config.labelNext = result.next;
+      render(); return result;
+    },
+  });
+  dialog.showModal();
+}
+
+// ?sidebar shows the boards sidebar beside the board. Only House has tasks here; the other board is for switching.
+const sidebar = new URLSearchParams(location.search).has('sidebar');
+let openBoardPath = 'Task Trellis/House.md';
+const sidebarHost: BoardListHost = {
+  icon: previewIcon,
+  onCreateBoard: () => undefined,
+  onOpenBoard: (path) => { openBoardPath = path; render(); },
+  // Whole cells, as QuickAdd.addToBacklog builds them, including cards a quick filter hides.
+  onAddTask: (_path, text, detailed, labels) =>
+    addTask(buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags), backlogCell(config)!, text, detailed, labels),
+  onComposerLabels: (_path, selected, choose, onClose) => pickLabels(selected, async (ids) => choose(ids), onClose),
+};
+
+function renderSidebar(): void {
+  const root = document.getElementById('board-list')!;
+  root.hidden = !sidebar;
+  if (!sidebar) return;
+  const cell = backlogCell(config)!;
+  renderBoardList(root, [
+    { path: 'Task Trellis/Garden.md', name: 'Garden', folder: 'Task Trellis' },
+    { path: 'Task Trellis/House.md', name: 'House', folder: 'Task Trellis' },
+  ], openBoardPath === 'Task Trellis/House.md' ? { path: openBoardPath, place: cell.place, labels: { palette: config.labels, shape: config.labelShape } } : null, sidebarHost);
+}
+
 function offerUndo(before: string, label: string): void {
   const after = JSON.stringify(files);
   host.undo = { label, run: () => {
@@ -364,6 +395,7 @@ function model() {
 
 function render(): void {
   renderBoard(document.getElementById('board')!, model(), host, { warnings, info: [`Harness · today is ${today}`] });
+  renderSidebar();
   const src = document.getElementById('source')!;
   src.replaceChildren();
   // A load board leaves its thousands of lines out, so measurements count only the board.

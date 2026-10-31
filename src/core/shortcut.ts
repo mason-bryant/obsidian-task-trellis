@@ -1,4 +1,4 @@
-import type { BoardConfig } from './boardConfig.ts';
+import { backlogColumn, type BoardConfig } from './boardConfig.ts';
 
 export type ShortcutTask = {
   board: string;
@@ -32,8 +32,7 @@ export function parseShortcutTask(params: Record<string, string>): ShortcutTask 
 }
 
 export function shortcutColumn(config: BoardConfig, requested: string | undefined, due: string | null): string {
-  const ordinary = config.columns.filter((c) => c.id !== config.doneColumn && c.id !== config.undatedColumn);
-  const fallback = ordinary.find((c) => c.id === 'backlog') ?? ordinary[0];
+  const fallback = backlogColumn(config);
   if (!fallback) throw new Error('This board needs an ordinary workflow column.');
   if (!requested) return fallback.id;
   const matches = config.columns.filter((c) => c.id === requested || c.label.toLowerCase() === requested.toLowerCase());

@@ -33,7 +33,7 @@ The optional **Tasks** plugin adds its task editor and recurring-task behavior. 
 
 ## Capture an idea from your phone
 
-Add a task as soon as it occurs to you, with a due date or without one. **+ Add task** sits at the top of each mobile task list. The ready-made **iOS shortcut** sends a task to your chosen vault and board, opens Obsidian, and saves it to the board's configured note.
+Add a task as soon as it occurs to you, with a due date or without one, and with its labels. **+ Add task** sits at the top of each mobile task list, and under the open board in the boards sidebar, which adds to the top of that board's backlog. The ready-made **iOS shortcut** sends a task to your chosen vault and board, opens Obsidian, and saves it to the board's configured note.
 
 When you're ready to review, swipe between full-width columns, check off tasks, assign labels, and move cards using the drag handle or **Move to…** menu. You can capture on your phone and plan on a larger screen using your existing vault sync.
 

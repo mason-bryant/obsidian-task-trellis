@@ -41,8 +41,8 @@ export type RenderHost = {
   onOpenSource(task: BoardTask, newTab: boolean): void;
   /** Called when a drag ends, so a host that deferred redraws can catch up. */
   onDragEnd(): void;
-  /** Adds a task to a cell; `detailed` opens the full editor first. */
-  onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<boolean> | boolean;
+  /** Adds a task to a cell, with the labels picked in its composer; `detailed` opens the full editor first. */
+  onAddTask(target: { rowId: string; columnId: string }, text: string, detailed: boolean, labels: string[]): Promise<boolean> | boolean;
   onAddSubtask(parent: BoardTask, text: string, detailed: boolean): Promise<boolean> | boolean;
   /** Keeps text whose save failed after its composer was closed; `retry` saves it again. */
   onUnsavedText?(text: string, retry: (text: string) => Promise<boolean>): void;
@@ -52,6 +52,8 @@ export type RenderHost = {
   onRename?(): void;
   onColumnWidthsChange?(widths: Record<string, number>): Promise<void> | void;
   onLabels?(task: BoardTask): void;
+  /** Opens the label picker for a task still in its composer: `choose` only changes the draft. Without it the composer has no Labels button. */
+  onComposerLabels?: ComposerLabels['pick'];
   onBulkAction?(tasks: BoardTask[], kind: BulkKind): Promise<BulkResult | null>;
   /** Renderer-owned shortcut for starting selection from a normal card. */
   onSelectCard?(task: BoardTask, range: boolean): void;
@@ -111,11 +113,18 @@ const dropTargets = new WeakMap<HTMLElement, (id: string) => DropTarget>();
 const STALE_DRAG_MS = 60_000;
 let draggingId: string | null = null;
 let dragStartedAt = 0;
-/**
- * The open "Add task" or "Add subtask" box, kept across redraws so typing isn't lost when the board
- * updates. Keys include the board's slug, so a box open on one board doesn't show on another.
- */
-let composer: { key: string; text: string; saving?: boolean; refresh?: () => void } | null = null;
+/** An open "Add task" or "Add subtask" box's draft, kept across redraws so typing isn't lost when the view updates. */
+export type ComposerDraft = { key: string; text: string; labels?: string[]; picking?: boolean; saving?: boolean; refresh?: () => void };
+/** Where a surface keeps its open box. The board and the boards sidebar each have one, so opening one doesn't close the other. */
+export type ComposerSlot = { draft: ComposerDraft | null };
+/** A task composer's Labels button: the board's labels and how they're drawn, and the host's picker. */
+export type ComposerLabels = {
+  palette: BoardLabel[];
+  shape: LabelShape;
+  pick(selected: string[], choose: (ids: string[]) => void, onClose: () => void): void;
+};
+/** The board's box. Keys include the board's slug, so a box open on one board doesn't show on another. */
+const boardComposer: ComposerSlot = { draft: null };
 /** During a redraw, whether focus was in the board before it; null between redraws. */
 let redrawHadFocus: boolean | null = null;
 
@@ -609,7 +618,7 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   // The No due date column is one cell down the board, so its column names it.
   const place = rowId === 'none' && column.id === model.config.undatedColumn ? column.label
     : `${column.label}, ${model.rows.find((r) => r.id === rowId)?.label ?? rowId}`;
-  if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config.slug, place, host));
+  if (!host.selection && column.id !== model.config.doneColumn) c.append(addTask({ rowId, columnId: column.id }, model.config, place, host));
   if (!host.selection) addDropZone(c, host, () => ({ rowId, columnId: column.id, index: dropIndex(c) }));
   return c;
 }
@@ -622,9 +631,9 @@ function cardLimit(columnId: string, config: BoardModel['config']): number | nul
 }
 
 /** Opens a cell's add box; on mobile CSS places it above the task list. `place` names the cell. */
-function addTask(target: { rowId: string; columnId: string }, slug: string, place: string, host: RenderHost): HTMLElement {
+function addTask(target: { rowId: string; columnId: string }, config: BoardModel['config'], place: string, host: RenderHost): HTMLElement {
   const wrap = el('div', 'tt-add');
-  const key = `cell:${slug}:${target.rowId}:${target.columnId}`;
+  const key = `cell:${config.slug}:${target.rowId}:${target.columnId}`;
 
   const showButton = () => {
     const b = el('button', 'tt-add-button');
@@ -636,7 +645,7 @@ function addTask(target: { rowId: string; columnId: string }, slug: string, plac
     b.dataset.boardFocus = `add:${key}`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      composer = { key, text: '' };
+      boardComposer.draft = { key, text: '' };
       showBox();
     });
     // Closing with X or Escape hands focus back; closing because focus moved elsewhere leaves it there.
@@ -644,51 +653,58 @@ function addTask(target: { rowId: string; columnId: string }, slug: string, plac
     wrap.replaceChildren(b);
     if (hadFocus) b.focus({ preventScroll: true });
   };
+  const labels = host.onComposerLabels && { palette: config.labels, shape: config.labelShape, pick: host.onComposerLabels };
   const showBox = () =>
     wrap.replaceChildren(
-      addBox(key, 'New task. Enter to add, ⌘/Ctrl+Enter for details', 'Add task', host, (text, detailed) => host.onAddTask(target, text, detailed), showButton),
+      addBox(key, 'New task. Enter to add, ⌘/Ctrl+Enter for details', 'Add task', host,
+        (text, detailed, chosen) => host.onAddTask(target, text, detailed, chosen), showButton, { labels }),
     );
 
-  if (composer?.key === key) showBox();
+  if (boardComposer.draft?.key === key) showBox();
   else showButton();
   return wrap;
 }
 
 /**
  * The box for typing a new task: Enter adds it and keeps the box open for the next one,
- * Cmd/Ctrl+Enter or "Details" opens the Tasks editor, Esc closes it.
+ * Cmd/Ctrl+Enter or "Details" opens the Tasks editor, Esc closes it. With `labels`, a Labels button
+ * picks labels for the task, shown above the text until it's added.
  */
-function addBox(
+export function addBox(
   key: string,
   placeholder: string,
   saveLabel: string,
-  host: RenderHost,
-  onSubmit: (text: string, detailed: boolean) => Promise<boolean> | boolean,
+  host: Pick<RenderHost, 'icon' | 'onUnsavedText'>,
+  onSubmit: (text: string, detailed: boolean, labels: string[]) => Promise<boolean> | boolean,
   onClose: () => void,
+  // Opened by a click, or reopened by a redraw while the board had focus.
+  { slot = boardComposer, takeFocus = redrawHadFocus ?? true, labels }: { slot?: ComposerSlot; takeFocus?: boolean; labels?: ComposerLabels } = {},
 ): HTMLElement {
   const box = el('div', 'tt-add-box');
   let stopViewport: (() => void) | undefined;
-  const isOpen = () => composer?.key === key;
-  // Opened by a click, or reopened by a redraw while the board had focus.
-  const takeFocus = redrawHadFocus ?? true;
+  const isOpen = () => slot.draft?.key === key;
   const input = el('textarea', 'tt-add-input');
   input.rows = 2;
   input.placeholder = placeholder;
-  input.value = isOpen() ? composer!.text : '';
+  input.value = isOpen() ? slot.draft!.text : '';
   input.addEventListener('input', () => {
-    if (isOpen()) composer!.text = input.value;
+    if (isOpen()) slot.draft!.text = input.value;
   });
   const close = () => {
     stopViewport?.();
-    if (isOpen()) composer = null;
+    if (isOpen()) slot.draft = null;
     onClose();
   };
-  const draft = composer;
+  const draft = slot.draft;
+  const marks = el('div', 'tt-add-labels');
   const refresh = () => {
-    if (composer !== draft || !draft) return;
+    if (slot.draft !== draft || !draft) return;
     input.value = draft.text;
     input.readOnly = !!draft.saving;
     box.setAttribute('aria-busy', String(!!draft.saving));
+    const chosen = labels?.palette.filter((label) => draft.labels?.includes(label.id)) ?? [];
+    marks.replaceChildren(...chosen.length ? [labelMarks(chosen, labels!.shape)] : []);
+    marks.hidden = !chosen.length;
     const buttons = [...box.querySelectorAll<HTMLButtonElement>('button:not(.tt-add-cancel)')];
     // Disabling the focused button would drop focus to the page; keep it in the box, ready for the next task.
     if (draft.saving && buttons.includes(box.ownerDocument.activeElement as HTMLButtonElement)) input.focus({ preventScroll: true });
@@ -696,22 +712,23 @@ function addBox(
   };
   if (draft) draft.refresh = refresh;
   const submit = async (detailed: boolean) => {
-    if (!draft || composer !== draft || draft.saving) return;
+    if (!draft || slot.draft !== draft || draft.saving) return;
     const text = draft.text.trim();
+    const chosen = draft.labels ?? [];
     if (!text && !detailed) return;
     draft.saving = true; draft.refresh?.();
     let saved = false;
     try {
-      saved = !!await onSubmit(text, detailed);
-      if (saved && composer === draft) draft.text = '';
+      saved = !!await onSubmit(text, detailed, chosen);
+      if (saved && slot.draft === draft) { draft.text = ''; draft.labels = []; }
     } catch {
       // Hosts display the cause; keep the draft even if an unexpected host failure escapes.
-      if (composer === draft) box.setAttribute('aria-label', 'Task not saved. Your text has been kept; try again.');
+      if (slot.draft === draft) box.setAttribute('aria-label', 'Task not saved. Your text has been kept; try again.');
     } finally {
       draft.saving = false;
-      if (composer === draft) draft.refresh?.();
+      if (slot.draft === draft) draft.refresh?.();
       // Closed while saving: the box can't keep the text, so the host does. A detailed add keeps its own.
-      else if (!saved && !detailed) host.onUnsavedText?.(text, async (retry) => !!await onSubmit(retry, false));
+      else if (!saved && !detailed) host.onUnsavedText?.(text, async (retry) => !!await onSubmit(retry, false, chosen));
     }
   };
   input.addEventListener('keydown', (e) => {
@@ -727,9 +744,11 @@ function addBox(
   });
   input.addEventListener('blur', () => {
     // Clicking one of the buttons blurs first; let its click run. A box another one replaced closes too.
+    // Picked labels are a draft too, and the label picker takes focus while it's open.
     window.setTimeout(() => {
       if (!box.isConnected) return;
-      if (!isOpen() || (!draft?.saving && !input.value.trim() && !box.contains(box.ownerDocument.activeElement))) close();
+      const empty = !input.value.trim() && !draft?.labels?.length && !draft?.picking;
+      if (!isOpen() || (!draft?.saving && empty && !box.contains(box.ownerDocument.activeElement))) close();
     }, 150);
   });
 
@@ -748,9 +767,29 @@ function addBox(
   cancel.setAttribute('aria-label', 'Cancel');
   host.icon(cancel, 'x');
   cancel.addEventListener('click', close);
-  actions.append(add, details, cancel);
+  actions.append(add, details);
+  if (labels) {
+    const pick = el('button', 'clickable-icon tt-add-labels-button');
+    pick.type = 'button';
+    pick.setAttribute('aria-label', 'Labels');
+    // Found again by its key when the picker closes, since a redraw may have replaced it.
+    const focusKey = `composer-labels:${key}`;
+    pick.dataset.boardFocus = focusKey;
+    host.icon(pick, 'tag');
+    pick.addEventListener('click', () => {
+      if (!draft || slot.draft !== draft || draft.saving) return;
+      draft.picking = true;
+      labels.pick(draft.labels ?? [], (ids) => { draft.labels = ids; draft.refresh?.(); }, () => {
+        draft.picking = false;
+        [...box.ownerDocument.querySelectorAll<HTMLElement>('[data-board-focus]')]
+          .find((b) => b.dataset.boardFocus === focusKey)?.focus({ preventScroll: true });
+      });
+    });
+    actions.append(pick);
+  }
+  actions.append(cancel);
 
-  box.append(actions, input);
+  box.append(actions, marks, input);
   refresh();
   box.addEventListener('focusin', () => {
     const root = box.closest<HTMLElement>('.tt-board');
@@ -1105,7 +1144,7 @@ function subtaskRow(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
 /** The indented list under a task: its subtasks unless collapsed, then the add box when it's open. */
 function subtaskSection(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement | null {
   const subtasks = model.subtasks[task.id] ?? [];
-  const composing = composer?.key === subtaskBoxKey(task, model.config.slug);
+  const composing = boardComposer.draft?.key === subtaskBoxKey(task, model.config.slug);
   if (subtasks.length > 0 ? subtasksCollapsed(task, model, host) : !composing) return null;
   const available = model.config.hideCompletedSubtasks ? subtasks.filter((sub) => hasOpenWork(sub, model) || model.quickContext?.branches.has(sub.id)) : subtasks;
   const narrowed = model.quickContext?.filteredParents.has(task.id);
@@ -1204,7 +1243,7 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     const key = subtaskBoxKey(task, model.config.slug);
-    if (composer?.key !== key) composer = { key, text: '' };
+    if (boardComposer.draft?.key !== key) boardComposer.draft = { key, text: '' };
     if ((model.subtasks[task.id]?.length ?? 0) > 0 && subtasksCollapsed(task, model, host)) {
       // Redraws with the list open, and the box in it.
       if (model.quickContext?.branches.has(task.id)) host.quickDisclosure?.toggle(task.id);

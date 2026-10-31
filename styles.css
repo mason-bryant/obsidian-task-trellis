@@ -798,6 +798,8 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-board-list-icon svg { width: 18px; height: 18px; }
 .tt-board-list-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .tt-board-list-folder, .tt-board-list-empty { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+/* Add task under the open board, in line with its name; it opens the board's own composer. */
+.tt-board-list-add { margin: 0 0 6px 26px; }
 @media (pointer: coarse) {
   .tt-board-list button.tt-board-list-item, .tt-board-list-create { min-height: 44px; }
 }
@@ -855,6 +857,13 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
 .tt-editor-modal .tt-settings-tab { min-width: 60px; }
 .tt-add-actions { align-items: center; margin-bottom: 8px; }
 .tt-add-actions .tt-add-cancel { margin-left: auto; }
+/* The composer's Labels button, and the labels picked for the task above its text. */
+.tt-add-actions > .tt-add-labels-button { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; border-radius: 6px; }
+.tt-add-actions > .tt-add-labels-button:hover { background: var(--background-modifier-hover); }
+.tt-add-actions > .tt-add-labels-button svg { width: 18px; height: 18px; stroke-width: 1.8; }
+/* Four 44px targets still fit a 240px column, the narrowest a board allows. */
+@media (hover: none) { .tt-add-actions { gap: 4px; } .tt-add-actions > .tt-add-labels-button { min-width: 44px; min-height: 44px; } }
+.tt-add-labels > .tt-card-labels { margin-bottom: 8px; }
 @media (pointer: coarse) {
   .tt-editor-modal { position: fixed; top: calc(var(--tt-editor-top, 12px) + var(--tt-editor-safe-top)); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: calc(var(--tt-editor-height, 85dvh) - var(--tt-editor-safe-top) - var(--tt-editor-safe-bottom)); }
 }
