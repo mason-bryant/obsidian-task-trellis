@@ -10,6 +10,7 @@ import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
 import { notice } from './notice.ts';
 import { shortcutURL } from '../core/shortcut.ts';
+import { DeleteBoardModal } from './DeleteBoardModal.ts';
 
 /**
  * Edits a board note’s settings as a form instead of raw front matter.
@@ -26,7 +27,7 @@ export class BoardSettingsModal extends Modal {
     private plugin: TaskTrellisPlugin,
     private file: TFile,
     private config: BoardConfig,
-    private initialSection: Section = 'columns',
+    private initialSection: Section = 'general',
     private onClosed?: () => void,
   ) {
     super(app);
@@ -103,6 +104,10 @@ export class BoardSettingsModal extends Modal {
       countTagged: (columnId) => tagged.get(columnId) ?? 0,
       onDiscard: () => this.close(),
       onSave: () => void this.save(),
+      onDeleteBoard: () => {
+        const tagged = this.plugin.index.all().filter((task) => task.placements[this.config.slug]).length;
+        new DeleteBoardModal(this.app, this.file, tagged, () => this.close()).open();
+      },
       onCopyShortcut: () => {
         const matches = this.plugin.boards.boards().filter((b) => b.config.slug === this.config.slug);
         const board = matches.length === 1 ? this.config.slug : this.file.path;

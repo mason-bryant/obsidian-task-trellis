@@ -39,7 +39,8 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - An unavailable destination and a failed write: the draft is kept, and retrying doesn't add a duplicate.
 - The phone keyboard open at phone width, long forms and enlarged text. Resizing a desktop browser doesn't prove keyboard clearance.
 - IME confirmation, multiline entry, and focus after a redraw.
-- Tests: [editorHeader](../../tests/editorHeader.test.ts), [saveReliability](../../tests/saveReliability.test.ts), [editorClose](../../tests/editorClose.test.ts) (dialogs that can't close while saving), [boardFocus](../../tests/boardFocus.test.ts) (composer focus, and the composer above the keyboard), [labelPicker](../../tests/labelPicker.test.ts), [NotePopup](../../tests/NotePopup.test.ts), [boardRename](../../tests/boardRename.test.ts) (the board name editor: retry, IME and spinners) and [QuickAdd](../../tests/QuickAdd.test.ts) (a missing destination).
+- Delete board: Cancel has focus first and changes nothing. Delete board moves only the board note to the trash: compare the task notes before and after, and check the board's tab, sidebar entry and Open board command are gone. Restoring the note brings the board back.
+- Tests: [editorHeader](../../tests/editorHeader.test.ts), [deleteBoard](../../tests/deleteBoard.test.ts) (the General tab and the delete warning), [saveReliability](../../tests/saveReliability.test.ts), [editorClose](../../tests/editorClose.test.ts) (dialogs that can't close while saving), [boardFocus](../../tests/boardFocus.test.ts) (composer focus, and the composer above the keyboard), [labelPicker](../../tests/labelPicker.test.ts), [NotePopup](../../tests/NotePopup.test.ts), [boardRename](../../tests/boardRename.test.ts) (the board name editor: retry, IME and spinners) and [QuickAdd](../../tests/QuickAdd.test.ts) (a missing destination).
 
 ## Drag and drop
 

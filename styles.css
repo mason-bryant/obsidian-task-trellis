@@ -560,6 +560,12 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-check-field { display: flex; align-items: center; gap: 8px; margin: 18px 0; font-size: var(--font-ui-small); }
 .tt-check-field input { width: 18px; height: 18px; }
 .tt-button--subtle { background: transparent; }
+/* Destructive actions, in the red Obsidian uses for its own. */
+.tt-button--danger { background: var(--background-modifier-error, #e93147); border-color: transparent; color: var(--text-on-accent, #fff); }
+.tt-button--danger:hover { background: var(--background-modifier-error-hover, #d32640); }
+.tt-button--danger:disabled { opacity: .5; cursor: default; }
+.tt-settings-danger { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
+.tt-delete-board-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
 .tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }
