@@ -20,7 +20,6 @@ export class BoardSettingsModal extends Modal {
   private draft: BoardDraft;
   private form: SettingsForm | null = null;
   private saving = false;
-  private afterClose: (() => void) | null = null;
 
   constructor(
     app: App,
@@ -38,7 +37,7 @@ export class BoardSettingsModal extends Modal {
     if (!this.saving) super.close();
   }
 
-  private async save(openBoard = false): Promise<void> {
+  private async save(): Promise<void> {
     if (this.saving) return;
     const { errors } = draftToFrontmatter(this.draft, this.config);
     if (errors.length) { this.form?.showErrors(errors); return; }
@@ -49,12 +48,6 @@ export class BoardSettingsModal extends Modal {
         const failed = await this.plugin.saveBoardSettings(this.file, this.config, this.draft);
         if (failed.length) { this.form?.showErrors(failed); return; }
       }
-      if (openBoard) this.afterClose = () => {
-        void this.plugin.openBoard(this.file).catch((error: unknown) => {
-          console.error('[Task Trellis] opening saved board failed', error);
-          notice(this.app, 'Task Trellis: settings saved, but the board could not be opened. Open it from the boards sidebar to try again.', { alert: true });
-        });
-      };
       this.saving = false;
       this.close();
     } catch (error) {
@@ -110,7 +103,6 @@ export class BoardSettingsModal extends Modal {
       countTagged: (columnId) => tagged.get(columnId) ?? 0,
       onDiscard: () => this.close(),
       onSave: () => void this.save(),
-      onOpenBoard: () => void this.save(true),
       onCopyShortcut: () => {
         const matches = this.plugin.boards.boards().filter((b) => b.config.slug === this.config.slug);
         const board = matches.length === 1 ? this.config.slug : this.file.path;
@@ -126,8 +118,6 @@ export class BoardSettingsModal extends Modal {
     this.form?.destroy();
     this.form = null;
     this.contentEl.empty();
-    const afterClose = this.afterClose; this.afterClose = null;
-    afterClose?.();
     this.onClosed?.();
   }
 }

@@ -439,7 +439,6 @@ function openSettings(initialSection: Section = 'columns'): void {
       tryClose();
     },
     onSave: () => tryClose(true),
-    onOpenBoard: () => tryClose(true),
   });
   dialog.oncancel = (e) => {
     e.preventDefault();

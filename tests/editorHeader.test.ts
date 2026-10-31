@@ -55,23 +55,26 @@ describe('board settings header', () => {
     const root = document.createElement('div'), header = document.createElement('div');
     document.body.replaceChildren(header, root);
     const original = parseBoardConfig('House', {}).config;
-    const save = vi.fn(), discard = vi.fn(), openBoard = vi.fn();
+    const save = vi.fn(), discard = vi.fn();
     const form = renderBoardSettings(root, draftFromConfig(original), original, {
       header, icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
-      countTagged: () => 0, onSave: save, onDiscard: discard, onOpenBoard: openBoard,
+      countTagged: () => 0, onSave: save, onDiscard: discard,
     });
     header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(1);
     form.setSaving(true);
-    root.querySelector<HTMLButtonElement>('.tt-settings-footer button')!.click(); expect(openBoard).not.toHaveBeenCalled();
+    root.querySelector<HTMLButtonElement>('.tt-settings-footer button')!.click(); expect(save).toHaveBeenCalledTimes(1);
     header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(1);
     expect(header.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.disabled).toBe(true);
     form.setSaving(false);
-    const open = root.querySelector<HTMLButtonElement>('.tt-settings-footer button')!;
-    expect(open.textContent).toBe('Save & open board');
-    open.click(); expect(openBoard).toHaveBeenCalledTimes(1);
+    // The footer's Save, a check and the word, does exactly what the header's check does.
+    const footerSave = root.querySelector<HTMLButtonElement>('.tt-settings-footer button')!;
+    expect(footerSave.textContent).toBe('Save');
+    expect(footerSave.classList.contains('tt-settings-save')).toBe(true);
+    expect(footerSave.querySelector('.tt-icon')).not.toBeNull();
+    footerSave.click(); expect(save).toHaveBeenCalledTimes(2);
     form.showErrors(['Could not save.']);
     expect(root.querySelector('.tt-settings-errors')!.textContent).toContain('Could not save.');
-    header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(2);
+    header.querySelector<HTMLButtonElement>('.tt-editor-save')!.click(); expect(save).toHaveBeenCalledTimes(3);
     header.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.click(); expect(discard).toHaveBeenCalledTimes(1);
     form.destroy();
   });

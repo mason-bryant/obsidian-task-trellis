@@ -562,6 +562,8 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-button--subtle { background: transparent; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
+.tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }
+.tt-settings-save .tt-icon svg { stroke-width: 2.5; }
 .tt-filter-group { padding: 18px; margin: 18px 0; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-secondary); }
 .tt-filter-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; }
 .tt-filter-title .tt-icon { color: var(--text-accent); }

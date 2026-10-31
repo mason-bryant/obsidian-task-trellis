@@ -8,7 +8,7 @@ An editor that saves explicitly has a header with a green check on the left, the
 
 | Editor | Saving | Cancelling and closing |
 | --- | --- | --- |
-| Board settings | The check saves the draft. Save & open board, at the end of the form, saves and then opens the board. | Cancel, Escape and closing discard the draft. |
+| Board settings | The check saves the draft and closes the dialog. Save, at the end of the form, does the same; see Exceptions. | Cancel, Escape and closing discard the draft. |
 | Label definition (pencil), color scheme, bulk editor | The check (Save label, Apply color scheme, Apply to ‹n› tasks) commits the draft. | Cancel discards it. |
 | Quick-filter order | Reordering changes the settings draft; saving the settings commits it. | Cancelling the settings discards it. |
 | Label checkboxes | Each checkbox saves as soon as it changes. A failed write restores the checkbox. | Closing the picker keeps what was saved. |
@@ -26,7 +26,6 @@ Saving board settings writes only the settings you edited. A change made elsewhe
 
 Keep the draft when the destination is unavailable or the write fails. Don't close an editor just because a save was attempted. While saving, block a second submission. If the save fails, re-enable the controls and show an error the user can recover from. When the write succeeds but what follows fails, such as opening the board, report the write as saved and the follow-up as failed.
 
-Save & open board opens the regular board view, not the board's note, and switches to the board's tab when it's already open.
 
 ### Keyboard and focus
 
@@ -36,6 +35,7 @@ After a nested editor closes, focus returns to the item that was edited or the c
 
 ## Exceptions
 
+- Board settings repeats its save at the end of the form, as a button with a green check and the word Save. It does exactly what the header's check does. The form is long, and the maintainer wants a save where it ends.
 - The source-note popup and the Tasks plugin editor aren't Task Trellis editors. They keep Obsidian's and the Tasks plugin's own controls and saving.
 - The plugin settings tab follows Obsidian's settings, which save each change immediately.
 - The inline composer sits in its cell, not in a dialog, so it has no header or title. Its buttons are in a row above the text box: the check on the left, then Details…, then the X at the right.

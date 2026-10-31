@@ -17,7 +17,7 @@ it('checks to hide, saves inverse visibility flags, and keeps spacing and order 
   const root = document.createElement('div'); document.body.replaceChildren(root);
   renderBoardSettings(root, draft, config, {
     initialSection: 'appearance', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
-    attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(), onOpenBoard: vi.fn(),
+    attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(),
   });
   const box = (label: string) => [...root.querySelectorAll('label')].find((l) => l.textContent === label)!.querySelector('input')!;
   expect(draftChanged(draft, config)).toBe(false);
@@ -51,7 +51,7 @@ it('opens existing hidden preferences without changing them, and unchecks to sho
   document.body.replaceChildren(root);
   renderBoardSettings(root, draft, config, {
     initialSection: 'appearance', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
-    attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(), onOpenBoard: vi.fn(),
+    attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(),
   });
   expect(changedFrontmatter(draft, config)).toEqual({});
   expect(root.querySelector<HTMLSelectElement>('select[aria-label="Card spacing"]')!.value).toBe('compact');
