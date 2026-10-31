@@ -2,7 +2,7 @@
 
 # Configure a board
 
-A board is a note in the boards folder (`Task Trellis/` by default, set in the plugin settings). Opening the note shows the board. **Settings** on the board opens a form with Columns, Dates, Filters, Quick filters, Appearance and New tasks tabs. The **green checkmark** at the top validates and writes the note's properties; The **X**, Escape and closing the dialog discard the draft. **Save** at the end of the form does the same as the checkmark. Saving an unchanged draft does not rewrite the note. Renaming a column there retags its tasks. **Create board** in the command palette makes one with defaults.
+A board is a note in the boards folder (`Task Trellis/` by default, set in the plugin settings). Opening the note shows the board. **Settings** on the board opens a form with Columns, Dates, Filters, Quick filters, Appearance and New tasks tabs. The **green checkmark** at the top validates and writes the note's properties; The **X**, Escape and closing the dialog discard the draft. **Save** at the end of the form does the same as the checkmark. Saving an unchanged draft does not rewrite the note. Renaming a column there retags its tasks. Removing a column leaves its tasks' tags alone: its open cards show in the first column other than Done and the No due date column, and adding a column with the same name brings them back. Before you save, the Columns tab says how many open cards will move and where. **Create board** in the command palette makes one with defaults.
 
 Open the **Task Trellis boards** sidebar from the ribbon icon or the **Show boards sidebar** command. It lists your boards and offers **Create new board**. Selecting a board focuses its existing tab, including one in another window, or opens it if needed.
 

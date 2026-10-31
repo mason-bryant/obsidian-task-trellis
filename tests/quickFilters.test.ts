@@ -182,7 +182,7 @@ describe('quick filter settings', () => {
     const root = document.createElement('div'); document.body.replaceChildren(root);
     const host: SettingsFormHost = {
       initialSection: 'quick', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
-      attachFolderSuggest: vi.fn(), countTagged: () => 0, onSave: vi.fn(), onDiscard: vi.fn(),
+      attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
     };
     const form = renderBoardSettings(root, draft, original, host);
     const control = <T extends HTMLElement = HTMLButtonElement>(label: string) => root.querySelector<T>(`[aria-label="${label}"]`)!;

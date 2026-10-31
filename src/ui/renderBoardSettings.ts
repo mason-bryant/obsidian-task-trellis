@@ -6,7 +6,8 @@ import { quickFilterColors } from './quickFilterColors.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { labelDescription } from '../core/labels.ts';
 import { newQuickFilterId, QUICK_DUES, QUICK_PRIORITIES } from '../core/quickFilters.ts';
-import { convertDueNow, filterError, filterWarnings, WEEKDAY_NAMES, type BoardDraft, type DraftFilter, type DraftFilterSet, type DraftQuickFilter } from '../core/boardDraft.ts';
+import { convertDueNow, filterError, filterWarnings, removedColumnNotes, WEEKDAY_NAMES, type BoardDraft, type DraftFilter, type DraftFilterSet, type DraftQuickFilter } from '../core/boardDraft.ts';
+import type { ParsedTask } from '../core/taskLine.ts';
 
 export type SettingsFormHost = {
   header?: HTMLElement;
@@ -19,7 +20,8 @@ export type SettingsFormHost = {
   attachValueSuggest(input: HTMLInputElement, key: () => string): void | (() => void);
   attachTagSuggest(input: HTMLInputElement): void | (() => void);
   attachFolderSuggest(input: HTMLInputElement): void | (() => void);
-  countTagged(columnId: string): number;
+  /** Tasks whose tag names this column of the board as saved. */
+  taggedTasks(columnId: string): ParsedTask[];
   onDiscard(): void;
   onSave(): void;
   onCopyShortcut?(): void;
@@ -125,10 +127,18 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     sayNewWarnings();
   }
 
-  /** Warnings shown when the form opened, or already said, aren't said again. */
-  let warned = new Set(filterWarnings(draft));
+  const removalNotes = () => removedColumnNotes(draft, original, (id) => host.taggedTasks(id));
+  const notes = () => [...filterWarnings(draft), ...removalNotes()];
+  /** Refreshes the notes on removed columns; `say` is false while a column name is being typed. */
+  function updateRemovals(say = true): void {
+    root.querySelector('.tt-column-removals')?.replaceChildren(...removalNotes().map((text) => el('p', 'tt-column-removal', text)));
+    if (say) sayNewWarnings(); else warned = new Set(notes());
+  }
+
+  /** Warnings and removal notes shown when the form opened, or already said, aren't said again. */
+  let warned = new Set(notes());
   function sayNewWarnings(): void {
-    const now = filterWarnings(draft);
+    const now = notes();
     announce(root, now.filter((text) => !warned.has(text)).join(' '));
     warned = new Set(now);
   }
@@ -372,6 +382,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
             const option = [...menu.options].find((o) => o.value === String(i));
             if (option) option.textContent = name.value || '(unnamed)';
           }
+          updateRemovals(false);
         });
         const label = column.label.trim() || `column ${i + 1}`;
         const drag = iconButton('grip-vertical', `Reorder ${label}`, () => undefined);
@@ -393,11 +404,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         announce(root, `${moved!.label.trim() || 'Column'} moved to position ${to + 1} of ${draft.columns.length}.`);
       }));
       const add = button('Add column', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.onclick = () => { draft.columns.push({ label: '' }); redraw(`column-${draft.columns.length - 1}`); }; body.append(add);
-      for (const c of original.columns.filter((c) => !draft.columns.some((d) => d.originalId === c.id))) {
-        const n = host.countTagged(c.id); if (n) body.append(el('p', 'tt-help', `Removing ${c.label}: ${n} tasks will use the first column.`));
-      }
+      const removals = el('div', 'tt-column-removals');
+      removals.append(...removalNotes().map((text) => el('p', 'tt-column-removal', text))); body.append(removals);
       const choices: [string, string][] = [['-1', 'None'], ...draft.columns.map((c, i) => [String(i), c.label || '(unnamed)'] as [string, string])];
-      body.append(field('Done column', select('Done column', choices, String(draft.doneIndex), (v) => draft.doneIndex = Number(v)), 'Moving a task here completes it.'));
+      body.append(field('Done column', select('Done column', choices, String(draft.doneIndex), (v) => { draft.doneIndex = Number(v); updateRemovals(); }), 'Moving a task here completes it.'));
       body.append(field('No due date column', select('No due date column', choices, String(draft.undatedIndex), (v) => { draft.undatedIndex = Number(v); redraw(); }), 'Choose None to use a No due date row instead.'));
       body.append(check('Limit completed cards per row', draft.limitDone, (v) => { draft.limitDone = v; redraw(); }));
       if (draft.limitDone) body.append(field('Completed cards per row', input(draft.doneLimit, 'Completed cards per row', (v) => draft.doneLimit = v, 'number')));

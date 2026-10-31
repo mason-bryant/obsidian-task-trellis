@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { taskId, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import { changedFrontmatter, convertDueNow, draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
+import { changedFrontmatter, convertDueNow, draftChanged, draftFromConfig, draftToFrontmatter, removedColumnNotes } from '../src/core/boardDraft.ts';
+import { parseTaskLine } from '../src/core/taskLine.ts';
 
 const original = parseBoardConfig('Renovation', {
   slug: 'renovation',
@@ -159,5 +161,51 @@ describe('board settings draft', () => {
       'filter-properties': ['context: renovation, house', 'project'],
       'done-column': '',
     });
+  });
+});
+
+describe('removed column notes', () => {
+  const board = parseBoardConfig('Personal', {
+    slug: 'personal', columns: ['Backlog', 'This Week', 'Next', 'Done'], 'done-column': 'Done', 'undated-column': 'Backlog',
+  }).config;
+  const task = (raw: string, line: number): BoardTask => ({ ...parseTaskLine(raw)!, id: taskId('a.md', line), path: 'a.md', line, raw });
+  const thisWeek = [
+    task('- [ ] call 📅 2026-10-22 #tt/personal/this-week/100', 0),
+    task('- [ ] write 📅 2026-10-23 #tt/personal/this-week/200', 1),
+    task('- [ ] sign #tt/personal/this-week/300', 2),
+    task('- [x] filed #tt/personal/this-week/400 ✅ 2026-10-20', 3),
+  ];
+  const removing = (tagged: BoardTask[], edit: (draft: ReturnType<typeof draftFromConfig>) => void = () => {}, from = board) => {
+    const draft = draftFromConfig(from);
+    draft.columns.splice(1, 1); draft.doneIndex = 2; draft.undatedIndex = 0;
+    edit(draft);
+    return removedColumnNotes(draft, from, (id) => (id === 'this-week' ? tagged : []));
+  };
+
+  it('counts the open tasks the column shows and names the column they’ll show in', () => {
+    expect(removing(thisWeek)).toEqual([
+      'Removing This Week: 2 open tasks will show in Next. Their tags aren’t changed, so adding This Week back returns them.',
+    ]);
+    expect(removing(thisWeek.slice(0, 1))[0]).toMatch(/^Removing This Week: 1 open task will show in Next\./);
+  });
+
+  it('leaves out tasks it doesn’t show: undated ones in the No due date column and completed ones in Done', () => {
+    expect(removing(thisWeek.slice(2))).toEqual([]);
+  });
+
+  it('names the No due date column for undated tasks when the same save adds one', () => {
+    const plain = parseBoardConfig('Personal', { slug: 'personal', columns: ['Backlog', 'This Week', 'Next', 'Done'], 'done-column': 'Done' }).config;
+    expect(removing(thisWeek, () => {}, plain)).toEqual([
+      'Removing This Week: 2 open tasks will show in Next, and 1 without a due date in Backlog. Their tags aren’t changed, so adding This Week back returns them.',
+    ]);
+  });
+
+  it('follows a rename of the column they move to', () => {
+    expect(removing(thisWeek.slice(0, 1), (draft) => { draft.columns[1]!.label = 'Up next'; })[0]).toMatch(/will show in Up next\./);
+  });
+
+  it('says nothing when no column is removed, or another column takes its name', () => {
+    expect(removedColumnNotes(draftFromConfig(board), board, () => thisWeek)).toEqual([]);
+    expect(removing(thisWeek, (draft) => { draft.columns[1]!.label = 'This Week'; })).toEqual([]);
   });
 });

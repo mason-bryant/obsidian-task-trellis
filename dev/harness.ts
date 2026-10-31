@@ -433,7 +433,7 @@ function openSettings(initialSection: Section = 'columns'): void {
     }))]),
     attachTagSuggest: (input) => suggest(input, () => [...new Set([...tasks().flatMap((t) => t.tags), ...Object.keys(files).flatMap(noteTags)])].sort()),
     attachFolderSuggest: (input) => suggest(input, () => ['Projects', 'Daily']),
-    countTagged: (id) => tasks().filter((t) => t.placements[original.slug]?.column === id).length,
+    taggedTasks: (id) => tasks().filter((t) => t.placements[original.slug]?.column === id),
     onDiscard: () => {
       discard = true;
       tryClose();

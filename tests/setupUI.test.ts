@@ -10,7 +10,7 @@ it('opens first-run settings at New tasks and updates advice without resetting t
   const root = document.createElement('div'); document.body.replaceChildren(root);
   const host: SettingsFormHost = {
     initialSection: 'destination', icon: () => {}, attachKeySuggest: () => {}, attachValueSuggest: () => {},
-    attachTagSuggest: () => {}, attachFolderSuggest: () => {}, countTagged: () => 0,
+    attachTagSuggest: () => {}, attachFolderSuggest: () => {}, taggedTasks: () => [],
     destinationAdvice: (draft) => [draft.newTasksNote ? `Destination: ${draft.newTasksNote}` : 'Choose a note'],
     onDiscard: vi.fn(), onSave: vi.fn(),
   };

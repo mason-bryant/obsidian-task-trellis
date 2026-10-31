@@ -2,6 +2,7 @@ import { uiElement } from '../ui/dom.ts';
 import { destinationAdvice } from '../core/setup.ts';
 import { prepareEditorModal } from '../ui/editorHeader.ts';
 import { AbstractInputSuggest, Modal, setIcon, TextComponent, DropdownComponent, type App, type TFile } from 'obsidian';
+import type { BoardTask } from '../core/board.ts';
 import { parseBoardConfig, type BoardConfig } from '../core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } from '../core/boardDraft.ts';
 import { propertyValueStrings } from '../core/filters.ts';
@@ -65,10 +66,12 @@ export class BoardSettingsModal extends Modal {
     this.chrome = prepareEditorModal(this.modalEl);
     const properties = collectProperties(this.app);
     const slug = this.config.slug;
-    const tagged = new Map<string, number>();
+    const tagged = new Map<string, BoardTask[]>();
     for (const task of this.plugin.index.all()) {
       const column = task.placements[slug]?.column;
-      if (column) tagged.set(column, (tagged.get(column) ?? 0) + 1);
+      if (!column) continue;
+      const list = tagged.get(column);
+      if (list) list.push(task); else tagged.set(column, [task]);
     }
 
     const tags = [...new Set(this.plugin.index.all().flatMap((task) => task.tags))].sort();
@@ -100,7 +103,7 @@ export class BoardSettingsModal extends Modal {
       attachValueSuggest: (input, key) => suggest(input, () => [...(properties.get(key()) ?? [])]),
       attachTagSuggest: (input) => suggest(input, () => [...new Set([...tags, ...sourceTags])].sort()),
       attachFolderSuggest: (input) => suggest(input, () => folders),
-      countTagged: (columnId) => tagged.get(columnId) ?? 0,
+      taggedTasks: (columnId) => tagged.get(columnId) ?? [],
       onDiscard: () => this.close(),
       onSave: () => void this.save(),
       onCopyShortcut: () => {

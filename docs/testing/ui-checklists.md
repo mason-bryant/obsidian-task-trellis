@@ -11,6 +11,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 | Settings styles or shared controls | The edited settings section, the main toolbar, card actions, long names, and quick filters both on the toolbar and in the menu |
 | Drag, resize or scroll | Mouse and touch, cancelling and closing mid-gesture, edge scrolling, the keyboard alternative, and the scroll position afterwards; native Obsidian when available |
 | Editors and saving | Success; failure with the draft kept; no duplicate submit; IME; focus; the layout with the phone keyboard open |
+| Board columns | Renaming, reordering and removing a column, then the board: renamed columns keep their cards, and a removed column's note in the Columns tab names where its open cards went |
 | Filters and bulk selection | Matches versus context-only tasks, scope and counts, stale tasks, partial writes and Undo |
 | Shared CSS or layout | Wide desktop, a narrow desktop pane, phone width, one chosen column, light and dark themes, the user's installed theme, enlarged text |
 

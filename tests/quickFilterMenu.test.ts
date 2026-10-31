@@ -45,7 +45,7 @@ describe('quick filter menu settings', () => {
     const original = config(); const draft = draftFromConfig(original);
     const host: SettingsFormHost = {
       initialSection: 'quick', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(),
-      attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(), countTagged: () => 0,
+      attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(), taggedTasks: () => [],
       onSave: vi.fn(), onDiscard: vi.fn(),
     };
     const form = renderBoardSettings(root, draft, original, host);
