@@ -2,7 +2,7 @@ import { parseYaml, stringifyYaml, TFile, TFolder, type App } from 'obsidian';
 import { boardNameError } from '../core/boardName.ts';
 import { parseBoardConfig } from '../core/boardConfig.ts';
 import { inFolder } from '../core/filters.ts';
-import { mentionsNamespace, migrationSlug, renameTagFilter, rewriteBoardTaskTags } from '../core/boardTagRename.ts';
+import { mentionsNamespace, migrationSlug, renameFilterTags, renameTagFilter, rewriteBoardTaskTags } from '../core/boardTagRename.ts';
 
 export const RENAME_RECOVERY_FOLDER = 'Task Trellis recovery';
 type Change = { path: string; before: string; staged: string; after: string; kind: 'tasks' | 'board' };
@@ -68,10 +68,13 @@ export class BoardTagRename {
         if (note !== file && (slug === oldSlug || slug === newSlug)) throw new Error(`Another board uses this tag prefix: ${note.path}. Rename only the title instead.`);
         const next = { ...fm.values };
         for (const key of ['include-tags', 'exclude-tags']) if (key in next) next[key] = renameTagFilter(next[key], oldSlug, newSlug);
+        if ('filter' in next) next.filter = renameFilterTags(next.filter, oldSlug, newSlug);
         if (note === file) next.slug = newSlug;
         if (!same(next, fm.values)) changes.push({ path: note.path, before, staged: before, after: fm.replace(next), kind: 'board' });
         // Other properties, prose and queries are references, not task assignments.
         const remainder = { ...fm.values }; delete remainder['include-tags']; delete remainder['exclude-tags']; delete remainder.slug;
+        // What's left in the group once its tag rules are renamed, such as a property value naming the old prefix.
+        if ('filter' in next) remainder.filter = next.filter;
         if (mentionsNamespace(JSON.stringify(remainder) + fm.body, oldSlug)) referencePaths.push(note.path);
       } else {
         const rewritten = rewriteBoardTaskTags(before, oldSlug, newSlug);

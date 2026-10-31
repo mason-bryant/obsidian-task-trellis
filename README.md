@@ -61,7 +61,7 @@ Narrow the board in one click with **quick filters** in the toolbar. Every board
 
 In **Appearance**, choose the label shape, whether completed subtasks move to the end of their list or are hidden, whether overdue cards get a red edge, and whether notes open in a pop-up or a tab. Big boards stay quick: a long cell shows 25 cards at a time, with **more** for the rest.
 
-Rename a board from its title, optionally renaming its tags with a preview and a recovery copy, or delete it from **Settings → General**. Deleting moves only the board note to the trash; none of your tasks are deleted.
+Rename a board from its title or **Settings → General**, optionally renaming its tags with a preview and a recovery copy. General also duplicates a board, giving the new one the same columns, labels and filters, and deletes one. Deleting moves only the board note to the trash; none of your tasks are deleted.
 
 Theme-aware styling, keyboard controls for cards, subtasks and settings, screen-reader announcements, and save buttons above the mobile keyboard make everyday interactions easier. **Undo** is available for task moves, completion changes, label assignments, bulk edits, subtask reordering and sorting.
 

@@ -1,7 +1,7 @@
 import { setTaskLabels, taskLabels } from './labels.ts';
 import { diffDays, shortLabel, type ISODate } from './dates.ts';
-import type { BoardColumn, BoardConfig } from './boardConfig.ts';
-import { taskMatchesBoard, type Frontmatter } from './filters.ts';
+import { untaggedColumn, type BoardColumn, type BoardConfig } from './boardConfig.ts';
+import { filterRules, taskMatchesBoard, type Frontmatter } from './filters.ts';
 import { activeQuickFilters, taskMatchesQuickFilter } from './quickFilters.ts';
 import { filterTaskFamilies, type QuickFilterContext } from './quickFilterHierarchy.ts';
 import { computeRows, rowForDue, type RowDef } from './rows.ts';
@@ -78,7 +78,7 @@ export function columnOf(task: ParsedTask, config: BoardConfig): string {
  */
 export function workflowColumnOf(task: ParsedTask, config: BoardConfig): string {
   const stateColumn = (id: string) => id === config.doneColumn || id === config.undatedColumn;
-  const first = config.columns.find((c) => !stateColumn(c.id))?.id ?? config.columns[0]!.id;
+  const first = untaggedColumn(config).id;
   const tagged = task.placements[config.slug]?.column;
   if (!tagged || stateColumn(tagged) || !config.columns.some((c) => c.id === tagged)) return first;
   return tagged;
@@ -113,7 +113,7 @@ export function buildBoard(
   // or done date; otherwise it's a card of its own if it passes the board's filters.
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const quick = activeQuickFilters(config, activeQuickFilterIds);
-  const usesNoteTags = [config, ...quick].some((set) => set.includeTags.length || set.excludeTags.length);
+  const usesNoteTags = [config, ...quick].some((set) => filterRules(set.filter).some((rule) => rule.kind === 'tags'));
   const noteTags = new Map<string, string[]>();
   const tagsFor = (path: string) => {
     if (!usesNoteTags) return [];

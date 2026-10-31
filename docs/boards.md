@@ -6,21 +6,33 @@ A board is a note in the boards folder (`Task Trellis/` by default, set in the p
 
 Open the **Task Trellis boards** sidebar from the ribbon icon or the **Show boards sidebar** command. It lists your boards and offers **Create new board**. Selecting a board focuses its existing tab, including one in another window, or opens it if needed. Under the open board, **+ Add task** adds a task to the top of that board's backlog; see [Add a task](tasks.md#add-a-task).
 
-Use **Settings → General** to choose the planning window, or to delete the board, **Columns** to name your workflow stages and drag the grip at a column’s right edge to put them in order (or focus it and use the arrow keys), **Filters** to decide which tasks appear, **Quick filters** for toolbar toggles that narrow the board, **Appearance** for label shape, card spacing, column-selector visibility, and how subtasks and overdue cards look, and **New tasks** to choose where captured tasks are saved. Appearance checkboxes all mean **hide when checked, show when unchecked**. Card spacing and subtask order use dropdowns. The toolbar always puts **Settings** last, after **Select** or **Done selecting**. These labels do not change the existing frontmatter keys or their meaning. For filter examples, see [Choose which tasks appear](filters.md).
+Use **Settings → General** to choose the planning window, or to rename, duplicate or delete the board, **Columns** to name your workflow stages and drag the grip at a column’s right edge to put them in order (or focus it and use the arrow keys), **Filters** to decide which tasks appear, in groups like Obsidian's Bases, **Quick filters** for toolbar toggles that narrow the board, **Appearance** for label shape, card spacing, column-selector visibility, and how subtasks and overdue cards look, and **New tasks** to choose where captured tasks are saved. Appearance checkboxes all mean **hide when checked, show when unchecked**. Card spacing and subtask order use dropdowns. The toolbar always puts **Settings** last, after **Select** or **Done selecting**. These labels do not change the existing frontmatter keys or their meaning. For filter examples, see [Choose which tasks appear](filters.md).
 
 ## Rename a board
 
-Click or tap the board title in the upper left. Edit its name and select the **green checkmark** to save, or **X** to cancel. Enter also saves, except while confirming an input-method conversion. Invalid or already-used filenames are rejected; a failed save keeps your draft available to retry.
+Click or tap the board title in the upper left, or select **Rename board…** in **Settings → General**. Edit its name and select the **green checkmark** to save, or **X** to cancel. Enter also saves, except while confirming an input-method conversion. Invalid or already-used filenames are rejected; a failed save keeps your draft available to retry.
 
 By default, this renames only the board note in its existing folder. Obsidian updates links according to your link-update preferences. Task tags, label assignments and the board's internal `slug` stay unchanged. If an iOS shortcut identifies the board by its old name or file path, update that shortcut; shortcuts using the stable slug keep working.
 
 To change the tags too, select **Also rename board tags**, then **Preview tag changes**. Review the old and new prefixes, the tag count and the affected notes. The green checkmark applies the reviewed changes. Editing the name requires a new preview; closing the editor cancels without changing notes.
 
-For example, renaming House to Home changes `#tt/house/doing/100` to `#tt/home/doing/100` and `#tt/house/label/red` to `#tt/home/label/red`. Column positions, label IDs, names and colors are preserved. The migration includes completed tasks and subtasks, even in folders excluded from the board, and updates other boards' include/exclude tag filters. It rejects a prefix already used by another board, tag or reference.
+For example, renaming House to Home changes `#tt/house/doing/100` to `#tt/home/doing/100` and `#tt/house/label/red` to `#tt/home/label/red`. Column positions, label IDs, names and colors are preserved. The migration includes completed tasks and subtasks, even in folders excluded from the board, and updates other boards' include/exclude tag filters and the tag rules in their `filter` groups. It rejects a prefix already used by another board, tag or reference.
 
 Saved searches, queries, prose and ordinary note properties are not rewritten. The preview lists notes containing those references for you to check. Also update shortcuts and custom board hotkeys that use the old name or prefix. Keep other devices idle during the rename and allow sync to finish afterward: several note writes cannot be one atomic operation across devices.
 
 Before writing, Task Trellis saves full snapshots of affected notes in **Task Trellis recovery/** inside the vault. Use **Task Trellis: Restore board rename** from the command palette to review and restore a rename, including one interrupted by an error or restart. Restoration refuses to overwrite later edits or ignore new tasks using the new prefix; those cases require reconciling the notes with the saved snapshots. Recovery files remain until you remove them. They contain full note content; see [Privacy and integrations](privacy.md).
+
+From the settings, the rename returns you to them, with any changes you haven't saved yet still there.
+
+## Duplicate a board
+
+Open **Settings → General** and select **Duplicate board…**. Name the new board, such as the suggested **House copy**, and select the **green checkmark** (or press Enter). It's made next to the original, with its own tag prefix, and it opens in a new tab.
+
+The new board starts with the original's saved settings: its columns, labels, filters, quick filters, appearance, column widths and where new tasks go. The board note's other properties, such as aliases, aren't copied.
+
+No task is copied or changed. Since the new board has the same filters, it shows the same tasks, but the original's tags don't place them on it: open cards start in its first column, such as Backlog, without labels. Moving or labeling a card on one board doesn't change it on the other. Change the new board's **Filters** to show different tasks.
+
+If you have unsaved changes in the settings, they aren't copied, and the settings stay open, in front of the new board, so you can still save them.
 
 ## Delete a board
 
@@ -51,6 +63,7 @@ These properties are stored in the board note. The settings form handles the usu
 | `due-now-unit` | days | `days`: through today + `due-now` days. `weeks`: through the last day of the `due-now`-th week, counting this week as 1 (Sunday, with Monday week starts). |
 | `week-horizon` | 2 | Number of week rows after Due now. Everything later goes in Later. |
 | `week-start` | monday | First day of a week row. |
+| `filter` | none | The board's filters as `and`, `or` and `not` groups, when the lists below can't hold them. Written by the Filters tab; see [How filters are saved](filters.md#how-filters-are-saved). With `filter`, the lists below are ignored. |
 | `filter-properties` | none | `key: value1, value2` per item. The task's note must match every item. |
 | `exclude-properties` | none | Same rule syntax as `filter-properties`. Any matching item excludes the note's tasks. |
 | `include-tags` / `exclude-tags` | none | Tags on the task or its page; `house` also matches `#house/kitchen`. Page tags apply to every task in the note. |

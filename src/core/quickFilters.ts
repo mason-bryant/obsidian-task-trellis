@@ -1,7 +1,8 @@
 import type { BoardConfig } from './boardConfig.ts';
 import type { ISODate } from './dates.ts';
-import { taskMatchesBoard, type FilterSet, type Frontmatter } from './filters.ts';
-import { normalizeFolder, normalizeTag, propertyFilters, stringList } from './frontmatterValues.ts';
+import { noFilter, taskMatchesBoard, type FilterSet, type Frontmatter } from './filters.ts';
+import { stringList } from './frontmatterValues.ts';
+import { FILTER_FM, readFilter } from './filterTree.ts';
 import { labelDescription, taskLabels, type BoardLabel } from './labels.ts';
 import { dueNowEnd } from './rows.ts';
 import { slugify, type ParsedTask, type Priority } from './taskLine.ts';
@@ -46,18 +47,12 @@ export const QUICK_FM = {
   noLabels: 'no-labels',
   matchSubtasks: 'match-subtasks',
   due: 'due',
-  includeTags: 'include-tags',
-  excludeTags: 'exclude-tags',
-  includeFolders: 'include-folders',
-  excludeFolders: 'exclude-folders',
-  filterProperties: 'filter-properties',
-  excludeProperties: 'exclude-properties',
+  ...FILTER_FM,
 } as const;
 
 export function emptyQuickFilter(id: string, name: string): QuickFilter {
   return {
-    id, name, show: true, priorities: [], labels: [], noLabels: false, matchSubtasks: false, due: [],
-    includeTags: [], excludeTags: [], includeFolders: [], excludeFolders: [], propertyFilters: [], excludedPropertyFilters: [],
+    id, name, show: true, priorities: [], labels: [], noLabels: false, matchSubtasks: false, due: [], filter: noFilter(),
   };
 }
 
@@ -104,12 +99,7 @@ export function parseQuickFilters(raw: unknown, labels: BoardLabel[], warnings: 
       noLabels: f[QUICK_FM.noLabels] === true || (typeof f[QUICK_FM.noLabels] === 'string' && (f[QUICK_FM.noLabels] as string).trim().toLowerCase() === 'true'),
       matchSubtasks: f[QUICK_FM.matchSubtasks] === true || (typeof f[QUICK_FM.matchSubtasks] === 'string' && (f[QUICK_FM.matchSubtasks] as string).trim().toLowerCase() === 'true'),
       due: known(stringList(f[QUICK_FM.due]), QUICK_DUES),
-      includeTags: stringList(f[QUICK_FM.includeTags]).map(normalizeTag).filter(Boolean),
-      excludeTags: stringList(f[QUICK_FM.excludeTags]).map(normalizeTag).filter(Boolean),
-      includeFolders: stringList(f[QUICK_FM.includeFolders]).map(normalizeFolder).filter(Boolean),
-      excludeFolders: stringList(f[QUICK_FM.excludeFolders]).map(normalizeFolder).filter(Boolean),
-      propertyFilters: propertyFilters(f[QUICK_FM.filterProperties]),
-      excludedPropertyFilters: propertyFilters(f[QUICK_FM.excludeProperties]),
+      filter: readFilter(f, warnings, `The ${name} quick filter’s rules`),
     });
   }
   return filters;
@@ -120,26 +110,19 @@ function known<T extends string>(values: string[], choices: [T, string][]): T[] 
   return [...new Set(values.map((v) => v.toLowerCase().replace(/\s+/g, '-')))].filter((v): v is T => (ids as string[]).includes(v));
 }
 
-/** Front matter for one quick filter; empty criteria are left out. */
-export function quickFilterFrontmatter(
-  filter: Omit<QuickFilter, 'propertyFilters' | 'excludedPropertyFilters'> & { propertyFilters: unknown[]; excludedPropertyFilters: unknown[] },
-): Record<string, unknown> {
+/** Front matter for one quick filter, with its rules as `filterFrontmatter` writes them; empty criteria are left out. */
+export function quickFilterFrontmatter(filter: Omit<QuickFilter, 'filter'>, rules: Record<string, unknown>): Record<string, unknown> {
   const fm: Record<string, unknown> = { [QUICK_FM.id]: filter.id, [QUICK_FM.name]: filter.name, [QUICK_FM.show]: filter.show };
   if (filter.noLabels) fm[QUICK_FM.noLabels] = true;
   if (filter.matchSubtasks) fm[QUICK_FM.matchSubtasks] = true;
-  const lists: [string, unknown[]][] = [
-    [QUICK_FM.priority, filter.priorities], [QUICK_FM.labels, filter.labels], [QUICK_FM.due, filter.due],
-    [QUICK_FM.includeTags, filter.includeTags], [QUICK_FM.excludeTags, filter.excludeTags],
-    [QUICK_FM.includeFolders, filter.includeFolders], [QUICK_FM.excludeFolders, filter.excludeFolders],
-    [QUICK_FM.filterProperties, filter.propertyFilters], [QUICK_FM.excludeProperties, filter.excludedPropertyFilters],
-  ];
+  const lists: [string, unknown[]][] = [[QUICK_FM.priority, filter.priorities], [QUICK_FM.labels, filter.labels], [QUICK_FM.due, filter.due]];
   for (const [key, values] of lists) if (values.length) fm[key] = values;
+  for (const [key, value] of Object.entries(rules)) if (Array.isArray(value) ? value.length : value !== undefined) fm[key] = value;
   return fm;
 }
 
 export function hasCriteria(filter: QuickFilter): boolean {
-  return filter.noLabels || [filter.priorities, filter.labels, filter.due, filter.includeTags, filter.excludeTags, filter.includeFolders,
-    filter.excludeFolders, filter.propertyFilters, filter.excludedPropertyFilters].some((list: unknown[]) => list.length > 0);
+  return filter.noLabels || filter.filter.items.length > 0 || [filter.priorities, filter.labels, filter.due].some((list: unknown[]) => list.length > 0);
 }
 
 /** The board's quick filters that are shown and switched on. */

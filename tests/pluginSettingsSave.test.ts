@@ -53,3 +53,15 @@ it.each([
   await expect(createBoard('House')).resolves.toBe(true);
   expect(create).toHaveBeenCalledOnce(); expect(notices.at(-1)).toBe(message);
 });
+
+it('removes the filter group from the board note once its rules fit the plain lists again', async () => {
+  const note: Record<string, unknown> = { slug: 'house', filter: { or: [{ tags: ['work'] }, { folders: ['Clients'] }] }, 'include-folders': ['Update Task Trellis to use this filter'] };
+  const config = parseBoardConfig('House', note).config;
+  const draft = draftFromConfig(config); draft.filter.match = 'all';
+  const app = { workspace: new Workspace(), vault: {}, fileManager: { processFrontMatter: async (_file: unknown, fn: (fm: Record<string, unknown>) => void) => fn(note) } } as unknown as App;
+  const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
+  Object.assign(plugin, { app, index: { all: () => [] } });
+  expect(await plugin.saveBoardSettings(new TFile('House.md') as never, config, draft)).toEqual([]);
+  expect('filter' in note).toBe(false);
+  expect(note).toMatchObject({ 'include-tags': ['work'], 'include-folders': ['Clients'] });
+});

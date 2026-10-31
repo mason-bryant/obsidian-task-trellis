@@ -1,22 +1,20 @@
 import { columnOf } from './board.ts';
 import { FM, parseBoardConfig, type BoardConfig, type DueNowUnit } from './boardConfig.ts';
-import type { FilterSet } from './filters.ts';
+import type { FilterGroup, FilterMatch, FilterNode } from './filters.ts';
+import { filterFrontmatter } from './filterTree.ts';
 import { quickFilterFrontmatter, type QuickDue, type QuickPriority } from './quickFilters.ts';
 import { slugify, type ParsedTask } from './taskLine.ts';
 
 /** A column being edited; `originalId` ties it to the column it was, so a rename can retag its tasks. */
 export type DraftColumn = { label: string; originalId?: string };
 export type DraftFilter = { key: string; condition: 'exists' | 'matches'; values: string[] };
+/** A rule as typed: tag or folder values, or a property's key, condition and values. */
+export type DraftRule = { kind: 'tags' | 'folders'; values: string[] } | ({ kind: 'property' } & DraftFilter);
+export type DraftGroup = { kind: 'group'; match: FilterMatch; items: DraftNode[] };
+export type DraftNode = DraftRule | DraftGroup;
 
-/** Tag, folder and property rules as typed, for the board or one quick filter. */
-export type DraftFilterSet = {
-  filters: DraftFilter[];
-  excludedFilters: DraftFilter[];
-  includeTags: string;
-  excludeTags: string;
-  includeFolders: string;
-  excludeFolders: string;
-};
+/** The rules as edited, for the board or one quick filter. */
+export type DraftFilterSet = { filter: DraftGroup };
 
 export type DraftQuickFilter = DraftFilterSet & {
   id: string;
@@ -93,12 +91,12 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     overdueBar: config.overdueBar,
     openLinks: config.openLinks,
     labelShape: config.labelShape,
-    ...filterSetDraft(config),
+    filter: filterDraft(config.filter),
     quickFiltersMenu: config.quickFiltersMenu,
     quickFiltersVisible: config.quickFiltersVisible?.toString() ?? "",
     quickFiltersVisibleMobile: config.quickFiltersVisibleMobile?.toString() ?? "",
     quickFilters: config.quickFilters.map((f) => ({
-      id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], noLabels: f.noLabels, matchSubtasks: f.matchSubtasks, due: [...f.due], ...filterSetDraft(f),
+      id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], noLabels: f.noLabels, matchSubtasks: f.matchSubtasks, due: [...f.due], filter: filterDraft(f.filter),
     })),
     newTasks: config.newTasks,
     newTasksNote: config.newTasksNote,
@@ -125,30 +123,13 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
   const kept = new Set(columns.flatMap((c) => (c.originalId ? [c.originalId] : [])));
   const removed = original.columns.map((c) => c.id).filter((id) => !kept.has(id));
 
-  const serialize = (rules: DraftFilter[], group: string) => rules.flatMap((f, i) => {
-    const error = filterError(f);
-    if (error) errors.push(`${group}, property ${i + 1}: ${error}`);
-    const key = f.key.trim();
-    if (!key) return [];
-    const values = f.condition === 'exists' ? [] : f.values.map((v) => v.trim()).filter(Boolean);
-    // Mapping entries preserve repeated keys and literal commas/quotes without inventing a new syntax.
-    if (key.includes(':') || /["']/.test(key) || values.some((v) => /[,"']/.test(v))) {
-      return [{ [key]: values }] as Array<string | Record<string, string[]>>;
-    }
-    return [values.length ? `${key}: ${values.join(', ')}` : key];
-  });
-  const filters = serialize(draft.filters, 'Must include');
-  const excluded = serialize(draft.excludedFilters, 'Must not include');
-  const boardSet = filterSetFrontmatter(draft);
+  const rules = filterFrontmatter(filterFromDraft(draft.filter, '', errors));
   const quickFilters = draft.quickFilters.map((q, i) => {
     const name = q.name.trim();
     if (!name) errors.push(`Quick filter ${i + 1} needs a name.`);
-    return quickFilterFrontmatter({
-      id: q.id, name, show: q.show, priorities: q.priorities, labels: q.labels, noLabels: q.noLabels, matchSubtasks: q.matchSubtasks, due: q.due,
-      ...filterSetFrontmatter(q),
-      propertyFilters: serialize(q.filters, `Quick filter ${i + 1}, must include`),
-      excludedPropertyFilters: serialize(q.excludedFilters, `Quick filter ${i + 1}, must not include`),
-    });
+    return quickFilterFrontmatter(
+      { id: q.id, name, show: q.show, priorities: q.priorities, labels: q.labels, noLabels: q.noLabels, matchSubtasks: q.matchSubtasks, due: q.due },
+      filterFrontmatter(filterFromDraft(q.filter, `Quick filter ${i + 1}`, errors)));
   });
 
   if (draft.newTasks === 'note' && !draft.newTasksNote.trim()) errors.push('Choose the note new tasks go to.');
@@ -172,12 +153,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.dueNowUnit]: draft.dueNowUnit,
     [FM.weekHorizon]: intField('Week rows', draft.weekHorizon, 0, 52, errors),
     [FM.weekStart]: (WEEKDAY_NAMES[draft.weekStart] ?? 'Monday').toLowerCase(),
-    [FM.filterProperties]: filters,
-    [FM.excludeProperties]: excluded,
-    [FM.includeTags]: boardSet.includeTags,
-    [FM.excludeTags]: boardSet.excludeTags,
-    [FM.includeFolders]: boardSet.includeFolders,
-    [FM.excludeFolders]: boardSet.excludeFolders,
+    ...rules,
     [FM.quickFilters]: quickFilters,
     [FM.quickFiltersMenu]: draft.quickFiltersMenu,
     [FM.quickFiltersVisible]: optionalCountField("Filters to keep visible", draft.quickFiltersVisible, errors),
@@ -228,13 +204,6 @@ function intField(name: string, raw: string, min: number, max: number, errors: s
   return n;
 }
 
-function splitList(text: string, separator: string): string[] {
-  return text
-    .split(separator)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 function cleanTag(tag: string): string {
   return tag.replace(/^#/, '').replace(/\/+$/, '');
 }
@@ -243,40 +212,54 @@ function cleanFolder(folder: string): string {
   return folder.replace(/^\/+|\/+$/g, '');
 }
 
-function filterSetDraft(set: FilterSet): DraftFilterSet {
-  return {
-    filters: set.propertyFilters.map(filterDraft),
-    excludedFilters: set.excludedPropertyFilters.map(filterDraft),
-    includeTags: set.includeTags.join(', '),
-    excludeTags: set.excludeTags.join(', '),
-    includeFolders: set.includeFolders.join('\n'),
-    excludeFolders: set.excludeFolders.join('\n'),
-  };
+function filterDraft(group: FilterGroup): DraftGroup {
+  return { kind: 'group', match: group.match, items: group.items.map((item): DraftNode => {
+    if (item.kind === 'group') return filterDraft(item);
+    if (item.kind === 'property') return { kind: 'property', key: item.key, condition: item.values.length ? 'matches' : 'exists', values: [...item.values] };
+    return { kind: item.kind, values: [...item.values] };
+  }) };
 }
 
-function filterSetFrontmatter(set: DraftFilterSet): Pick<FilterSet, 'includeTags' | 'excludeTags' | 'includeFolders' | 'excludeFolders'> {
-  return {
-    includeTags: splitList(set.includeTags, ',').map(cleanTag).filter(Boolean),
-    excludeTags: splitList(set.excludeTags, ',').map(cleanTag).filter(Boolean),
-    includeFolders: splitList(set.includeFolders, '\n').map(cleanFolder).filter(Boolean),
-    excludeFolders: splitList(set.excludeFolders, '\n').map(cleanFolder).filter(Boolean),
-  };
+/** Where an item is in its group, counting from 1 at each level: filter 2.1 is the first filter in the second item. */
+export function filterItemName(item: DraftNode, path: number[]): string {
+  return `${item.kind === 'group' ? 'group' : 'filter'} ${path.map((i) => i + 1).join('.')}`;
 }
 
-function filterDraft(f: { key: string; values: string[] }): DraftFilter {
-  return { key: f.key, condition: f.values.length ? 'matches' : 'exists', values: [...f.values] };
+/**
+ * The filters to save. Each unfinished property filter is an error, named by its place, such as
+ * “Filter 2.1: Add at least one value to match.”, after `label` for a quick filter's.
+ */
+export function filterFromDraft(group: DraftGroup, label: string, errors: string[], path: number[] = []): FilterGroup {
+  return { kind: 'group', match: group.match, items: group.items.map((item, i): FilterNode => {
+    const at = [...path, i];
+    if (item.kind === 'group') return filterFromDraft(item, label, errors, at);
+    if (item.kind === 'property') {
+      const error = filterError(item);
+      const name = filterItemName(item, at);
+      if (error) errors.push(`${label ? `${label}, ${name}` : name.charAt(0).toUpperCase() + name.slice(1)}: ${error}`);
+      return { kind: 'property', key: item.key.trim(), values: item.condition === 'exists' ? [] : item.values.map((v) => v.trim()).filter(Boolean) };
+    }
+    return { kind: item.kind, values: item.values.map((v) => (item.kind === 'tags' ? cleanTag : cleanFolder)(v.trim())).filter(Boolean) };
+  }) };
 }
 
 export function filterError(rule: DraftFilter): string | null {
-  if (!rule.key.trim()) return 'Enter a property name or remove this rule.';
+  if (!rule.key.trim()) return 'Enter a property name or remove this filter.';
   if (rule.condition === 'matches' && !rule.values.some((v) => v.trim())) return 'Add at least one value to match.';
   return null;
 }
 
-/** Conflicts are warnings; repeated and partially overlapping rules remain valid. */
+/**
+ * Conflicts are warnings; repeated and partially overlapping rules remain valid. A property that every
+ * match needs, while a None group beside it excludes any note that has it, can't be satisfied.
+ */
 export function filterWarnings(draft: DraftFilterSet): string[] {
-  const excludesExistence = new Set(draft.excludedFilters.filter((f) => f.condition === 'exists').map((f) => f.key.trim()));
-  return [...new Set(draft.filters.map((f) => f.key.trim()).filter((key) => key && excludesExistence.has(key)))]
+  const root = draft.filter;
+  if (root.match !== 'all') return [];
+  const keys = (items: DraftNode[], exists: boolean) => items.flatMap((item) =>
+    item.kind === 'property' && (!exists || item.condition === 'exists') ? [item.key.trim()] : []).filter(Boolean);
+  const excludesExistence = new Set(root.items.flatMap((item) => item.kind === 'group' && item.match === 'none' ? keys(item.items, true) : []));
+  return [...new Set(keys(root.items, false).filter((key) => excludesExistence.has(key)))]
     .map((key) => `“${key}” is required and its existence is excluded. No note can satisfy both rules.`);
 }
 

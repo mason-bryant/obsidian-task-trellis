@@ -88,5 +88,57 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
   input.addEventListener('keydown', (event) => {
     if (!isComposing(event) && event.key === 'Enter') { event.preventDefault(); void submit(); }
   });
-  input.focus(); input.select();
+  focusName(input);
+}
+
+/** What a copy of a board starts with: `start` is the column its open cards show in, and `unsaved` warns that the settings form's draft isn't copied. */
+export type DuplicateSource = { name: string; start: string; unsaved: boolean };
+
+/** Names a new board made from another's settings. A failed copy keeps the name to try again. */
+export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLElement, name: string, source: DuplicateSource,
+  icon: (el: HTMLElement, name: string) => void, save: (name: string) => Promise<void>, close: () => void): void {
+  const doc = body.ownerDocument;
+  const paragraph = (text: string) => { const p = uiElement(doc, 'p'); p.textContent = text; return p; };
+  const label = uiElement(doc, 'label'); label.className = 'tt-board-name-field';
+  const caption = uiElement(doc, 'span'); caption.textContent = 'New board name';
+  const input = uiElement(doc, 'input'); input.type = 'text'; input.value = name;
+  input.setAttribute('aria-label', 'New board name');
+  label.append(caption, input);
+  const error = paragraph(''); error.className = 'tt-note tt-note--warning'; error.setAttribute('role', 'alert'); error.hidden = true;
+  body.replaceChildren(label,
+    paragraph(`The new board gets the ${source.name} board’s saved settings: columns, labels, filters, quick filters, appearance and where new tasks go.`),
+    paragraph(`No tasks are copied or changed. The new board shows the same tasks, without their columns or labels from this board: open cards start in ${source.start}.`));
+  if (source.unsaved) body.append(paragraph('Changes you haven’t saved in board settings aren’t included.'));
+  body.append(error);
+  let busy = false;
+  const submit = async () => {
+    if (busy) return;
+    const invalid = boardNameError(input.value);
+    error.hidden = true; input.removeAttribute('aria-invalid');
+    if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    busy = true; input.readOnly = true; header.setBusy(true, 'Duplicating board…');
+    try {
+      await save(input.value.trim());
+      header.setBusy(false);
+      close();
+    } catch (reason) {
+      header.setBusy(false);
+      error.textContent = reason instanceof Error ? reason.message : 'Could not duplicate the board. Please try again.';
+      error.hidden = false; input.focus();
+    } finally {
+      busy = false; input.readOnly = false;
+    }
+  };
+  const header = renderEditorHeader(headerRoot, 'Duplicate board', icon, () => void submit(), close, 'Duplicate board');
+  input.addEventListener('keydown', (event) => {
+    if (!isComposing(event) && event.key === 'Enter') { event.preventDefault(); void submit(); }
+  });
+  focusName(input);
+}
+
+/** Obsidian focuses a dialog's first button once it opens, so the name takes focus back after that too. */
+function focusName(input: HTMLInputElement): void {
+  const focus = () => { if (input.isConnected) { input.focus(); input.select(); } };
+  focus();
+  input.ownerDocument.defaultView?.setTimeout(focus, 0);
 }

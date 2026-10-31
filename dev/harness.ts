@@ -3,7 +3,7 @@ import { renderBulkEditor } from '../src/ui/renderBulkEditor.ts';
 import './browserDOM.ts';
 import { uiElement } from '../src/ui/dom.ts';
 import { promptText } from './promptText.ts';
-import { renderBoardNameEditor } from '../src/ui/renderBoardNameEditor.ts';
+import { renderBoardNameEditor, renderDuplicateBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
@@ -14,7 +14,7 @@ import { previewIcon } from './icons.ts';
 // Runs the real board model and renderer against an in-memory vault, for checking the UI in a browser.
 import { applyEdit, buildBoard, planDrop, taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
 import { planDueDateSort } from '../src/core/dueSort.ts';
-import { parseBoardConfig } from '../src/core/boardConfig.ts';
+import { parseBoardConfig, untaggedColumn } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { propertyValueStrings } from '../src/core/filters.ts';
 import { backlogCell, planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
@@ -129,20 +129,24 @@ function write(edits: Map<string, TaskEdit>): void {
 
 let highlighted: string | null = null;
 
+/** A dialog for the board name editors, over whatever is open, like Obsidian's modals. */
+function nameDialog(fill: (body: HTMLElement, header: HTMLElement, close: () => void) => void): void {
+  const dialog = uiElement(document, 'dialog'); dialog.className = 'name-dialog';
+  const body = uiElement(document, 'div'); body.className = 'modal-content';
+  dialog.append(body); document.body.append(dialog);
+  const chrome = prepareEditorModal(dialog);
+  const close = () => { chrome.destroy(); dialog.close(); dialog.remove(); };
+  dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+  dialog.showModal();
+  fill(body, chrome.header, close);
+}
+
 const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
   icon: previewIcon,
   onSettings: (section) => openSettings(section),
-  onRename: () => {
-    const dialog = uiElement(document, 'dialog');
-    const body = uiElement(document, 'div'); body.className = 'modal-content';
-    dialog.append(body); document.body.append(dialog);
-    const chrome = prepareEditorModal(dialog);
-    const close = () => { chrome.destroy(); dialog.close(); dialog.remove(); };
-    dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
-    dialog.showModal();
-    renderBoardNameEditor(body, chrome.header, config.name, previewIcon, async (name) => { config.name = name; render(); }, close);
-  },
+  onRename: () => nameDialog((body, header, close) =>
+    renderBoardNameEditor(body, header, config.name, previewIcon, async (name) => { config.name = name; render(); }, close)),
   onBulkAction: (selected, kind) => new Promise((resolve) => {
     const dialog = uiElement(document, 'dialog');
     const body = uiElement(document, 'div'); body.className = 'modal-content';
@@ -482,6 +486,11 @@ function openSettings(initialSection: Section = 'general'): void {
       tryClose();
     },
     onSave: () => tryClose(true),
+    onRenameBoard: () => host.onRename?.(),
+    // Shows the editor; the harness has no vault to copy the board into (see DuplicateBoardModal).
+    onDuplicateBoard: () => nameDialog((body, header, close) => renderDuplicateBoardEditor(body, header, `${config.name} copy`,
+      { name: config.name, start: untaggedColumn(config).label, unsaved: draftChanged(draft, original) }, previewIcon,
+      async (name) => { (window as unknown as { lastDuplicate: string }).lastDuplicate = name; }, close)),
     // Shows the button; the confirmation and trashing are Obsidian's (DeleteBoardModal).
     onDeleteBoard: () => undefined,
   });

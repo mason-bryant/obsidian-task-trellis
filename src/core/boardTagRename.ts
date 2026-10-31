@@ -42,6 +42,17 @@ export function renameTagFilter(value: unknown, oldSlug: string, newSlug: string
     (match, lead: string, slug: string) => slug.toLowerCase() === oldSlug ? `${lead}tt/${newSlug}` : match)).join(',');
 }
 
+/** A board's `filter` group, with the tag rules at every depth renamed as `renameTagFilter` does. */
+export function renameFilterTags(value: unknown, oldSlug: string, newSlug: string): unknown {
+  if (Array.isArray(value)) return value.map((item: unknown) => renameFilterTags(item, oldSlug, newSlug));
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, inner]) => {
+    const name = key.trim().toLowerCase();
+    if (name === 'tags' || name === 'tag') return [key, renameTagFilter(inner, oldSlug, newSlug)];
+    return [key, name === 'and' || name === 'or' || name === 'not' ? renameFilterTags(inner, oldSlug, newSlug) : inner];
+  }));
+}
+
 export function migrationSlug(name: string): string {
   const slug = slugify(name);
   if (!slug) throw new Error('Use a board name containing letters or numbers to rename its tags.');

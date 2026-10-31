@@ -116,7 +116,7 @@ describe('board settings draft', () => {
   it('only counts real edits as changes', () => {
     const draft = draftFromConfig(original);
     expect(draftChanged(draft, original)).toBe(false);
-    draft.includeTags = ' ';
+    draft.filter.items.push({ kind: 'tags', values: [' '] });
     expect(draftChanged(draft, original)).toBe(false);
     draft.dueNow = '10';
     expect(draftChanged(draft, original)).toBe(true);
@@ -137,12 +137,12 @@ describe('board settings draft', () => {
     draft.columns.push({ label: '!!!' });
     draft.dueNow = 'seven';
     draft.weekHorizon = '-1';
-    draft.filters.push({ key: '', condition: 'matches', values: ['x'] }, { key: 'status', condition: 'matches', values: [] });
+    draft.filter.items.push({ kind: 'property', key: '', condition: 'matches', values: ['x'] }, { kind: 'property', key: 'status', condition: 'matches', values: [] });
     expect(draftToFrontmatter(draft, original).errors).toEqual([
       'Two columns are both named "backlog".',
       'Column "!!!" needs a name with letters or numbers.',
-      'Must include, property 2: Enter a property name or remove this rule.',
-      'Must include, property 3: Add at least one value to match.',
+      'Filter 3: Enter a property name or remove this filter.',
+      'Filter 4: Add at least one value to match.',
       'Due now window must be a whole number from 0 to 365.',
       'Week rows must be a whole number from 0 to 52.',
     ]);
@@ -150,9 +150,8 @@ describe('board settings draft', () => {
 
   it('cleans tags and folders, and preserves existence rules', () => {
     const draft = draftFromConfig(original);
-    draft.includeTags = '#house, , project/x/';
-    draft.includeFolders = '/Projects/\n\nDaily';
-    draft.filters.push({ key: 'project', condition: 'exists', values: [] });
+    draft.filter.items.push({ kind: 'tags', values: ['#house', ' ', 'project/x/'] }, { kind: 'folders', values: ['/Projects/', '', 'Daily'] },
+      { kind: 'property', key: 'project', condition: 'exists', values: [] });
     draft.doneIndex = -1;
     const fm = draftToFrontmatter(draft, original).frontmatter;
     expect(fm).toMatchObject({

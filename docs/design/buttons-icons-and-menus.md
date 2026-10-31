@@ -8,7 +8,9 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 
 | Action | Control |
 | --- | --- |
-| Create an item | A plus icon followed by Add task, Add label or Add quick filter, in that surface's add-button style |
+| Create an item | A plus icon followed by Add task, Add label, Add quick filter, or Add filter and Add filter group in filters, in that surface's add-button style |
+| Combine filters | As in Bases: an All the following are true / Any of the following are true / None of the following are true dropdown at the top of each group, and a trash icon at the right of a nested group's header (Remove group ‹n›) and at the end of each filter (Remove filter ‹n›). |
+| Rename or duplicate a board | Rename board… with the pencil icon and Duplicate board… with the copy icon, in General in board settings, after the date settings. Each opens its own editor. Clicking the board's name on the toolbar also opens the rename. |
 | Delete a board | A red Delete board… button with a trash icon, at the end of General in board settings. It opens a warning whose red Delete board button does it; Cancel has focus first. |
 | Save or cancel a draft | A green check on the left and an X on the right; see [editing and saving](editing-and-saving.md) |
 | Assign labels, on a card or in a new task's composer / edit a label | The tag icon / the pencil icon |
@@ -41,4 +43,5 @@ Menus use Obsidian's public `Menu` API.
 - Card actions, the Arrange button and selection controls: [renderBoard.ts](../../src/ui/renderBoard.ts). The due-date sort is planned in [dueSort.ts](../../src/core/dueSort.ts).
 - The Arrange, Move to… and quick-filter menus: [BoardView.ts](../../src/obsidian/BoardView.ts).
 - Add label and the pencil: [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts). The column and quick-filter grips, copy, trash and Add quick filter: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts), with dragging in [reorderRows.ts](../../src/ui/reorderRows.ts).
+- Rename board…, Duplicate board… and Delete board… in General: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts), opening their editors from [BoardSettingsModal.ts](../../src/obsidian/BoardSettingsModal.ts).
 - Editor headers: [editorHeader.ts](../../src/ui/editorHeader.ts).

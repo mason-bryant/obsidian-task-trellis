@@ -170,6 +170,17 @@
         background: var(--background-primary);
         color: var(--text-normal);
       }
+      /* Obsidian sizes its own modals; this stands in for the board name editors'. */
+      dialog.name-dialog {
+        box-sizing: border-box;
+        width: min(440px, calc(100vw - 32px));
+        padding: 16px 24px;
+        border: 1px solid var(--background-modifier-border);
+        border-radius: 12px;
+        background: var(--background-primary);
+        color: var(--text-normal);
+      }
+      dialog.name-dialog input[type=text] { box-sizing: border-box; }
       dialog::backdrop {
         background: rgba(0, 0, 0, 0.5);
       }

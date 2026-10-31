@@ -4,6 +4,10 @@
 
 ## Rules
 
+- A board's rules, and each quick filter's tag, folder and property rules, are one group that matches All, Any or None of what's in it. Groups nest three levels deep: the whole filter, a group in it, and a group in that. Within one rule, any listed value can match. Empty rules and groups add no restriction. The board and quick filters use the same editor and the same matching.
+- The editor follows Obsidian's Bases filter editor: All, Any or None the following are true at the top of each group, where, and or or before each filter (or in a None group, as in Bases), a nested group as a card, and each filter as one box with its trash button at the end. Removing a group's last filter removes the group. On narrow settings Bases hides where, and and or; Task Trellis keeps them, above each filter, because they make the logic easier to follow.
+- Filters are named by where they are, filter 2.1 and group 2, in their controls' names and in errors, and an unfinished filter's error shows beside it.
+- Rules that fit the plain lists are saved in them, as releases before groups wrote. Others are saved as a `filter` group, beside a folder rule older releases can't satisfy, so a device that hasn't updated shows no tasks instead of tasks the filter hides.
 - Board filters decide what's on the board, and each active quick filter narrows that further. A quick filter never brings in a task that the board excludes, as a card or as a bulk target. A parent task from outside the board can appear only as a context heading above a matching subtask, without edit or complete controls.
 - Quick filters keep their ids when they're renamed or reordered, so whether they're on survives.
 - A quick filter is in one of three states: hidden from the board (Show on board off), which is never applied; shown but off; or on. A board can keep only the first few shown filters on the toolbar, in settings order, and put the rest in a menu. That's presentation only: moving an active filter into the menu doesn't turn it off. See [quick filters](../filters.md#quick-filters) for the settings.
@@ -26,6 +30,7 @@ None recorded.
 
 ## Where it lives
 
+- Rule groups, reading and saving them: [filterTree.ts](../../src/core/filterTree.ts), with the draft in [boardDraft.ts](../../src/core/boardDraft.ts) and the editor, `groupEditor`, in [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).
 - Matching: [filters.ts](../../src/core/filters.ts), [quickFilters.ts](../../src/core/quickFilters.ts) and [quickFilterHierarchy.ts](../../src/core/quickFilterHierarchy.ts), within the board model in [board.ts](../../src/core/board.ts).
 - How many filters stay on the toolbar: the `quick-filters-menu`, `quick-filters-visible` and `quick-filters-visible-mobile` board properties, read in [boardConfig.ts](../../src/core/boardConfig.ts). The toolbar and menu groups: [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts).
 - Selection: `triageCards` and `planBulk` in [bulkTriage.ts](../../src/core/bulkTriage.ts). The selection controls, status and bulk bar are in [renderBoard.ts](../../src/ui/renderBoard.ts), and the bulk editor in [renderBulkEditor.ts](../../src/ui/renderBulkEditor.ts). The user guide's [bulk triage](../tasks.md#bulk-triage) section explains selection to users.

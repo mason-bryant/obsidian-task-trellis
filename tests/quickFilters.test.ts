@@ -221,10 +221,8 @@ describe('quick filter settings', () => {
     [...ui.root.querySelectorAll('button')].find((b) => b.textContent === 'Add quick filter')!.click();
     ui.tick(3, 'Overdue');
     ui.tick(3, 'Green');
-    const scope = 'Quick filter 4, Must include';
-    const picker = ui.control<HTMLSelectElement>(`${scope}: New filter field`); picker.value = 'tags'; picker.dispatchEvent(new Event('change'));
-    ui.control(`${scope}: Add filter`).click();
-    const chip = ui.control<HTMLInputElement>(`${scope}: Tags`); chip.value = 'work';
+    ui.control('Quick filter 4, filters: Add filter').click();
+    const chip = ui.control<HTMLInputElement>('Quick filter 4, Filter 1: Tags'); chip.value = 'work';
     chip.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(ui.saved().errors).toEqual(['Quick filter 4 needs a name.']);
     ui.form.showErrors(ui.saved().errors);
@@ -233,8 +231,9 @@ describe('quick filter settings', () => {
     name.value = 'Late work'; name.dispatchEvent(new Event('input'));
     const { errors, config: saved } = ui.saved();
     expect(errors).toEqual([]);
-    expect(saved.quickFilters[3]).toMatchObject({ name: 'Late work', due: ['overdue'], labels: ['green'], includeTags: ['work'] });
-    expect(saved.includeTags).toEqual([]);
+    expect(saved.quickFilters[3]).toMatchObject({ name: 'Late work', due: ['overdue'], labels: ['green'],
+      filter: { kind: 'group', match: 'all', items: [{ kind: 'tags', values: ['work'] }] } });
+    expect(saved.filter.items).toEqual([]);
   });
 
   it('reorders and removes filters', () => {

@@ -2,17 +2,45 @@
 
 # Choose which tasks appear
 
-The Filters tab groups rules under **Must include — Match all rules** and **Must not include — Match any rule**. Choose **Tags**, **Note folder** or **Note property**, then select **Add filter**. Every rule uses the same **Field → Condition → Value** layout. For a property, enter its name and choose **Exists** or **Matches any value**. Use the trash button to remove a whole rule.
+The Filters tab works like the filter editor in Obsidian's Bases. It's one group of filters, and the dropdown at its top says how they combine:
 
-Each Tags box combines task and page tags. Type a value and press Enter to make a chip, or choose a suggestion. New values are allowed. Remove a chip with its × button; Backspace in an empty entry brings the last chip back for editing. Tags can also be entered as a comma-separated list. A comma inside a property-value chip stays part of that one value. Tags and folders each have one rule per group; add alternatives as more values in that rule. Property rules can be added repeatedly.
+- **All the following are true:** a task must match every filter in the group.
+- **Any of the following are true:** a task must match at least one.
+- **None of the following are true:** a task that matches any of them is hidden.
 
-- Included tags match **any** listed tag; included folders match **any** listed folder; included property rules must **all** match. All configured inclusion categories must pass. Empty categories add no restriction.
-- **Any exclusion wins**, whether it matches a task tag, source-note folder or property rule. A missing property fails an inclusion rule and passes an exclusion rule.
-- Property **Exists** matches a present key even if its value is null, empty, false or zero. **Matches any value** needs at least one value and compares against any scalar or list value. Keys are case-sensitive; values are case-insensitive. Numbers and booleans compare as strings.
-- A task matches the combined tags on its own checkbox line and its page. **Page tags** are the note's `tags` property and inline tags in non-task text; they apply to every task in that note. A tag on another task line does not apply to this task. `house` matches `#house` and `#house/kitchen`, but not `#household`. Internal `#tt/…` placement tags are ignored. Folders match the named folder and descendants; properties come from the source note's frontmatter.
+Each filter after the first says so: **and** in an All group, **or** in an Any or None group, after **where** on the first.
+
+Select **Add filter**, then choose what it tests in its first dropdown: **Tags**, **Note folder** or **Note property**. Tags take any of the listed tags, and a note folder any of the listed folders. For a property, enter its name and choose **exists** or **is any of**. Use a filter's trash button to remove it.
+
+To combine filters another way, select **Add filter group**. A group is a box inside its group, with its own dropdown, its own **Add filter**, and a filter to fill in. Its trash button removes the group and everything in it, and so does removing its last filter. Groups go three levels deep: the whole filter, a group in it, and a group in that. A new group starts with the opposite of its group's choice, Any inside All and All inside Any, since that's usually why you add one.
+
+Filters are named by where they are: **filter 2.1** is the first filter in the second item. An error such as **Filter 2.1: Add at least one value to match.** points to it.
+
+Each Tags or Note folder box takes several values. Type a value and press Enter to make a chip, or choose a suggestion. New values are allowed. Remove a chip with its × button; Backspace in an empty entry brings the last chip back for editing. Tags can also be entered as a comma-separated list. A comma inside a property-value chip stays part of that one value.
+
+- **Within a filter, any listed value can match:** tags `work, urgent` matches either tag, and two folders match a note in either. To require two tags, add two Tags filters to an All group.
+- A task matches the combined tags on its own checkbox line and its page. **Page tags** are the note's `tags` property and inline tags in non-task text; they apply to every task in that note. A tag on another task line does not apply to this task. `house` matches `#house` and `#house/kitchen`, but not `#household`. Internal `#tt/…` placement tags are ignored. Folders match the named folder and descendants. A Note folder value can also be one note's path, such as `Projects/Plan.md`, to match just that note. Properties come from the source note's frontmatter.
+- Property **Exists** matches a present key even if its value is null, empty, false or zero. **Matches any value** needs at least one value and compares against any scalar or list value. Keys are case-sensitive; values are case-insensitive. Numbers and booleans compare as strings. A missing property never matches, so it fails in an All group and passes in a None group.
+- Empty filters and empty groups add no restriction. With no filters at all, the board shows every task.
 - The boards folder and globally excluded folders are unavailable to every board. Subtasks displayed inside a visible parent follow that parent without being filtered independently. A subtask shown as a standalone card must pass the filters itself.
 
-For example, this board shows tasks tagged `#work` on the task or page (including nested work tags) from `Projects/` whose note has `team: product` or `team: design`, and a `status` property. It hides tasks with `#blocked` on the task or page, notes under `Projects/Archive/`, archived notes and notes marked confidential:
+For example, to show tasks tagged `#work` or in `Clients/`, from notes whose `status` is `active`, plus anything tagged `#urgent`, which is ((work or Clients) and active) or urgent:
+
+```
+Any of the following are true
+  ┌ All the following are true
+  │   ┌ Any of the following are true
+  │   │  where  Tags         include any of  work
+  │   │     or  Note folder  is in any of    Clients
+  │   └
+  │    and  Note property  status  is any of  active
+  └
+     or  Tags  include any of  urgent
+```
+
+### How filters are saved
+
+Boards whose filters fit the plain lists every release reads keep them there: All of the tag, folder and property filters, with one None group for the exclusions, and at most one Tags and one Note folder filter beside them. This board shows tasks tagged `#work` on the task or page (including nested work tags) from `Projects/` whose note has `team: product` or `team: design`, and a `status` property. It hides tasks with `#blocked` on the task or page, notes under `Projects/Archive/`, archived notes and notes marked confidential:
 
 ```yaml
 include-tags: [work]
@@ -27,7 +55,25 @@ exclude-properties:
   - "confidential: true"
 ```
 
-Both property lists accept a single string, a list of rules, or a mapping. Use a mapping with a YAML list for literal commas: `- status: ["cancelled, deferred"]` matches that complete value. Repeated rules remain separate; the editor preserves them when saving other settings. It warns when a required property's existence is also excluded, but allows deliberate overlapping rules. Empty-board diagnostics report missing required keys only.
+Both property lists accept a single string, a list of rules, or a mapping. Use a mapping with a YAML list for literal commas: `- status: ["cancelled, deferred"]` matches that complete value. Repeated rules remain separate; the editor preserves them when saving other settings. It warns when a property every task needs is also excluded by a None group, but allows deliberate overlapping rules. Empty-board diagnostics report the properties every match needs that no note has.
+
+Other filters are saved as one `filter` property: `and`, `or` and `not` groups holding `tags`, `folders` and `property` filters, the same shape as in Obsidian's Bases. The example above is saved as:
+
+```yaml
+filter:
+  or:
+    - and:
+        - or:
+            - tags: [work]
+            - folders: [Clients]
+        - property: "status: active"
+    - tags: [urgent]
+include-folders: [Update Task Trellis to use this filter]
+```
+
+A property filter names one property, written as in `filter-properties`. A list on its own is read as an `and` group. With `filter` present, the plain lists are ignored. If `filter` can't be read, the board says why and shows no tasks until it's fixed.
+
+The extra `include-folders` value is for older versions of Task Trellis, which don't know `filter`: on a device that hasn't updated yet, the board shows no tasks, instead of tasks its filter should hide. Update Task Trellis on every device that opens the board. Saving settings simplifies what says nothing extra, such as a group of one filter, and goes back to the plain lists, without `filter`, once the filters fit them again.
 
 ## Quick filters
 
@@ -44,7 +90,7 @@ A quick filter can match on:
 - **Priority**: any checked level. **No priority** matches tasks without one.
 - **Labels**: tasks with any checked board label. Choose **No labels** to find tasks with no labels assigned for this board; ordinary tags and labels from other boards do not count. Combine it with specific labels to match either unlabeled tasks or any checked label.
 - **Due**: **Overdue**, **Due today**, **Due now** (the board's Due now window, overdue included) or **No due date**. Any checked choice can match.
-- **Must include** and **Must not include** rules for tags, note folders and note properties. These work exactly like the board's own filters above.
+- **Filters** for tags, note folders and note properties, in groups, exactly like the board's own filters above, and saved the same way in each quick filter's entry.
 
 Within Priority, Labels or Due, any checked choice can match. Every part you fill in must match. A quick filter with nothing chosen matches every task.
 
