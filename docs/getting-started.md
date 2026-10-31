@@ -6,9 +6,9 @@ Requires Obsidian **1.13.7 or newer** on desktop or mobile.
 
 ## Install Task Trellis
 
-Task Trellis is currently distributed through [GitHub releases](https://github.com/mason-bryant/obsidian-task-trellis/releases), rather than the Obsidian Community directory.
+In Obsidian, open **Settings → Community plugins → Browse**, search for **Task Trellis**, then install and enable it. Obsidian's directory lists it as not manually reviewed by Obsidian staff.
 
-For a manual desktop installation:
+To install a release by hand instead, for example to try a build before it reaches the directory:
 
 1. Download **main.js**, **manifest.json** and **styles.css** from the [latest release](https://github.com/mason-bryant/obsidian-task-trellis/releases/latest).
 2. In your vault’s configuration folder (normally `.obsidian`), create `plugins/task-trellis/` if needed.

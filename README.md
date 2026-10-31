@@ -65,7 +65,7 @@ Theme-aware styling, keyboard controls and save buttons above the mobile keyboar
 
 ## Quick start
 
-1. **Install and enable** Task Trellis using the [installation guide](docs/getting-started.md). It is currently available through GitHub releases.
+1. **Install and enable** Task Trellis from **Settings → Community plugins → Browse** in Obsidian. The [installation guide](docs/getting-started.md) also covers installing a release by hand.
 2. Run **Task Trellis: Create board** from the command palette and give it a name.
 3. The **New tasks** settings open automatically. Choose **A specific note**, such as `Tasks/Inbox.md`, outside the boards folder. Or choose today’s daily note if Daily notes is enabled.
 4. In **Filters**, choose which tasks belong here. Leave filters empty to show tasks across your vault. The destination note must satisfy your filters.
@@ -89,6 +89,8 @@ The **Tasks** plugin is optional; it adds a task editor and recurring tasks. [Se
 ## Your vault stays yours
 
 Task Trellis works locally, requires no account, and collects no telemetry. Your existing vault sync carries the task lines and board settings between devices. [Privacy and integrations](docs/privacy.md).
+
+Everything is stored in ordinary tags and note properties, and every 1.x release reads what earlier ones wrote. [Formats and compatibility](docs/compatibility.md).
 
 ## Help and feedback
 
