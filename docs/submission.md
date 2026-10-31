@@ -2,7 +2,7 @@
 
 # Community-directory submission
 
-Updated October 27, 2026 for **0.1.16**. The plugin is already submitted. The last portal outcome recorded here was the failed automatic review of 0.1.13; its source fixes have since merged and shipped. A current portal result or directory acceptance has not been verified. Use the existing submission, not a duplicate.
+Updated October 30, 2026 for **1.0.0**. Task Trellis is listed in the Community directory: Obsidian's public plugin list includes `task-trellis`, with the note that it hasn't been manually reviewed by Obsidian staff. The maintainer reports that the portal recorded 0.1.17 (commit `7f99596`) as Completed on October 29, 2026. Use the existing submission, not a duplicate.
 
 ## Listing
 
