@@ -14,6 +14,7 @@ An editor that saves explicitly has a header with a green check on the left, the
 | Label checkboxes | Each checkbox saves as soon as it changes. A failed write restores the checkbox. | Closing the picker keeps what was saved. |
 | Inline task and subtask composer | The check adds the task. The text clears only once it's saved, and the composer stays open for the next task, with focus in its text box. | X or Escape closes it. |
 | New board | Create board makes the board note, then opens the board and its settings. | X closes it. |
+| Delete board warning (Delete board… in General) | Delete board moves the board note to the trash, then closes the warning and the settings. It never edits a task. | Cancel, X and Escape close it. While the note is being moved, it can't be dismissed. |
 | Board name (click the board's name) | Save board name renames the board. With Also rename board tags on, the check first previews the affected notes, then renames the board and its tags. | X closes it. Nothing changes until the rename is applied. |
 | Restore board rename (command) | Restore selected rename restores a saved rename from its recovery copy. | X closes it. |
 | New task prompt (Add task command, without the Tasks plugin) | Submitting adds the task. | Closing adds nothing. |
@@ -47,4 +48,5 @@ After a nested editor closes, focus returns to the item that was edited or the c
 - Editors: [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts) in [BoardSettingsModal.ts](../../src/obsidian/BoardSettingsModal.ts), [renderLabelPicker.ts](../../src/ui/renderLabelPicker.ts) in [LabelPickerModal.ts](../../src/obsidian/LabelPickerModal.ts), [renderBulkEditor.ts](../../src/ui/renderBulkEditor.ts) in [BulkEditModal.ts](../../src/obsidian/BulkEditModal.ts), [renderBoardNameEditor.ts](../../src/ui/renderBoardNameEditor.ts) in [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts), [RestoreBoardRenameModal.ts](../../src/obsidian/RestoreBoardRenameModal.ts), and the New board dialog in [main.ts](../../main.ts).
 - Inline composer: `addBox` in [renderBoard.ts](../../src/ui/renderBoard.ts), saving through [BoardView.ts](../../src/obsidian/BoardView.ts) and [QuickAdd.ts](../../src/obsidian/QuickAdd.ts), which also owns Details… and the New task prompt.
 - Task not saved: [recoverDraft.ts](../../src/obsidian/recoverDraft.ts). Source-note popup: [NotePopup.ts](../../src/obsidian/NotePopup.ts).
+- Delete board warning: [DeleteBoardModal.ts](../../src/obsidian/DeleteBoardModal.ts), opened from General in [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).
 - Saving only edited settings: `changedFrontmatter` in [boardDraft.ts](../../src/core/boardDraft.ts). Opening a board: [BoardNavigation.ts](../../src/obsidian/BoardNavigation.ts).

@@ -371,7 +371,7 @@ function render(): void {
 }
 
 
-function openSettings(initialSection: Section = 'columns'): void {
+function openSettings(initialSection: Section = 'general'): void {
   const dialog = document.getElementById('settings') as HTMLDialogElement;
   const body = dialog.querySelector<HTMLElement>('.modal-content')!;
   const chrome = prepareEditorModal(dialog);
@@ -439,6 +439,8 @@ function openSettings(initialSection: Section = 'columns'): void {
       tryClose();
     },
     onSave: () => tryClose(true),
+    // Shows the button; the confirmation and trashing are Obsidian's (DeleteBoardModal).
+    onDeleteBoard: () => undefined,
   });
   dialog.oncancel = (e) => {
     e.preventDefault();
