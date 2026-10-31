@@ -167,3 +167,26 @@ it('bulk edits skip a changed selected line instead of modifying its replacement
   expect(result.message).toContain('1 skipped');expect(f.content.split('\n')[0]).toBe('- [ ] Replacement');
   expect(f.content.split('\n')[1]).toContain('#tt/house/label/red');
 });
+
+it('sorting by due date rewrites only the card out of place, and one Undo restores the note exactly', async () => {
+  const original = '- [ ] Late 📅 2026-10-30 #tt/house/backlog/100\n- [ ] Early 📅 2026-10-27 #tt/house/backlog/200\n- [ ] Middle 📅 2026-10-28 #tt/house/backlog/300\n';
+  const f = fixture(original); await f.ready();
+  Object.assign(f.plugin.app.metadataCache, { getCache: () => null });
+  const view = f.view as unknown as ViewUnderTest & { today: string; sortByDueDate(): Promise<void> };
+  view.today = '2026-10-25';
+  await view.sortByDueDate();
+  expect(f.content).toBe('- [ ] Late 📅 2026-10-30 #tt/house/backlog\n- [ ] Early 📅 2026-10-27 #tt/house/backlog/200\n- [ ] Middle 📅 2026-10-28 #tt/house/backlog/300\n');
+  f.view.render();
+  expect(f.view.model.cells.now!.backlog!.map((t) => t.text)).toEqual(['Early', 'Middle', 'Late']);
+  expect(f.view.undoAction?.label).toBe('1 card sorted by due date');
+  await f.view.undo();
+  expect(f.content).toBe(original);
+  // Sorted already: nothing is written, and the board says so.
+  await f.index.refresh([f.file.path]);
+  const sorted = '- [ ] Early 📅 2026-10-27 #tt/house/backlog/100\n- [ ] Late 📅 2026-10-30 #tt/house/backlog/200\n';
+  f.setContent(sorted); await f.index.refresh([f.file.path]); f.view.undoAction = null;
+  await view.sortByDueDate();
+  expect(f.content).toBe(sorted);
+  expect(f.view.undoAction).toBeNull();
+  expect(notices.at(-1)).toBe('Task Trellis: this board is already in due-date order, so nothing moved.');
+});

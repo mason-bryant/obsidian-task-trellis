@@ -25,13 +25,15 @@ export type SettingsFormHost = {
   onDiscard(): void;
   onSave(): void;
   onCopyShortcut?(): void;
+  /** Asks before moving the board note to the trash. */
+  onDeleteBoard?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
-export type Section = 'columns' | 'dates' | 'filters' | 'quick' | 'appearance' | 'destination';
+export type Section = 'general' | 'columns' | 'filters' | 'quick' | 'appearance' | 'destination';
 
 /** Shared by the Obsidian modal and harness. Drafts are written only by an explicit save. */
 export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, original: BoardConfig, host: SettingsFormHost): SettingsForm {
-  let section: Section = host.initialSection ?? 'columns';
+  let section: Section = host.initialSection ?? 'general';
   let errors: string[] = [];
   let validation = false;
   let saving = false;
@@ -355,7 +357,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const selection = focused?.selectionStart;
     dispose(); clearForRedraw(root); root.classList.add('tt-settings');
     const nav = el('div', 'tt-settings-tabs'); nav.setAttribute('role', 'tablist'); nav.setAttribute('aria-label', 'Board settings sections');
-    const sections: [Section, string, string][] = [['columns', 'Columns', 'columns-3'], ['dates', 'Dates', 'calendar-days'], ['filters', 'Filters', 'list-filter'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
+    const sections: [Section, string, string][] = [['general', 'General', 'sliders-horizontal'], ['columns', 'Columns', 'columns-3'], ['filters', 'Filters', 'list-filter'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
     for (const [id, title, glyph] of sections) {
       const tab = button(title, 'tt-settings-tab'); tab.prepend(icon(glyph));
       tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(section === id)); tab.setAttribute('aria-controls', 'tt-settings-panel');
@@ -415,13 +417,20 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         body.append(check('Limit cards without a due date', draft.limitUndated, (v) => { draft.limitUndated = v; redraw(); }));
         if (draft.limitUndated) body.append(field('Undated card limit', input(draft.undatedLimit, 'Undated card limit', (v) => draft.undatedLimit = v, 'number')));
       }
-    } else if (section === 'dates') {
+    } else if (section === 'general') {
       heading(body, 'Plan your time', 'Overdue tasks stay in Due now. Future tasks are grouped into weekly rows.');
       body.append(field('Due now window', input(draft.dueNow, 'Due now window', (v) => draft.dueNow = v, 'number')));
       body.append(field('Window unit', select('Window unit', [['days', 'Days'], ['weeks', 'Weeks']], draft.dueNowUnit, (v) => { draft.dueNowUnit = v as 'days' | 'weeks'; draft.dueNow = convertDueNow(draft.dueNow, draft.dueNowUnit); redraw(); }), draft.dueNowUnit === 'weeks' ? 'This week counts as week 1.' : 'Includes today through this many days ahead.'));
       body.append(field('Future week rows', input(draft.weekHorizon, 'Future week rows', (v) => draft.weekHorizon = v, 'number')));
       body.append(field('Weeks start on', select('Weeks start on', WEEKDAY_NAMES.map((name, i) => [String(i), name]), String(draft.weekStart), (v) => draft.weekStart = Number(v))));
       body.append(field('Show completed tasks for', input(draft.showCompletedDays, 'Show completed tasks for', (v) => draft.showCompletedDays = v, 'number'), 'Days after completion. Set to 0 to hide completed cards.'));
+      if (host.onDeleteBoard) {
+        const danger = el('div', 'tt-settings-danger');
+        heading(danger, 'Delete board', 'Moves this board’s note to the trash. None of your tasks are deleted: they stay in their notes, just as they are.');
+        const remove = button('Delete board…', 'tt-button tt-button--danger'); remove.prepend(icon('trash-2'));
+        remove.dataset.focus = 'delete-board'; remove.onclick = () => host.onDeleteBoard?.();
+        danger.append(remove); body.append(danger);
+      }
     } else if (section === 'filters') {
       heading(body, 'Choose what belongs here', 'Choose a field, a condition and its values. A matching exclusion always wins.');
       const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(draft, false), filterGroup(draft, true)); body.append(groups);

@@ -78,7 +78,7 @@ it('keeps chip entry IME-safe, supports selection/blur and preserves drafts acro
   input.dispatchEvent(new Event('compositionstart')); input.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', isComposing: true}));
   input.dispatchEvent(new Event('blur')); expect(ui.draft.includeTags).toBe('');
   input.dispatchEvent(new Event('compositionend')); input.dispatchEvent(new Event('change')); expect(ui.draft.includeTags).toBe('仕事');
-  ui.root.querySelector<HTMLButtonElement>('#tt-tab-dates')!.click(); ui.root.querySelector<HTMLButtonElement>('#tt-tab-filters')!.click();
+  ui.root.querySelector<HTMLButtonElement>('#tt-tab-general')!.click(); ui.root.querySelector<HTMLButtonElement>('#tt-tab-filters')!.click();
   expect(ui.draft.includeTags).toBe('仕事'); expect(ui.root.querySelector('.tt-chip-text')?.textContent).toBe('仕事');
   ui.form.setSaving(true); expect(ui.control<HTMLButtonElement>('Must include: Add filter').disabled).toBe(true);
   ui.form.setSaving(false); expect(ui.control<HTMLButtonElement>('Must include: Add filter').disabled).toBe(false);

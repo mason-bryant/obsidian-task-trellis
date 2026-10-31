@@ -467,7 +467,7 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   color: var(--text-normal); font-size: var(--font-ui-small); box-shadow: none;
 }
 .tt-toolbar-button[aria-pressed='true'], .tt-quick-filter-menu.is-active { color: var(--text-accent); border-color: var(--interactive-accent); }
-.tt-subtasks-menu { min-width: 32px; flex: none; }
+.tt-arrange-menu { min-width: 32px; flex: none; }
 .tt-quick-filter-colors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .tt-quick-filter-colors[hidden] { display: none; }
 .tt-filter-context-note, .tt-filter-match-note { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
@@ -560,6 +560,12 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-check-field { display: flex; align-items: center; gap: 8px; margin: 18px 0; font-size: var(--font-ui-small); }
 .tt-check-field input { width: 18px; height: 18px; }
 .tt-button--subtle { background: transparent; }
+/* Destructive actions, in the red Obsidian uses for its own. */
+.tt-button--danger { background: var(--background-modifier-error, #e93147); border-color: transparent; color: var(--text-on-accent, #fff); }
+.tt-button--danger:hover { background: var(--background-modifier-error-hover, #d32640); }
+.tt-button--danger:disabled { opacity: .5; cursor: default; }
+.tt-settings-danger { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
+.tt-delete-board-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
 .tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }
@@ -937,7 +943,7 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 }
 
 .tt-bulk-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
-.tt-board--selecting .tt-subtasks-menu { display: none; }
+.tt-board--selecting .tt-arrange-menu { display: none; }
 
 /* Container-driven filter overflow uses the same breakpoint as column paging. */
 .tt-quick-filter-tools, .tt-quick-filter-group { display: contents; }

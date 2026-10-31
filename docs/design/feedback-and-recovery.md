@@ -16,6 +16,7 @@
 - Undo restores only writes that succeeded, and never overwrites newer edits: a note that changed after the action is skipped as a whole. There's no history to step back through; the board offers its latest action.
 - Renaming a board's tags is a bigger operation, with a preview of the affected notes and a recovery copy. Keep both, rather than treating it like a title edit.
 - Removing a column in board settings doesn't rewrite its tasks, so adding it back undoes it. Before saving, the Columns tab says how many open cards the column shows and which column they'll show in, and keeps that note current as other columns are renamed.
+- Deleting a board moves only its note to the trash, and its warning says that no tasks are deleted. The trash is how it's undone: restoring the note restores the board. A failure keeps the warning open and says nothing was changed.
 - Applying a color scheme keeps one Previous scheme: the outgoing colors, by label id. Names and assignments don't change. Editing a single label's name or color updates the palette without keeping a copy. Neither is task Undo.
 
 ## Exceptions
