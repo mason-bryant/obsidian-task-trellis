@@ -6,7 +6,8 @@ import { quickFilterColors } from './quickFilterColors.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { labelDescription } from '../core/labels.ts';
 import { newQuickFilterId, QUICK_DUES, QUICK_PRIORITIES } from '../core/quickFilters.ts';
-import { convertDueNow, filterError, filterWarnings, removedColumnNotes, WEEKDAY_NAMES, type BoardDraft, type DraftFilter, type DraftFilterSet, type DraftQuickFilter } from '../core/boardDraft.ts';
+import { convertDueNow, filterError, filterItemName, filterWarnings, removedColumnNotes, WEEKDAY_NAMES, type BoardDraft, type DraftFilter, type DraftFilterSet, type DraftGroup, type DraftNode, type DraftQuickFilter, type DraftRule } from '../core/boardDraft.ts';
+import type { FilterMatch } from '../core/filters.ts';
 import type { ParsedTask } from '../core/taskLine.ts';
 
 export type SettingsFormHost = {
@@ -25,6 +26,10 @@ export type SettingsFormHost = {
   onDiscard(): void;
   onSave(): void;
   onCopyShortcut?(): void;
+  /** Opens the board name editor, as clicking the board's name does. The draft stays open. */
+  onRenameBoard?(): void;
+  /** Names a new board that starts with this board's saved settings. */
+  onDuplicateBoard?(): void;
   /** Asks before moving the board note to the trash. */
   onDeleteBoard?(): void;
 };
@@ -145,111 +150,124 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     warned = new Set(now);
   }
 
-  // Empty tag/folder rows are UI drafts only; existing serialized filters keep their semantics.
-  type ListKey = 'includeTags' | 'excludeTags' | 'includeFolders' | 'excludeFolders';
-  const shownRules = new WeakMap<DraftFilterSet, Record<ListKey, boolean>>();
-  const visibleRulesOf = (set: DraftFilterSet) => {
-    let shown = shownRules.get(set);
-    if (!shown) {
-      shown = { includeTags: !!set.includeTags.trim(), excludeTags: !!set.excludeTags.trim(), includeFolders: !!set.includeFolders.trim(), excludeFolders: !!set.excludeFolders.trim() };
-      shownRules.set(set, shown);
-    }
-    return shown;
-  };
-  /** Keeps focus keys and labels distinct between the board's rules and each quick filter's. */
+  /** Keeps focus keys and labels distinct between the board's filters and each quick filter's. */
   type Scope = { key: string; label: string };
   const boardScope: Scope = { key: '', label: '' };
-  const literal = (text: string) => el('div', 'tt-filter-literal', text);
-  function ruleRow(name: string, fieldControl: HTMLElement, condition: HTMLElement, values: HTMLElement,
-    remove: () => void): HTMLElement {
-    const row = el('div', 'tt-filter-rule'); row.setAttribute('role', 'group'); row.setAttribute('aria-label', name);
-    row.append(field('Field', fieldControl), field('Condition', condition), field('Value', values),
-      iconButton('trash-2', `Remove ${name}`, remove));
-    return row;
-  }
+  const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+  const rulesChanged = (set: DraftFilterSet) => { if (set === draft) updateWarnings(); };
+  const blankRule = (kind: DraftRule['kind']): DraftRule => kind === 'property' ? { kind, key: '', condition: 'exists', values: [] } : { kind, values: [] };
 
-  function propertyRow(set: DraftFilterSet, scope: Scope, rule: DraftFilter, index: number, excluded: boolean): HTMLElement {
-    const group = `${scope.label}${excluded ? 'Must not include' : 'Must include'}`;
-    const rules = excluded ? set.excludedFilters : set.filters;
-    const prefix = `${scope.key}${excluded ? 'exclude' : 'include'}`;
-    const id = `${prefix}-property-${index}`;
-    const key = input(rule.key, `${group}: Property ${index + 1}`, (v) => { rule.key = v; refreshError(); if (set === draft) updateWarnings(); });
-    key.dataset.focus = id; attach(host.attachKeySuggest(key));
-    const condition = select(`${group}: Condition ${index + 1}`, [['exists', 'Exists'], ['matches', 'Matches any value']], rule.condition, (v) => {
-      rule.condition = v as DraftFilter['condition']; redraw(`${id}-condition`);
+  /**
+   * One filter, laid out like a condition in Obsidian's Bases filter editor: a single box holding
+   * what it tests, how, the values, then its trash button. `replace` swaps it for another kind of
+   * filter, and `remove` takes it out of its group.
+   */
+  function ruleEditor(set: DraftFilterSet, rule: DraftRule, path: number[], scope: Scope, replace: (next: DraftRule) => void, remove: () => void): HTMLElement {
+    const name = `${scope.label}${capitalized(filterItemName(rule, path))}`;
+    const statement = el('div', 'tt-filter-statement');
+    const expression = el('div', 'tt-filter-expression'); expression.setAttribute('role', 'group'); expression.setAttribute('aria-label', name);
+    const field = select(`${name}: Field`, [['tags', 'Tags'], ['folders', 'Note folder'], ['property', 'Note property']], rule.kind, (kind) => {
+      replace(blankRule(kind as DraftRule['kind'])); rulesChanged(set); redraw(`${name}: Field`);
     });
-    condition.dataset.focus = `${id}-condition`;
-    const error = el('div', 'tt-field-error'); error.id = `${id}-error`; error.setAttribute('role', 'status');
-    let valueControl: HTMLElement | undefined;
-    const refreshError = () => {
-      const message = validation ? filterError(rule) : null;
-      error.textContent = message ? `${group}: ${message}` : ''; error.hidden = !message;
-      key.setAttribute('aria-invalid', String(!!message && !rule.key.trim()));
-      key.setAttribute('aria-describedby', error.id);
-      valueControl?.querySelector('input')?.setAttribute('aria-invalid', String(!!message && !!rule.key.trim()));
-    };
-    if (rule.condition === 'matches') {
-      valueControl = chips(rule.values, `${group}: Values ${index + 1}`, (values) => { rule.values = values; refreshError(); }, (node) => host.attachValueSuggest(node, () => rule.key.trim()));
-      valueControl.querySelector('input')?.setAttribute('aria-describedby', error.id);
-    }
-    const property = el('div', 'tt-filter-property'); property.append(key, el('span', 'tt-help', 'Note property'));
-    const row = ruleRow(`${group.toLowerCase()} property ${index + 1}`, property, condition,
-      valueControl ?? literal('Any value, including empty'), () => {
-        rules.splice(index, 1); redraw(rules.length ? `${prefix}-property-${Math.min(index, rules.length - 1)}` : `${prefix}-add`);
+    field.classList.add('tt-filter-field');
+    expression.append(field);
+    let error: HTMLElement | null = null;
+    if (rule.kind !== 'property') {
+      const tags = rule.kind === 'tags';
+      expression.append(el('span', 'tt-filter-operator', tags ? 'include any of' : 'is in any of'),
+        chips(rule.values, `${name}: ${tags ? 'Tags' : 'Note folders'}`, (values) => { rule.values = values; },
+          (node) => tags ? host.attachTagSuggest(node) : host.attachFolderSuggest(node), tags));
+    } else {
+      const key = input(rule.key, `${name}: Property`, (v) => { rule.key = v; refreshError(); rulesChanged(set); });
+      key.classList.add('tt-filter-key'); key.placeholder = 'Property';
+      attach(host.attachKeySuggest(key));
+      const condition = select(`${name}: Condition`, [['exists', 'exists'], ['matches', 'is any of']], rule.condition, (v) => {
+        rule.condition = v as DraftFilter['condition']; rulesChanged(set); redraw(`${name}: Condition`);
       });
-    refreshError(); row.append(error); return row;
+      condition.classList.add('tt-filter-operator');
+      expression.append(key, condition);
+      const shown = el('div', 'tt-field-error'); shown.id = `${scope.key}filter-${path.join('-')}-error`; shown.setAttribute('role', 'status');
+      error = shown;
+      let valueControl: HTMLElement | undefined;
+      const refreshError = () => {
+        const message = validation ? filterError(rule) : null;
+        shown.textContent = message ? `${name}: ${message}` : ''; shown.hidden = !message;
+        key.setAttribute('aria-invalid', String(!!message && !rule.key.trim()));
+        key.setAttribute('aria-describedby', shown.id);
+        valueControl?.querySelector('input')?.setAttribute('aria-invalid', String(!!message && !!rule.key.trim()));
+      };
+      if (rule.condition === 'matches') {
+        valueControl = chips(rule.values, `${name}: Values`, (values) => { rule.values = values; refreshError(); }, (node) => host.attachValueSuggest(node, () => rule.key.trim()));
+        valueControl.querySelector('input')?.setAttribute('aria-describedby', shown.id);
+        expression.append(valueControl);
+      }
+      refreshError();
+    }
+    const actions = el('div', 'tt-filter-row-actions');
+    actions.append(iconButton('trash-2', `Remove ${name.toLowerCase()}`, remove));
+    expression.append(actions);
+    statement.append(expression);
+    if (error) statement.append(error);
+    return statement;
   }
 
-  function filterGroup(set: DraftFilterSet, excluded: boolean, scope = boardScope): HTMLElement {
-    const title = excluded ? 'Must not include' : 'Must include';
-    const name = `${scope.label}${title}`;
-    const prefix = `${scope.key}${excluded ? 'exclude' : 'include'}`;
-    const visibleRules = visibleRulesOf(set);
-    const group = el('section', `tt-filter-group${excluded ? ' tt-filter-group--exclude' : ''}`);
-    group.setAttribute('aria-label', name);
-    const heading = el('h4', 'tt-filter-title'); heading.append(icon(excluded ? 'circle-minus' : 'circle-plus'), el('span', '', title));
-    heading.append(el('span', 'tt-filter-logic', excluded ? 'Match any rule' : 'Match all rules'));
-    group.append(heading, el('p', 'tt-help', excluded
-      ? 'Hide a task if any rule below matches. Within a rule, any listed value can match.'
-      : 'A task must match every rule below. Within a rule, any listed value can match. Empty tag or folder rules add no restriction.'));
-    const tagKey = excluded ? 'excludeTags' : 'includeTags';
-    const folderKey = excluded ? 'excludeFolders' : 'includeFolders';
-    const rules = excluded ? set.excludedFilters : set.filters;
-    const listRow = (kind: 'tags' | 'folders') => {
-      const tags = kind === 'tags', key = tags ? tagKey : folderKey, separator = tags ? ',' : '\n';
-      const label = `${name}: ${tags ? 'Tags' : 'Note folders'}`;
-      const values = chips(set[key].split(separator).map((v) => v.trim()).filter(Boolean), label,
-        (values) => { set[key] = values.join(tags ? ', ' : '\n'); },
-        (node) => tags ? host.attachTagSuggest(node) : host.attachFolderSuggest(node), tags);
-      return ruleRow(`${name.toLowerCase()} ${kind}`, literal(tags ? 'Tags' : 'Note folder'),
-        literal(tags ? 'Matches any tag' : 'Is in any folder'), values, () => {
-          set[key] = ''; visibleRules[key] = false; redraw(`${prefix}-add`);
-        });
-    };
-    if (visibleRules[tagKey]) group.append(listRow('tags'));
-    if (visibleRules[folderKey]) group.append(listRow('folders'));
-    rules.forEach((rule, i) => group.append(propertyRow(set, scope, rule, i, excluded)));
-    if (!visibleRules[tagKey] && !visibleRules[folderKey] && !rules.length) {
-      group.append(el('p', 'tt-filter-empty', excluded ? 'No exclusions.' : 'No inclusion restrictions.'));
+  /**
+   * A group of filters, laid out like a group in Obsidian's Bases filter editor: All, Any or None at
+   * the top, then each filter or group after where, and or or. The outermost group is the whole
+   * filter; `remove` takes any other out of its parent, whose controls `parentKey` names.
+   */
+  function groupEditor(set: DraftFilterSet, group: DraftGroup, path: number[], scope: Scope, remove?: () => void, parentKey = ''): HTMLElement {
+    const nested = !!remove;
+    const name = nested ? `${scope.label}${capitalized(filterItemName(group, path))}` : `${scope.label}${scope.label ? 'filters' : 'Filters'}`;
+    const key = `${scope.key}filter${path.map((i) => `-${i}`).join('')}`;
+    const section = el('section', `tt-filter-group${nested ? ' tt-filter-group--nested' : ''}`);
+    section.setAttribute('aria-label', name);
+    const header = el('div', 'tt-filter-group-header');
+    const match = select(`${name}: Match`, [['all', 'All the following are true'], ['any', 'Any of the following are true'], ['none', 'None of the following are true']], group.match, (v) => {
+      group.match = v as FilterMatch; rulesChanged(set); redraw(`${name}: Match`);
+    });
+    match.classList.add('tt-filter-conjunction');
+    header.append(match);
+    if (remove) {
+      const actions = el('div', 'tt-filter-group-header-actions');
+      actions.append(iconButton('trash-2', `Remove ${name.toLowerCase()}`, () => { remove(); rulesChanged(set); redraw(`${parentKey}-add`); }));
+      header.append(actions);
     }
-    const choices: [string, string][] = [];
-    if (!visibleRules[tagKey]) choices.push(['tags', 'Tags']);
-    if (!visibleRules[folderKey]) choices.push(['folders', 'Note folder']);
-    choices.push(['property', 'Note property']);
-    let kind = choices[0]![0];
-    const picker = select(`${name}: New filter field`, choices, kind, (value) => { kind = value; });
-    picker.dataset.focus = `${prefix}-add`;
-    const add = button('Add filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus'));
-    add.setAttribute('aria-label', `${name}: Add filter`);
-    add.onclick = () => {
-      if (kind === 'property') {
-        rules.push({ key: '', condition: 'exists', values: [] }); redraw(`${prefix}-property-${rules.length - 1}`);
-      } else {
-        visibleRules[kind === 'tags' ? tagKey : folderKey] = true;
-        redraw(`${name}: ${kind === 'tags' ? 'Tags' : 'Note folders'}`);
-      }
+    // Like Bases, taking out a group's last filter takes out the group.
+    const removeItem = (i: number) => () => {
+      group.items.splice(i, 1);
+      if (!group.items.length && remove) { remove(); rulesChanged(set); redraw(`${parentKey}-add`); return; }
+      rulesChanged(set); redraw(`${key}-add`);
     };
-    const actions = el('div', 'tt-filter-add'); actions.append(picker, add); group.append(actions); return group;
+    const statements = el('div', 'tt-filter-group-statements');
+    group.items.forEach((item, i) => {
+      const row = el('div', `tt-filter-row${item.kind === 'group' ? ' tt-filter-row--group' : ''}`);
+      row.append(el('span', 'tt-filter-conjunction-label', i === 0 ? 'where' : group.match === 'all' ? 'and' : 'or'));
+      row.append(item.kind === 'group'
+        ? groupEditor(set, item, [...path, i], scope, removeItem(i), key)
+        : ruleEditor(set, item, [...path, i], scope, (next) => { group.items[i] = next; }, removeItem(i)));
+      statements.append(row);
+    });
+    if (!group.items.length) statements.append(el('p', 'tt-filter-empty', 'No filters, so every task can show.'));
+    const added = (item: DraftNode, focus: string) => {
+      group.items.push(item); rulesChanged(set);
+      redraw(`${scope.label}${capitalized(filterItemName(item, [...path, group.items.length - 1]))}: ${focus}`);
+    };
+    const actions = el('div', 'tt-filter-group-actions');
+    const add = button('Add filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus'));
+    add.setAttribute('aria-label', `${name}: Add filter`); add.dataset.focus = `${key}-add`;
+    add.onclick = () => added(blankRule('tags'), 'Field');
+    actions.append(add);
+    // Three levels: the whole filter, a group in it, and a group in that.
+    if (path.length < 2) {
+      const addGroup = button('Add filter group', 'tt-button tt-button--subtle'); addGroup.prepend(icon('plus'));
+      addGroup.setAttribute('aria-label', `${name}: Add filter group`);
+      // A new group matches the other way from its parent, with a filter to fill in, as in Bases.
+      addGroup.onclick = () => added({ kind: 'group', match: group.match === 'any' ? 'all' : 'any', items: [blankRule('tags')] }, 'Match');
+      actions.append(addGroup);
+    }
+    section.append(header, statements, actions);
+    return section;
   }
 
   function quickFilterEditor(body: HTMLElement): void {
@@ -326,8 +344,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         labels.append(quickCheck('No labels', `${key}-no-labels`, quick.noLabels, (on) => { quick.noLabels = on; }));
         item.append(labels, el('p', 'tt-help', 'No labels matches tasks with no labels assigned for this board.'));
         item.append(choices('Due', `${key}-due`, QUICK_DUES, quick.due));
-        const scope = { key: `${key}-`, label: `Quick filter ${i + 1}, ` };
-        const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(quick, false, scope), filterGroup(quick, true, scope)); item.append(groups);
+        item.append(groupEditor(quick, quick.filter, [], { key: `${key}-`, label: `Quick filter ${i + 1}, ` }));
         item.append(el('p', 'tt-help', 'Within Priority, Labels or Due, any checked choice can match. Every part you fill in must match. With nothing chosen, the filter matches every task.'));
       }
       body.append(item);
@@ -341,7 +358,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const add = button('Add quick filter', 'tt-button tt-button--subtle'); add.prepend(icon('plus')); add.dataset.focus = 'quick-add';
     add.onclick = () => {
       const id = newQuickFilterId(list);
-      list.push({ id, name: '', show: true, priorities: [], labels: [], noLabels: false, matchSubtasks: false, due: [], filters: [], excludedFilters: [], includeTags: '', excludeTags: '', includeFolders: '', excludeFolders: '' });
+      list.push({ id, name: '', show: true, priorities: [], labels: [], noLabels: false, matchSubtasks: false, due: [], filter: { kind: 'group', match: 'all', items: [] } });
       openQuick.add(id); redraw(`quick-${list.length - 1}-name`);
     };
     body.append(add);
@@ -424,6 +441,18 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(field('Future week rows', input(draft.weekHorizon, 'Future week rows', (v) => draft.weekHorizon = v, 'number')));
       body.append(field('Weeks start on', select('Weeks start on', WEEKDAY_NAMES.map((name, i) => [String(i), name]), String(draft.weekStart), (v) => draft.weekStart = Number(v))));
       body.append(field('Show completed tasks for', input(draft.showCompletedDays, 'Show completed tasks for', (v) => draft.showCompletedDays = v, 'number'), 'Days after completion. Set to 0 to hide completed cards.'));
+      if (host.onRenameBoard || host.onDuplicateBoard) {
+        const board = el('div', 'tt-settings-board-actions');
+        heading(board, 'Rename or duplicate', 'Duplicating makes a new board with this board’s saved settings. No tasks are copied or changed.');
+        const actions = el('div', 'tt-settings-board-buttons');
+        const action = (text: string, glyph: string, key: string, run: () => void) => {
+          const b = button(text, 'tt-button'); b.prepend(icon(glyph));
+          b.dataset.focus = key; b.onclick = run; actions.append(b);
+        };
+        if (host.onRenameBoard) action('Rename board…', 'pencil', 'rename-board', () => host.onRenameBoard?.());
+        if (host.onDuplicateBoard) action('Duplicate board…', 'copy', 'duplicate-board', () => host.onDuplicateBoard?.());
+        board.append(actions); body.append(board);
+      }
       if (host.onDeleteBoard) {
         const danger = el('div', 'tt-settings-danger');
         heading(danger, 'Delete board', 'Moves this board’s note to the trash. None of your tasks are deleted: they stay in their notes, just as they are.');
@@ -432,8 +461,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         danger.append(remove); body.append(danger);
       }
     } else if (section === 'filters') {
-      heading(body, 'Choose what belongs here', 'Choose a field, a condition and its values. A matching exclusion always wins.');
-      const groups = el('div', 'tt-filter-groups'); groups.append(filterGroup(draft, false), filterGroup(draft, true)); body.append(groups);
+      heading(body, 'Choose what belongs here', 'Filter by tags, note folders and note properties. Put filters in a group to combine them another way.');
+      body.append(groupEditor(draft, draft.filter, [], boardScope));
       const warnings = el('div', 'tt-filter-warnings');
       warnings.append(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text))); body.append(warnings);
       body.append(el('p', 'tt-scope-note', 'Tags match the task or its page, including nested tags. Folders include their descendants. Properties belong to the source note. Press Enter or choose a suggestion to add a value. Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
@@ -497,9 +526,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   return {
     showErrors(next) {
       // Property errors live beside their controls and update as the user fixes them.
-      errors = next.filter((message) => !/^(Quick filter \d+, )?[Mm]ust (not )?include, property \d+:/.test(message)); validation = true;
-      const quickInvalid = draft.quickFilters.filter((q) => !q.name.trim() || q.filters.some(filterError) || q.excludedFilters.some(filterError));
-      if (draft.filters.some(filterError) || draft.excludedFilters.some(filterError)) section = 'filters';
+      errors = next.filter((message) => !/^(Quick filter \d+, filter|Filter) [\d.]+:/.test(message)); validation = true;
+      const unfinished = (group: DraftGroup): boolean => group.items.some((item) => item.kind === 'group' ? unfinished(item) : item.kind === 'property' && !!filterError(item));
+      const quickInvalid = draft.quickFilters.filter((q) => !q.name.trim() || unfinished(q.filter));
+      if (unfinished(draft.filter)) section = 'filters';
       else if (quickInvalid.length) { section = 'quick'; for (const q of quickInvalid) openQuick.add(q.id); }
       draw();
       const invalid = root.querySelector<HTMLElement>('[aria-invalid="true"]');

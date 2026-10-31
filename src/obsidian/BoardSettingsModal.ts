@@ -12,6 +12,8 @@ import { noteTags } from './noteTags.ts';
 import { notice } from './notice.ts';
 import { shortcutURL } from '../core/shortcut.ts';
 import { DeleteBoardModal } from './DeleteBoardModal.ts';
+import { DuplicateBoardModal } from './DuplicateBoardModal.ts';
+import { RenameBoardModal } from './RenameBoardModal.ts';
 
 /**
  * Edits a board note’s settings as a form instead of raw front matter.
@@ -22,6 +24,8 @@ export class BoardSettingsModal extends Modal {
   private draft: BoardDraft;
   private form: SettingsForm | null = null;
   private saving = false;
+  /** Tasks by the column their tag names on this board, for the removed-column notes and Delete board. Counted when first needed. */
+  private tagged: Map<string, BoardTask[]> | null = null;
 
   constructor(
     app: App,
@@ -66,14 +70,6 @@ export class BoardSettingsModal extends Modal {
     this.modalEl.addClass('tt-settings-modal');
     this.chrome = prepareEditorModal(this.modalEl);
     const properties = collectProperties(this.app);
-    const slug = this.config.slug;
-    const tagged = new Map<string, BoardTask[]>();
-    for (const task of this.plugin.index.all()) {
-      const column = task.placements[slug]?.column;
-      if (!column) continue;
-      const list = tagged.get(column);
-      if (list) list.push(task); else tagged.set(column, [task]);
-    }
 
     const tags = [...new Set(this.plugin.index.all().flatMap((task) => task.tags))].sort();
     const sourceTags = [...new Set(this.app.vault.getMarkdownFiles().filter((file) => !this.plugin.isExcludedFromIndex(file.path))
@@ -104,11 +100,24 @@ export class BoardSettingsModal extends Modal {
       attachValueSuggest: (input, key) => suggest(input, () => [...(properties.get(key()) ?? [])]),
       attachTagSuggest: (input) => suggest(input, () => [...new Set([...tags, ...sourceTags])].sort()),
       attachFolderSuggest: (input) => suggest(input, () => folders),
-      taggedTasks: (columnId) => tagged.get(columnId) ?? [],
+      taggedTasks: (columnId) => this.taggedTasks().get(columnId) ?? [],
       onDiscard: () => this.close(),
       onSave: () => void this.save(),
+      onRenameBoard: () => new RenameBoardModal(this.app, this.file, this.plugin.boardRenames, (slug) => this.renamed(slug)).open(),
+      onDuplicateBoard: () => {
+        const unsaved = draftChanged(this.draft, this.config);
+        new DuplicateBoardModal(this.app, this.plugin, this.file, this.config, unsaved, (copy) => {
+          // Closing would discard unsaved changes, so then the settings stay open over the new board.
+          if (!unsaved) this.close();
+          else notice(this.app, `Task Trellis: created the ${copy.basename} board. It’s open behind these settings.`, { region: this.contentEl });
+          void this.plugin.openBoard(copy).catch((error: unknown) => {
+            console.error('[Task Trellis] opening the duplicated board failed', error);
+            notice(this.app, `Task Trellis: created ${copy.path}, but the board could not be opened. Open it from the boards sidebar.`, { alert: true });
+          });
+        }).open();
+      },
       onDeleteBoard: () => {
-        const count = [...tagged.values()].reduce((sum, list) => sum + list.length, 0);
+        const count = [...this.taggedTasks().values()].reduce((sum, list) => sum + list.length, 0);
         new DeleteBoardModal(this.app, this.file, count, () => this.close()).open();
       },
       onCopyShortcut: () => {
@@ -119,6 +128,28 @@ export class BoardSettingsModal extends Modal {
           .catch(() => { notice(this.app, 'Task Trellis: could not copy the shortcut URL. See the setup instructions in the readme.', { alert: true, region: this.contentEl }); });
       },
     });
+  }
+
+  private taggedTasks(): Map<string, BoardTask[]> {
+    if (this.tagged) return this.tagged;
+    const tagged = this.tagged = new Map<string, BoardTask[]>();
+    for (const task of this.plugin.index.all()) {
+      const column = task.placements[this.config.slug]?.column;
+      if (!column) continue;
+      const list = tagged.get(column);
+      if (list) list.push(task); else tagged.set(column, [task]);
+    }
+    return tagged;
+  }
+
+  /**
+   * After Rename board…, the draft stays as it was. Renaming the tags too wrote the new slug, so
+   * saving and the counts of tagged tasks use it from here on.
+   */
+  private renamed(slug = this.config.slug): void {
+    this.config = { ...this.config, name: this.file.basename, slug };
+    this.setTitle(`${this.file.basename} board settings`);
+    this.tagged = null;
   }
 
   onClose(): void {

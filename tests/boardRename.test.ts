@@ -51,6 +51,13 @@ function editor(save: (name: string) => Promise<void>) {
   const enter = (options: KeyboardEventInit = {}) => input.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true, ...options}));
   return { input, enter, close, header, body };
 }
+it('takes focus back, with the name selected, after Obsidian focuses the dialog’s first button', async () => {
+  const ui = editor(vi.fn());
+  ui.header.querySelector<HTMLButtonElement>('.tt-editor-save')!.focus();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(document.activeElement).toBe(ui.input);
+  expect([ui.input.selectionStart, ui.input.selectionEnd]).toEqual([0, 'Original'.length]);
+});
 it('retains a failed name for retry, prevents overlapping saves, and ignores IME Enter', async () => {
   let reject!: (error: Error) => void;
   const save = vi.fn(() => new Promise<void>((_resolve, fail) => { reject = fail; }));

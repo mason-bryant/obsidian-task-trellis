@@ -7,6 +7,7 @@ import type { Section } from './renderBoardSettings.ts';
 import { labelDescription, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
 import type { BoardColumn, LabelShape } from '../core/boardConfig.ts';
+import { filterRules } from '../core/filters.ts';
 import { diffDays, shortLabel } from '../core/dates.ts';
 import { installColumnSwipe } from './columnSwipe.ts';
 import { installTouchCardDrag } from './touchCardDrag.ts';
@@ -203,8 +204,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   if (!config.showColumnSelector || !model.columns.some((c) => c.id === display.column)) display.column = '';
   let bulk = bulkStates.get(root);
   if (!bulk) { bulk = new BulkSelection(); bulkStates.set(root, bulk); }
-  bulk.resetScope(JSON.stringify([config.slug, config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders,
-    config.propertyFilters, config.excludedPropertyFilters, model.activeQuickFilters, config.quickFilters, display.column]));
+  bulk.resetScope(JSON.stringify([config.slug, config.filter, model.activeQuickFilters, config.quickFilters, display.column]));
   const selection = bulk;
   const redraw = () => {
     const latest = renderInputs.get(root)!;
@@ -355,8 +355,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const hint = el('div', 'tt-scroll-hint', config.showColumnSelector
     ? 'Scroll sideways to explore columns, or choose one above.' : 'Scroll sideways to explore columns.');
   hint.hidden = !!display.column; root.insertBefore(hint, scrollEl);
-  const filters = config.propertyFilters.length + config.excludedPropertyFilters.length +
-    [config.includeTags, config.excludeTags, config.includeFolders, config.excludeFolders].filter((list) => list.length).length;
+  const filters = filterRules(config.filter).length;
   if (filters) heading.append(el('span', 'tt-filter-count', `${filters} filter ${filters === 1 ? 'condition' : 'conditions'}`));
   if (model.total === 0 && model.activeQuickFilters.length && host.onSetQuickFilters) {
     const empty = el('section', 'tt-note tt-empty-state');

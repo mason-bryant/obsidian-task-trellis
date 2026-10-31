@@ -1,7 +1,7 @@
 import { NotePopups } from './src/obsidian/NotePopup.ts';
 import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
 import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
-import { boardNameError } from './src/core/boardName.ts';
+import { boardNameError, siblingPath } from './src/core/boardName.ts';
 import { isComposing } from './src/ui/dom.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
@@ -17,11 +17,12 @@ import {
   TFile,
   WorkspaceLeaf,
   normalizePath,
+  stringifyYaml,
   type App,
   type ViewCreator,
   type ViewState,
 } from 'obsidian';
-import { FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
+import { BOARD_NOTE_TEXT, duplicateBoardFrontmatter, FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
 import { changedFrontmatter, draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
@@ -239,7 +240,10 @@ export default class TaskTrellisPlugin extends Plugin {
           fm[FM.columnWidths] = remapColumnWidths(
             parseColumnWidths(fm[FM.columnWidths], config.columns.map((c) => c.id)), renames, removed);
         }
-        Object.assign(fm, frontmatter);
+        // Undefined removes a property, such as `filter` once the rules fit the plain lists again.
+        for (const [key, value] of Object.entries(frontmatter)) {
+          if (value === undefined) delete fm[key]; else fm[key] = value;
+        }
       });
     } catch (error) {
       await retagUndo?.undo();
@@ -360,15 +364,8 @@ export default class TaskTrellisPlugin extends Plugin {
       new Notice(`Task Trellis: ${path} already exists.`);
       return false;
     }
-    const taken = new Set(this.boards.boards().map((b) => b.config.slug));
-    const base = slugify(name) || 'board';
-    let slug = base;
-    for (let i = 2; taken.has(slug); i++) slug = `${base}-${i}`;
-
-    const file = await this.app.vault.create(
-      path,
-      'This note is a Task Trellis board. Its properties are the board settings; open Board settings (the gear icon) in the board view to change them.\n',
-    );
+    const slug = this.freeSlug(name);
+    const file = await this.app.vault.create(path, BOARD_NOTE_TEXT);
     // The note exists from here on, so a later failure must not suggest creating it again.
     try {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
@@ -388,6 +385,34 @@ export default class TaskTrellisPlugin extends Plugin {
     }
     new BoardSettingsModal(this.app, this, file, parseBoardConfig(name, newBoardFrontmatter(slug)).config, 'destination').open();
     return true;
+  }
+
+  /** A slug from the board's name that no other board uses: house, or house-2 when that's taken. */
+  private freeSlug(name: string): string {
+    const taken = new Set(this.boards.boards().map((b) => b.config.slug));
+    const base = slugify(name) || 'board';
+    let slug = base;
+    for (let i = 2; taken.has(slug); i++) slug = `${base}-${i}`;
+    return slug;
+  }
+
+  /**
+   * Makes a board next to `file` with its settings, under `name` and a slug of its own, in a single
+   * write, so a failure leaves nothing behind. No task changes: the copy shows the tasks its
+   * filters match, without the original's tags placing or labeling them.
+   */
+  async duplicateBoard(file: TFile, name: string): Promise<TFile> {
+    const invalid = boardNameError(name);
+    if (invalid) throw new Error(invalid);
+    const path = siblingPath(file.path, name.trim());
+    if (this.app.vault.getAbstractFileByPath(path)) throw new Error('A note or folder with that name already exists. Choose another board name.');
+    const settings = duplicateBoardFrontmatter(this.app.metadataCache.getFileCache(file)?.frontmatter ?? {}, this.freeSlug(name));
+    try {
+      return await this.app.vault.create(path, `---\n${stringifyYaml(settings)}---\n${BOARD_NOTE_TEXT}`);
+    } catch (error) {
+      console.error('[Task Trellis] duplicating the board failed', error);
+      throw new Error('Could not create the new board, so nothing was changed. Your name has been kept; check the folder and try again.');
+    }
   }
 }
 

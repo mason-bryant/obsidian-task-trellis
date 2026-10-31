@@ -9,6 +9,7 @@ Task Trellis keeps everything in your notes. From 1.0, the formats below are sta
 - **Placement tags** at the end of a task line: `#tt/<board>/<column>/<n>`. See [tasks](tasks.md).
 - **Label tags:** `#tt/<board>/label/<id>`. See [labels](labels.md).
 - **Board notes:** the properties in the [property reference](boards.md#property-reference), and the label and quick-filter properties the board settings write. A later 1.x release may add properties; their defaults keep today's behavior. Saving settings writes only what you changed, and properties Task Trellis doesn't know are left alone.
+- **Filter groups:** filters the plain lists can't hold are saved as a `filter` property, which releases before groups don't read. Those releases show no tasks on that board, or for that quick filter, rather than tasks it should hide, until they're updated. Boards whose filters fit the plain lists are saved as before. See [How filters are saved](filters.md#how-filters-are-saved).
 - **Task lines:** dates, priorities and recurrence use the Tasks plugin's format. Task Trellis adds only its tags, and the `<!-- task-trellis-request:<id> -->` marker when an add passes a request id.
 - **Plugin settings,** which updates keep.
 - **The iOS shortcut's link,** `obsidian://task-trellis-create` with `vault`, `board` and `text`. See [iOS shortcuts](ios-shortcuts.md).

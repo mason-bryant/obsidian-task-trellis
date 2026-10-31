@@ -6,7 +6,7 @@ import { getFrontMatterInfo, setIcon, Modal, Setting, TFile, TFolder, normalizeP
 import { buildBoard, type BoardModel, type BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
-import { taskMatchesBoard } from '../core/filters.ts';
+import { filterRules, taskMatchesBoard } from '../core/filters.ts';
 import { backlogCell, planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, removeLinesAt, type NewTaskFields } from '../core/newTask.ts';
 import { parseTaskLine, setDueDate, normalizeRequestMarker } from '../core/taskLine.ts';
 import type { ShortcutTask } from '../core/shortcut.ts';
@@ -185,8 +185,7 @@ export class QuickAdd {
     // Folder filters need only the path. Tag and property filters also read the note, and a new note
     // has its template's properties and tags only once Obsidian has indexed it, a moment after each
     // write. Listen from before writing, so the check below can wait for the note as the add left it.
-    const readsNote = config.includeTags.length + config.excludeTags.length +
-      config.propertyFilters.length + config.excludedPropertyFilters.length > 0;
+    const readsNote = filterRules(config.filter).some((rule) => rule.kind !== 'folders');
     const index = created && readsNote ? this.watchIndex(file) : null;
     try {
       await this.app.vault.process(file, (content) => {

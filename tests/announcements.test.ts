@@ -82,10 +82,12 @@ it('says a new filter warning from the settings dialog, but not one already show
 
   const { form, control } = settings({ 'filter-properties': ['status'] });
   const status = region(form);
-  const field = control<HTMLSelectElement>('Must not include: New filter field'); field.value = 'property'; field.dispatchEvent(new Event('change'));
-  control<HTMLButtonElement>('Must not include: Add filter').click();
+  const choose = (label: string, value: string) => { const node = control<HTMLSelectElement>(label); node.value = value; node.dispatchEvent(new Event('change')); };
+  control<HTMLButtonElement>('Filters: Add filter group').click();
+  choose('Group 2: Match', 'none');
+  choose('Filter 2.1: Field', 'property');
   expect(region(form)).toBe(status);
-  const key = control<HTMLInputElement>('Must not include: Property 1'); key.value = 'status'; key.dispatchEvent(new Event('input'));
+  const key = control<HTMLInputElement>('Filter 2.1: Property'); key.value = 'status'; key.dispatchEvent(new Event('input'));
   await later();
   expect(status.textContent).toBe('“status” is required and its existence is excluded. No note can satisfy both rules.');
   expect(form.querySelector('.tt-filter-warnings')!.getAttribute('role')).toBeNull();

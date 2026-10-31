@@ -36,7 +36,8 @@ export async function renameBoard(app: App, file: TFile, originalPath: string, n
 
 export class RenameBoardModal extends Modal {
   private chrome: ReturnType<typeof prepareEditorModal> | null = null;
-  constructor(app: App, private file: TFile, private migration?: BoardTagRename) { super(app); }
+  /** `onRenamed` gets the board's slug, which changes only when its tags were renamed too. */
+  constructor(app: App, private file: TFile, private migration?: BoardTagRename, private onRenamed?: (slug?: string) => void) { super(app); }
   onOpen(): void {
     const originalPath = this.file.path;
     this.setTitle('Rename board');
@@ -47,11 +48,13 @@ export class RenameBoardModal extends Modal {
       async (name) => {
         if (migration?.busy) throw new Error('Another board rename is running.');
         await renameBoard(this.app, this.file, originalPath, name);
+        this.onRenamed?.();
       }, () => super.close(), migration ? {
         preview: async (name) => { plan = await migration.preview(this.file, originalPath, name); return plan; },
         apply: async () => {
           if (!plan) throw new Error('Preview the changes first.');
           const path = await migration.apply(plan);
+          this.onRenamed?.(plan.newSlug);
           new Notice(`Task Trellis: board and tags renamed. Recovery copy: ${path}`, 10000);
         },
       } : undefined);

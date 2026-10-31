@@ -3,14 +3,16 @@ import { parseColumnWidths, type ColumnWidths } from './columnWidths.ts';
 import { parseLabels, starterLabels, type BoardLabel } from './labels.ts';
 import { defaultQuickFilters, parseQuickFilters, quickFilterFrontmatter, type QuickFilter } from './quickFilters.ts';
 import { slugify } from './taskLine.ts';
-import { normalizeFolder, normalizeTag, propertyFilters, scalarText, stringList } from './frontmatterValues.ts';
+import { scalarText, stringList } from './frontmatterValues.ts';
+import { filterFrontmatter, readFilter } from './filterTree.ts';
+import type { FilterSet } from './filters.ts';
 
 export type BoardColumn = { id: string; label: string };
 
 /** One front matter filter: the note's `key` must hold one of `values` (any value when empty). */
 export type PropertyFilter = { key: string; values: string[] };
 
-export type BoardConfig = {
+export type BoardConfig = FilterSet & {
   name: string;
   slug: string;
   columns: BoardColumn[];
@@ -38,12 +40,6 @@ export type BoardConfig = {
   weekHorizon: number;
   /** 0 = Sunday, 1 = Monday. */
   weekStart: number;
-  propertyFilters: PropertyFilter[];
-  excludedPropertyFilters: PropertyFilter[];
-  includeTags: string[];
-  excludeTags: string[];
-  includeFolders: string[];
-  excludeFolders: string[];
   /** 0 hides completed tasks. */
   showCompletedDays: number;
   compact: boolean;
@@ -81,6 +77,11 @@ export function backlogColumn(config: BoardConfig): BoardColumn | undefined {
   return ordinary.find((c) => c.id === 'backlog') ?? ordinary[0];
 }
 
+/** The column an open task shows in when this board's tags don't place it: the first that isn't Done or No due date. */
+export function untaggedColumn(config: BoardConfig): BoardColumn {
+  return config.columns.find((c) => c.id !== config.doneColumn && c.id !== config.undatedColumn) ?? config.columns[0]!;
+}
+
 export type DueNowUnit = 'days' | 'weeks';
 
 /** Board note front matter keys. */
@@ -105,6 +106,7 @@ export const FM = {
   dueNowUnit: 'due-now-unit',
   weekHorizon: 'week-horizon',
   weekStart: 'week-start',
+  filter: 'filter',
   filterProperties: 'filter-properties',
   excludeProperties: 'exclude-properties',
   includeTags: 'include-tags',
@@ -130,13 +132,27 @@ export const DEFAULT_COLUMNS = ['Backlog', 'Doing', 'Waiting', 'Done'];
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
+/** The board note's text under its properties. */
+export const BOARD_NOTE_TEXT = 'This note is a Task Trellis board. Its properties are the board settings; open Board settings (the gear icon) in the board view to change them.\n';
+
+/**
+ * Front matter for a copy of a board: its settings under a new slug. The note's other properties,
+ * such as aliases, aren't board settings, so they stay with the original.
+ */
+export function duplicateBoardFrontmatter(fm: Record<string, unknown>, slug: string): Record<string, unknown> {
+  const settings = new Set<string>(Object.values(FM));
+  const copy: Record<string, unknown> = { [FM.slug]: slug };
+  for (const [key, value] of Object.entries(fm)) if (settings.has(key) && key !== FM.slug) copy[key] = structuredClone(value);
+  return copy;
+}
+
 /** Front matter for a new board note. */
 export function newBoardFrontmatter(slug: string): Record<string, unknown> {
   return {
     [FM.slug]: slug,
     [FM.labels]: starterLabels(),
     [FM.labelNext]: starterLabels().length + 1,
-    [FM.quickFilters]: defaultQuickFilters(starterLabels()).map(quickFilterFrontmatter),
+    [FM.quickFilters]: defaultQuickFilters(starterLabels()).map((f) => quickFilterFrontmatter(f, filterFrontmatter(f.filter))),
     [FM.columns]: [...DEFAULT_COLUMNS],
     [FM.doneColumn]: 'Done',
     [FM.limitDone]: true,
@@ -233,12 +249,7 @@ export function parseBoardConfig(
       ...dueNowSetting(f, warnings),
       weekHorizon: intSetting(f[FM.weekHorizon], 2, 0, 52),
       weekStart: weekStartSetting(f[FM.weekStart], warnings),
-      propertyFilters: propertyFilters(f[FM.filterProperties]),
-      excludedPropertyFilters: propertyFilters(f[FM.excludeProperties]),
-      includeTags: stringList(f[FM.includeTags]).map(normalizeTag).filter(Boolean),
-      excludeTags: stringList(f[FM.excludeTags]).map(normalizeTag).filter(Boolean),
-      includeFolders: stringList(f[FM.includeFolders]).map(normalizeFolder).filter(Boolean),
-      excludeFolders: stringList(f[FM.excludeFolders]).map(normalizeFolder).filter(Boolean),
+      filter: readFilter(f, warnings, 'The board’s filter'),
       showCompletedDays: intSetting(f[FM.showCompletedDays], 7, 0, 3650),
       compact: boolSetting(f[FM.compact], false),
       showColumnSelector: boolSetting(f[FM.showColumnSelector], true),

@@ -559,32 +559,74 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-icon-button:disabled { opacity: .35; cursor: default; }
 .tt-check-field { display: flex; align-items: center; gap: 8px; margin: 18px 0; font-size: var(--font-ui-small); }
 .tt-check-field input { width: 18px; height: 18px; }
-.tt-button--subtle { background: transparent; }
-/* Destructive actions, in the red Obsidian uses for its own. */
-.tt-button--danger { background: var(--background-modifier-error, #e93147); border-color: transparent; color: var(--text-on-accent, #fff); }
-.tt-button--danger:hover { background: var(--background-modifier-error-hover, #d32640); }
-.tt-button--danger:disabled { opacity: .5; cursor: default; }
-.tt-settings-danger { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
+/* Two classes, to outrank Obsidian's `button:not(.clickable-icon)`, which would give it a background. */
+.tt-button.tt-button--subtle { background: transparent; box-shadow: none; }
+.tt-button.tt-button--subtle:hover { background: var(--background-modifier-hover); }
+/* Destructive actions, in the red Obsidian uses for its own. Two classes, to outrank Obsidian's `button:not(.clickable-icon)`. */
+.tt-button.tt-button--danger { background: var(--background-modifier-error, #e93147); border-color: transparent; color: var(--text-on-accent, #fff); }
+.tt-button.tt-button--danger:hover { background: var(--background-modifier-error-hover, #d32640); }
+.tt-button.tt-button--danger:disabled { opacity: .5; cursor: default; }
+.tt-settings-board-actions, .tt-settings-danger { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
+.tt-settings-board-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .tt-delete-board-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
 .tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }
 .tt-settings-save .tt-icon svg { stroke-width: 2.5; }
-.tt-filter-group { padding: 18px; margin: 18px 0; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-secondary); }
-.tt-filter-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; }
-.tt-filter-title .tt-icon { color: var(--text-accent); }
-.tt-filter-group--exclude .tt-filter-title .tt-icon { color: var(--text-muted); }
+/*
+ * The filter editor follows Obsidian's Bases filter editor: a nested group is a card, each filter is
+ * one box with dividers between its parts, and where, and or or sits before each filter.
+ */
+.tt-filter-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 16px 0; }
+.tt-filter-group.tt-filter-group--nested { flex: 1; margin: 0; padding: 6px; border: 1px solid var(--table-border-color, var(--background-modifier-border)); border-radius: var(--radius-m, 8px); background-color: var(--background-primary-alt, var(--background-secondary)); }
+.tt-filter-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 2px; }
+.tt-filter-group-header > .tt-filter-conjunction { width: auto; min-width: 0; padding-right: 28px; border: 0; background-color: transparent; box-shadow: none; font-size: var(--font-ui-small); text-align: start; }
+.tt-filter-group-header > .tt-filter-conjunction:hover { background-color: var(--background-modifier-hover); }
+.tt-filter-group-header-actions { display: flex; }
+.tt-filter-group-statements { display: flex; flex-direction: column; gap: 6px; }
+.tt-filter-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tt-filter-conjunction-label { flex: none; min-width: 4.5rem; font-size: var(--font-ui-small); text-align: end; }
+.tt-filter-row--group > .tt-filter-conjunction-label { display: none; }
+.tt-filter-statement { display: flex; flex-direction: column; row-gap: 4px; flex: 1; min-width: 0; }
+.tt-filter-expression { display: flex; align-items: center; width: 100%; min-width: 0; min-height: var(--input-height, 30px); border-radius: var(--radius-s, 4px); background-color: var(--bases-filter-input-background, var(--background-primary)); box-shadow: 0 0 0 1px var(--background-modifier-border-hover, var(--background-modifier-border)); font-size: var(--font-ui-small); }
+.tt-filter-expression > .tt-input { min-height: 0; border: 0; border-radius: 0; background-color: transparent; box-shadow: none; font-size: var(--font-ui-small); }
+.tt-filter-expression > select { align-self: stretch; height: auto; padding-top: 0; padding-bottom: 0; }
+.tt-filter-expression > .tt-filter-field { flex: none; width: auto; max-width: 14em; padding-right: 28px; }
+.tt-filter-expression > .tt-filter-key { flex: 0 1 9em; width: 9em; min-width: 5em; border: solid var(--background-modifier-border); border-width: 0 0 0 1px; }
+.tt-filter-operator { flex: none; align-self: stretch; display: flex; align-items: center; max-width: 33%; padding: 0 10px; border: solid var(--background-modifier-border); border-width: 0 1px; white-space: nowrap; }
+.tt-filter-expression > select.tt-filter-operator { width: auto; padding-right: 28px; border: solid var(--background-modifier-border); border-width: 0 1px; }
+/* Chips and the entry share one line, wrapping only when they run out of room. */
+.tt-filter-expression > .tt-chips { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 8em; padding: 3px 6px; border: 0; border-radius: 0; background: transparent; }
+.tt-filter-expression > .tt-chips > .tt-chip-list { display: contents; }
+.tt-filter-expression > .tt-chips:focus-within { outline-offset: -2px; }
+.tt-filter-expression > .tt-chips > .tt-input { flex: 1 1 6em; width: auto; min-width: 6em; min-height: 0; padding: 3px 4px; }
+.tt-filter-row-actions { display: flex; margin-inline-start: auto; padding: 2px; }
+.tt-filter-group-actions { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; }
+.tt-filter-group-actions > .tt-button { border-color: transparent; }
 .tt-filter-empty { color: var(--text-muted); font-size: var(--font-ui-small); padding: 8px 0 12px; }
-.tt-filter-rule { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) 44px; align-items: start; gap: 12px; padding: 12px; margin: 12px 0; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-primary); }
-.tt-filter-rule > .tt-field { margin: 0; min-width: 0; }
-.tt-filter-rule > .tt-icon-button { margin-top: 22px; width: 44px; height: 44px; }
-.tt-filter-rule .tt-input { min-width: 0; min-height: 44px; }
-.tt-filter-literal { min-height: 44px; display: flex; align-items: center; font-size: var(--font-ui-small); overflow-wrap: anywhere; }
-.tt-filter-property { display: flex; flex-direction: column; gap: 4px; }
-.tt-filter-logic { margin-left: auto; font-size: var(--font-ui-small); font-weight: normal; color: var(--text-muted); }
-.tt-filter-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.tt-filter-add > select { flex: 1; min-width: 140px; min-height: 44px; }
-.tt-filter-add > button { min-height: 44px; }
+/*
+ * On narrow settings, where, and or or goes above its filter, and a filter's parts wrap: what it
+ * tests and its trash button first, then the rest. Bases hides the words on phones; they're kept.
+ */
+@container settings (max-width: 500px) {
+  .tt-filter-row { flex-direction: column; align-items: stretch; gap: 2px; }
+  .tt-filter-conjunction-label { min-width: 0; padding-left: 2px; text-align: start; color: var(--text-muted); }
+  .tt-filter-group.tt-filter-group--nested { padding: 4px; }
+  .tt-filter-group-header > .tt-filter-conjunction { flex: 1; padding-left: 6px; padding-right: 22px; }
+  .tt-filter-expression { flex-wrap: wrap; }
+  .tt-filter-expression > .tt-filter-field { order: 0; flex: 1 1 0; max-width: none; }
+  .tt-filter-expression > .tt-filter-row-actions { order: 1; margin-inline-start: 0; }
+  .tt-filter-expression > .tt-filter-field, .tt-filter-expression > .tt-filter-row-actions { border-bottom: 1px solid var(--background-modifier-border); }
+  .tt-filter-expression > :nth-child(n+2):not(.tt-filter-row-actions) { order: 2; }
+  .tt-filter-expression > .tt-filter-key { flex: 1 1 6em; border-width: 0; }
+  .tt-filter-expression > .tt-filter-operator { border-width: 0 1px 0 0; }
+  .tt-filter-expression > select.tt-filter-operator { max-width: none; border-width: 0 0 0 1px; }
+}
+/* Touch screens get 44-pixel targets. */
+@media (hover: none) {
+  .tt-filter-expression > .tt-input, .tt-filter-group-header > .tt-filter-conjunction, .tt-filter-group-actions > .tt-button { min-height: 44px; }
+  .tt-filter-expression .tt-icon-button, .tt-filter-group-header .tt-icon-button { width: 44px; height: 44px; }
+}
 .tt-field-error { grid-column: 1 / -1; color: var(--text-error); font-size: var(--font-ui-small); }
 .tt-field-error[hidden] { display: none; }
 .tt-input[aria-invalid='true'] { border-color: var(--text-error); }
@@ -601,20 +643,10 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-scope-note, .tt-column-removal { font-size: var(--font-ui-small); color: var(--text-muted); line-height: 1.6; padding: 12px; border-radius: 8px; background: var(--background-secondary); }
 @container settings (max-width: 500px) {
   .tt-settings-tab { font-size: 12px; flex-direction: column; gap: 3px; }
-  .tt-filter-group { padding: 12px; }
   .tt-settings-footer { flex-wrap: wrap; }
   .tt-settings-footer > :first-child { flex-basis: 100%; }
 }
 
-.tt-filter-groups { display: grid; grid-template-columns: 1fr; gap: 4px; }
-.tt-filter-group { min-width: 0; padding: 14px; margin: 10px 0; }
-@container settings (max-width: 650px) {
-  .tt-filter-rule { grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; }
-  .tt-filter-rule > .tt-field:nth-child(2), .tt-filter-rule > .tt-field:nth-child(3) { grid-column: 1 / -1; }
-  .tt-filter-rule > .tt-icon-button { grid-row: 1; grid-column: 2; }
-  .tt-filter-title { flex-wrap: wrap; }
-  .tt-filter-logic { margin-left: 0; flex-basis: 100%; }
-}
 
 .tt-quick-filter-editor { margin: 10px 0; padding: 8px 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
 .tt-quick-filter-header { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }

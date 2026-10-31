@@ -9,6 +9,9 @@ import { parseTaskLine, setClosedFallback } from '../src/core/taskLine.ts';
 // Wednesday.
 const TODAY = '2026-10-21';
 
+/** Every one of these property rules must match. */
+const rules = (...properties: { key: string; values: string[] }[]) => ({ kind: 'group', match: 'all', items: properties.map((p) => ({ kind: 'property', ...p })) });
+
 function config(fm: Record<string, unknown> = {}): BoardConfig {
   return parseBoardConfig('House', { slug: 'house', ...fm }).config;
 }
@@ -43,25 +46,25 @@ describe('parseBoardConfig', () => {
   });
 
   it('parses filters in list and mapping form', () => {
-    expect(config({ 'filter-properties': ['context: renovation, house', 'project'] }).propertyFilters).toEqual([
+    expect(config({ 'filter-properties': ['context: renovation, house', 'project'] }).filter).toEqual(rules(
       { key: 'context', values: ['renovation', 'house'] },
       { key: 'project', values: [] },
-    ]);
-    expect(config({ 'filter-properties': { context: ['renovation'] } }).propertyFilters).toEqual([
+    ));
+    expect(config({ 'filter-properties': { context: ['renovation'] } }).filter).toEqual(rules(
       { key: 'context', values: ['renovation'] },
-    ]);
+    ));
   });
 
   it('ignores quotes typed into the Properties editor, and unquoted YAML mappings', () => {
-    expect(config({ 'filter-properties': ['"context: renovation, house"'] }).propertyFilters).toEqual([
+    expect(config({ 'filter-properties': ['"context: renovation, house"'] }).filter).toEqual(rules(
       { key: 'context', values: ['renovation', 'house'] },
-    ]);
-    expect(config({ 'filter-properties': ["'context': 'renovation', \"house\""] }).propertyFilters).toEqual([
+    ));
+    expect(config({ 'filter-properties': ["'context': 'renovation', \"house\""] }).filter).toEqual(rules(
       { key: 'context', values: ['renovation', 'house'] },
-    ]);
-    expect(config({ 'filter-properties': [{ context: 'renovation, house' }] }).propertyFilters).toEqual([
+    ));
+    expect(config({ 'filter-properties': [{ context: 'renovation, house' }] }).filter).toEqual(rules(
       { key: 'context', values: ['renovation', 'house'] },
-    ]);
+    ));
   });
 
   it('warns about a done column that is not a column, and an empty one turns it off', () => {
