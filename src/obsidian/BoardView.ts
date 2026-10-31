@@ -8,6 +8,7 @@ import { saveLabelDefinition, parseLabels, taskLabels, type BoardLabel } from '.
 import { LabelPickerModal } from './LabelPickerModal.ts';
 import { Component, FileView, MarkdownRenderer, Menu, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
+import { planDueDateSort } from '../core/dueSort.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
 import { todayISO } from '../core/dates.ts';
 import { parseTaskLine } from '../core/taskLine.ts';
@@ -280,16 +281,21 @@ export class BoardView extends FileView {
         void this.plugin.setSubtasksCollapsed(this.board.config.slug, keys, collapsed);
         this.render();
       },
+      onSortByDueDate: () => void this.sortByDueDate(),
       onBulkAction: (tasks, kind) => new Promise((resolve) => {
         if (!this.board) { resolve(null); return; }
         const slug = this.board.config.slug;
         new BulkEditModal(this.app, this.board.config, kind, tasks.length,
           (action) => this.applyBulk(tasks, action, slug), resolve).open();
       }),
-      onSubtasksMenu: (anchor, select, onClose) => {
+      onArrangeMenu: (anchor, choices, choose, onClose) => {
         const menu = new Menu();
-        menu.addItem((item) => item.setTitle('Collapse all subtasks').setIcon('fold-vertical').onClick(() => select(true)));
-        menu.addItem((item) => item.setTitle('Expand all subtasks').setIcon('unfold-vertical').onClick(() => select(false)));
+        if (choices.includes('collapse')) menu.addItem((item) => item.setTitle('Collapse all subtasks').setIcon('fold-vertical').onClick(() => choose('collapse')));
+        if (choices.includes('expand')) menu.addItem((item) => item.setTitle('Expand all subtasks').setIcon('unfold-vertical').onClick(() => choose('expand')));
+        if (choices.includes('sort')) {
+          if (choices.length > 1) menu.addSeparator();
+          menu.addItem((item) => item.setTitle('Sort by due date').setIcon('arrow-down-wide-narrow').onClick(() => choose('sort')));
+        }
         menu.onHide(onClose);
         const bounds = anchor.getBoundingClientRect();
         menu.showAtPosition({ x: bounds.left, y: bounds.bottom }, anchor.ownerDocument);
@@ -459,6 +465,55 @@ export class BoardView extends FileView {
     });
     this.moveQueue = run.then(() => undefined, () => undefined);
     return run;
+  }
+
+  /** Puts every dated cell in due-date order, moving the fewest cards; one Undo puts them back. */
+  private sortByDueDate(): Promise<void> {
+    const slug = this.board?.config.slug;
+    const run = this.moveQueue.then(async () => {
+      if (this.stopped || !this.board || this.board.config.slug !== slug) return;
+      // Whole cells, including cards a quick filter hides, so every card ends up in order.
+      const model = buildBoard(this.plugin.index.all().map((t) => this.withPending(t)), this.board.config, this.today,
+        (path) => this.app.metadataCache.getCache(path)?.frontmatter,
+        (path) => noteTags(this.app.metadataCache.getCache(path)));
+      const edits = planDueDateSort(model);
+      if (edits.size === 0) {
+        notice(this.app, 'Task Trellis: this board is already in due-date order, so nothing moved.', { region: this.contentEl });
+        return;
+      }
+      const tasks = Object.values(model.cells).flatMap((columns) => Object.values(columns).flat())
+        .filter((t) => edits.has(t.id))
+        .map((t) => this.withPending(this.plugin.index.currentSnapshot(t)));
+      for (const [id, raw] of this.plugin.writer.preview(tasks, edits, slug)) {
+        const from = tasks.find((t) => t.id === id)?.raw;
+        if (from !== undefined) this.pending.set(id, { raw, from });
+      }
+      const owned = new Map([...edits.keys()].map((id) => [id, this.pending.get(id)]));
+      clearBulkSelection(this.contentEl);
+      this.renderWhenIdle();
+      try {
+        const result = await this.plugin.writer.applyEdits(tasks, edits, slug);
+        if (result.action) {
+          const moved = result.appliedIds.length;
+          this.undoAction = { label: `${moved === 1 ? '1 card' : `${moved} cards`} sorted by due date`, action: result.action, ids: result.appliedIds };
+          this.highlightIds = new Set(result.appliedIds); this.highlightUntil = Date.now() + 1000;
+        }
+        if (result.skippedIds.length) {
+          const skipped = result.skippedIds.length === 1 ? '1 card' : `${result.skippedIds.length} cards`;
+          this.alert(`Task Trellis: sorted by due date, but ${skipped} changed since the board was drawn and stayed where they were. Sort again to include them.`);
+        }
+        for (const id of result.skippedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
+        await this.plugin.index.refresh([...new Set(tasks.map((task) => task.path))]);
+        for (const id of result.appliedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
+      } catch (error) {
+        console.error('[Task Trellis] sort by due date failed', error);
+        this.alert('Task Trellis: could not sort the board by due date, so nothing moved. Check that its notes can be edited, then try again.');
+        for (const id of edits.keys()) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
+      }
+      this.renderWhenIdle();
+    });
+    this.moveQueue = run.catch((error: unknown) => { console.error('[Task Trellis] sort by due date failed', error); });
+    return this.moveQueue;
   }
 
   private drop(taskId: string, target: DropTarget): Promise<void> {

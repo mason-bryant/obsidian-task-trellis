@@ -13,6 +13,7 @@ import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } fro
 import { previewIcon } from './icons.ts';
 // Runs the real board model and renderer against an in-memory vault, for checking the UI in a browser.
 import { applyEdit, buildBoard, planDrop, taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
+import { planDueDateSort } from '../src/core/dueSort.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { propertyValueStrings } from '../src/core/filters.ts';
@@ -203,14 +204,15 @@ const host: RenderHost = {
     collapsed = setSubtaskCollapse(collapsed, keys, value);
     render();
   },
-  onSubtasksMenu: (_anchor, select, onClose) => {
+  onArrangeMenu: (_anchor, choices, choose, onClose) => {
     const dialog = uiElement(document, 'dialog');
-    dialog.setAttribute('aria-label', 'Subtasks');
-    for (const collapsed of [true, false]) {
+    dialog.setAttribute('aria-label', 'Arrange');
+    const titles = { collapse: 'Collapse all subtasks', expand: 'Expand all subtasks', sort: 'Sort by due date' } as const;
+    for (const choice of choices) {
       const item = uiElement(document, 'button');
       item.className = 'move-item';
-      item.textContent = `${collapsed ? 'Collapse' : 'Expand'} all subtasks`;
-      item.onclick = () => { dialog.close(); select(collapsed); };
+      item.textContent = titles[choice];
+      item.onclick = () => { dialog.close(); choose(choice); };
       dialog.append(item);
     }
     dialog.onclose = () => { dialog.remove(); onClose(); };
@@ -231,6 +233,15 @@ const host: RenderHost = {
   },
   onSetQuickFilters: (ids) => {
     collapsed = setActiveQuickFilterIds(collapsed, ids);
+    render();
+  },
+  onSortByDueDate: () => {
+    const before = JSON.stringify(files);
+    // Whole cells, as the plugin sorts them, including cards a quick filter hides.
+    const edits = planDueDateSort(buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags));
+    if (edits.size === 0) return;
+    write(edits);
+    offerUndo(before, `${edits.size === 1 ? '1 card' : `${edits.size} cards`} sorted by due date`);
     render();
   },
   onDrop: (id, target) => {

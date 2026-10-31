@@ -15,6 +15,9 @@ import { installSubtaskReorder } from './reorderSubtasks.ts';
 import type { SubtaskReorder } from '../core/reorderSubtasks.ts';
 
 /** What the board needs from its host (the Obsidian view, or the dev harness). */
+/** What the toolbar's Arrange menu can offer. */
+export type ArrangeChoice = 'collapse' | 'expand' | 'sort';
+
 export type RenderHost = {
   renderText(el: HTMLElement, task: BoardTask): void;
   icon(el: HTMLElement, name: string): void;
@@ -26,8 +29,10 @@ export type RenderHost = {
   /** Persists which quick filters are switched on. Without it the board shows no quick filter buttons. */
   onSetQuickFilters?(ids: string[]): void;
   onQuickFiltersMenu?: QuickFilterMenu;
-  /** Opens the host's accessible menu; calls onClose when dismissed. */
-  onSubtasksMenu?(anchor: HTMLElement, select: (collapsed: boolean) => void, onClose: () => void): void;
+  /** Opens the host's accessible Arrange menu with these choices; calls onClose when dismissed. */
+  onArrangeMenu?(anchor: HTMLElement, choices: ArrangeChoice[], choose: (choice: ArrangeChoice) => void, onClose: () => void): void;
+  /** Puts every dated cell in due-date order with the fewest moves; see planDueDateSort. */
+  onSortByDueDate?(): void;
   onDrop(taskId: string, target: DropTarget): void;
   onReorderSubtask?(move: SubtaskReorder): void;
   onToggle(task: BoardTask): void;
@@ -283,24 +288,27 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   picker.value = display.column;
   picker.onchange = () => { display.column = picker.value; renderBoard(root, model, baseHost, notes); };
   const subtaskKeys = subtaskListKeys(model);
-  if (subtaskKeys.length > 0 && host.onSubtasksMenu) {
-    const action = el('button', 'tt-toolbar-button tt-subtasks-menu');
+  const choices: ArrangeChoice[] = [...(subtaskKeys.length > 0 ? ['collapse', 'expand'] as const : []), ...(host.onSortByDueDate ? ['sort'] as const : [])];
+  if (choices.length > 0 && host.onArrangeMenu) {
+    const action = el('button', 'tt-toolbar-button tt-arrange-menu');
     action.type = 'button';
-    action.dataset.boardFocus = 'subtasks';
-    action.setAttribute('aria-label', 'Subtasks');
+    action.dataset.boardFocus = 'arrange';
+    action.setAttribute('aria-label', 'Arrange');
     action.setAttribute('aria-haspopup', 'menu');
     action.setAttribute('aria-expanded', 'false');
-    action.append(hostIcon(host, 'list-tree'));
+    action.append(hostIcon(host, 'arrow-down-up'));
     const restoreFocus = () => {
       // A selection can redraw the toolbar, so find the current button.
-      const current = root.querySelector<HTMLButtonElement>('.tt-subtasks-menu');
+      const current = root.querySelector<HTMLButtonElement>('.tt-arrange-menu');
       current?.setAttribute('aria-expanded', 'false');
       current?.focus({ preventScroll: true });
     };
     const open = () => {
       if (action.getAttribute('aria-expanded') === 'true') return;
       action.setAttribute('aria-expanded', 'true');
-      host.onSubtasksMenu?.(action, (collapsed) => {
+      host.onArrangeMenu?.(action, choices, (choice) => {
+        if (choice === 'sort') { host.onSortByDueDate?.(); restoreFocus(); return; }
+        const collapsed = choice === 'collapse';
         for (const id of model.quickContext?.branches ?? []) {
           if (collapsed) temporary.collapsed.add(id); else temporary.collapsed.delete(id);
         }
