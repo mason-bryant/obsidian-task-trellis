@@ -1,6 +1,8 @@
 import { joinEditedLines } from './lineEndings.ts';
 import type { ISODate } from './dates.ts';
 import { columnOf, workflowColumnOf, type BoardModel, type BoardTask, type TaskEdit } from './board.ts';
+import { backlogColumn, type BoardConfig } from './boardConfig.ts';
+import { setTaskLabels, taskLabels } from './labels.ts';
 import { rowForDue } from './rows.ts';
 import { planReorder } from './sort.ts';
 import { addField, dedupeFields, movePlacementsToEnd, parseTaskLine, setDueDate, setPlacement } from './taskLine.ts';
@@ -10,6 +12,8 @@ export type NewTaskFields = {
   due?: ISODate | null;
   created?: ISODate;
   placement?: { slug: string; column: string; sort?: number };
+  /** Label ids picked in the composer, for the board in `placement`; labels typed in the text stay. */
+  labels?: string[];
 };
 
 /**
@@ -27,7 +31,23 @@ export function finishNewTaskLine(line: string, fields: NewTaskFields): string {
   if (fields.created && !parsed?.createdDate) out = addField(out, `➕ ${fields.created}`);
   if (fields.due && !parsed?.dueDate) out = setDueDate(out, fields.due);
   if (fields.placement) out = setPlacement(out, fields.placement.slug, fields.placement.column, fields.placement.sort);
+  if (fields.placement && fields.labels?.length) {
+    const { slug } = fields.placement;
+    out = setTaskLabels(out, slug, [...new Set([...taskLabels(out, slug), ...fields.labels])]);
+  }
   return movePlacementsToEnd(dedupeFields(out));
+}
+
+/**
+ * Where the boards sidebar adds a task: the top of the board's backlog. That's the No due date
+ * column, or else the No due date row of the backlog column. `place` names the cell as its Add task
+ * button does. Null when the board has no open column.
+ */
+export function backlogCell(config: BoardConfig): { rowId: string; columnId: string; place: string } | null {
+  const undated = config.columns.find((c) => c.id === config.undatedColumn);
+  if (undated) return { rowId: 'none', columnId: undated.id, place: undated.label };
+  const column = backlogColumn(config);
+  return column ? { rowId: 'none', columnId: column.id, place: `${column.label}, No due date` } : null;
 }
 
 /** Places a composed task first in its actual cell, including a date changed in the editor. */

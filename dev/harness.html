@@ -74,6 +74,27 @@
         height: calc(100vh - 48px);
         border-bottom: 1px solid var(--background-modifier-border);
       }
+      /* ?sidebar: the boards sidebar, roughly where Obsidian's left sidebar is, or above the board on a phone. */
+      #board-list {
+        box-sizing: border-box;
+        background: var(--background-secondary);
+        border-bottom: 1px solid var(--background-modifier-border);
+      }
+      @media (min-width: 601px) {
+        #board-list:not([hidden]) {
+          position: fixed;
+          top: 48px;
+          bottom: 0;
+          left: 0;
+          width: 280px;
+          overflow-y: auto;
+          border-right: 1px solid var(--background-modifier-border);
+        }
+        #board-list:not([hidden]) ~ #board,
+        #board-list:not([hidden]) ~ #source {
+          margin-left: 281px;
+        }
+      }
       #source {
         padding: 8px 16px 32px;
         font: 12px/1.5 ui-monospace, Menlo, monospace;
@@ -243,6 +264,7 @@
       <label style="margin-left:auto">Theme <select id="theme" aria-label="Preview theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
       <label><input type="checkbox" id="show-source" /> Source</label>
     </div>
+    <div id="board-list" hidden></div>
     <div id="board" class="task-trellis-view"></div>
     <dialog id="settings" class="tt-settings-modal">
       <button class="modal-close-button clickable-icon" aria-label="Close">×</button>

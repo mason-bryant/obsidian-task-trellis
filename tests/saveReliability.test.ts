@@ -43,7 +43,7 @@ it('an old successful save cannot clear a replacement draft', async () => {
 });
 it.each([false, 'throw'])('hands the text to the host when the composer closed before its save failed (%s)', async (failure) => {
   let fail!: () => void;
-  const save = vi.fn((_target: unknown, _text: string, _detailed: boolean) => new Promise<boolean>((resolve, reject) => {
+  const save = vi.fn((_target: unknown, _text: string, _detailed: boolean, _labels: string[]) => new Promise<boolean>((resolve, reject) => {
     fail = () => { if (failure === 'throw') reject(new Error('Disk full')); else resolve(false); };
   }));
   const onUnsavedText = vi.fn();
@@ -52,7 +52,7 @@ it.each([false, 'throw'])('hands the text to the host when the composer closed b
   fail(); await vi.waitFor(() => expect(onUnsavedText).toHaveBeenCalledWith('Keep my draft', expect.any(Function)));
   save.mockResolvedValueOnce(true);
   await expect(onUnsavedText.mock.calls[0]![1]('Keep my draft, fixed')).resolves.toBe(true);
-  expect(save).toHaveBeenLastCalledWith(expect.anything(), 'Keep my draft, fixed', false);
+  expect(save).toHaveBeenLastCalledWith(expect.anything(), 'Keep my draft, fixed', false, []);
 });
 it('keeps a failed draft in the open composer rather than handing it over', async () => {
   const onUnsavedText = vi.fn();

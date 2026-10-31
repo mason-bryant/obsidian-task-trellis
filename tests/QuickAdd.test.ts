@@ -375,3 +375,34 @@ describe('filter feedback for a new note', () => {
     expect((await pending).warning).toContain('may be hidden');
   });
 });
+
+it('adds from the boards sidebar to the top of the backlog, above every card there, with the labels picked', async () => {
+  const files = new Map([
+    ['Existing.md', '- [ ] First #tt/house/backlog/100\n- [ ] Second #tt/house/label/l2 #tt/house/backlog/200\n- [ ] Dated 📅 2026-10-26 #tt/house/backlog/50'],
+    ['Inbox.md', '## Tasks'],
+  ]);
+  const refs = new Map([...files.keys()].map((path) => [path, new TFile(path)]));
+  const tasks = () => [...files].flatMap(([path, content]) => content.split('\n').flatMap((raw, line) => {
+    const parsed = parseTaskLine(raw);
+    return parsed ? [{ ...parsed, raw, path, line, id: `${path}:${line}` }] : [];
+  }));
+  const plugin = {
+    register: () => undefined,
+    app: {
+      workspace: new Workspace(),
+      vault: { configDir: '.obsidian', getFileByPath: (path: string) => refs.get(path),
+        adapter: { read: async () => '{}' },
+        process: async (file: TFile, transform: (text: string) => string) => { files.set(file.path, transform(files.get(file.path)!)); } },
+      metadataCache: { getFileCache: () => ({}), getCache: () => ({}) },
+    },
+    index: { all: tasks },
+    settings: { newTaskKind: 'note', newTaskNote: 'Inbox.md', newTaskHeading: '## Tasks' },
+  } as unknown as TaskTrellisPlugin;
+  plugin.writer = new TaskWriter(plugin.app);
+  const config = parseBoardConfig('House', { columns: ['Backlog', 'Doing', 'Done'], 'done-column': 'Done' }).config;
+  expect(await new QuickAdd(plugin).addToBacklog(config, 'Call the roofer', false, ['l1'])).toBe(true);
+  const board = buildBoard(tasks(), config, '2026-10-25', () => undefined);
+  expect(board.cells.none!.backlog!.map((task) => task.text)).toEqual(['Call the roofer', 'First', 'Second']);
+  expect(files.get('Inbox.md')).toMatch(/^## Tasks\n- \[ \] Call the roofer #tt\/house\/label\/l1 #tt\/house\/backlog\/\d+$/);
+  expect(files.get('Existing.md')).toContain('- [ ] Dated 📅 2026-10-26 #tt/house/backlog/50');
+});

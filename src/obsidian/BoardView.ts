@@ -1,11 +1,10 @@
 import { BulkEditModal } from './BulkEditModal.ts';
 import { planBulk, type BulkAction, type BulkResult } from '../core/bulkTriage.ts';
-import { applyLabelScheme, parsePreviousScheme, type LabelSchemeState } from '../core/labelSchemes.ts';
 import { isColumnResizing } from '../ui/columnResize.ts';
 import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
-import { saveLabelDefinition, parseLabels, taskLabels, type BoardLabel } from '../core/labels.ts';
-import { LabelPickerModal } from './LabelPickerModal.ts';
+import { taskLabels } from '../core/labels.ts';
+import { boardPalette, LabelPickerModal, pickComposerLabels } from './LabelPickerModal.ts';
 import { Component, FileView, MarkdownRenderer, Menu, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { planDueDateSort } from '../core/dueSort.ts';
@@ -227,6 +226,10 @@ export class BoardView extends FileView {
   private host(): RenderHost {
     return {
       onLabels: (task) => this.openLabels(task),
+      onComposerLabels: (selected, choose, onClose) => {
+        if (this.file && this.board) pickComposerLabels(this.app, { file: this.file, config: this.board.config },
+          this.plugin.settings.showLabelSearch, selected, choose, onClose, () => this.queueRender());
+      },
       onColumnWidthsChange: async (widths) => {
         const file = this.file;
         if (!file) return;
@@ -323,8 +326,8 @@ export class BoardView extends FileView {
       onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); this.alert('Task Trellis: could not open the task editor, so nothing was changed. Check that the Tasks plugin is enabled, or open the task from its note link.'); }) : this.openSource(task, false),
       onOpenSource: (task, newTab) => this.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
-      onAddTask: async (target, text, detailed) => {
-        try { return this.model ? await this.plugin.quickAdd.addFromBoard(this.model, target, text, detailed) : false; }
+      onAddTask: async (target, text, detailed, labels) => {
+        try { return this.model ? await this.plugin.quickAdd.addFromBoard(this.model, target, text, detailed, labels) : false; }
         catch (error) { console.error('[Task Trellis] add failed', error); this.alert('Task Trellis: could not save the task. Your text has been kept; check the destination and try again.'); return false; }
       },
       onAddSubtask: async (parent, text, detailed) => {
@@ -376,19 +379,7 @@ export class BoardView extends FileView {
       showSearch: this.plugin.settings.showLabelSearch,
       labelNext: this.board.config.labelNext,
       previousScheme: this.board.config.previousLabelScheme,
-      saveScheme: async (id) => {
-        let updated!: LabelSchemeState;
-        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-          const current = { labels: parseLabels(fm[FM.labels], []), previous: parsePreviousScheme(fm[FM.previousLabelScheme]) };
-          updated = applyLabelScheme(current, id);
-          if (updated !== current) {
-            fm[FM.labels] = updated.labels;
-            fm[FM.previousLabelScheme] = updated.previous;
-          }
-        });
-        this.queueRender();
-        return updated;
-      },
+      ...boardPalette(this.app, file, () => this.queueRender()),
       onClose: () => {
         [...this.contentEl.querySelectorAll<HTMLElement>('[data-board-focus]')]
           .find((el) => el.dataset.boardFocus === `labels:${current.id}`)?.focus({ preventScroll: true });
@@ -400,19 +391,6 @@ export class BoardView extends FileView {
         });
         this.showWritten(current, [written.raw]);
         current = written;
-      },
-      saveLabel: async (label, intent) => {
-        let result = { labels: [] as BoardLabel[], savedId: label.id, next: 1 };
-        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-          const palette = parseLabels(fm[FM.labels], []);
-          const stored = fm[FM.labelNext];
-          const counter = typeof stored === 'number' && Number.isSafeInteger(stored) && stored > 0 ? stored : 1;
-          result = saveLabelDefinition(palette, label, intent, counter);
-          fm[FM.labels] = result.labels;
-          if (intent === 'create') fm[FM.labelNext] = result.next;
-        });
-        this.queueRender();
-        return result;
       },
     }).open();
   }

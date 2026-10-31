@@ -3,11 +3,11 @@ import { recoverDraft } from './recoverDraft.ts';
 import { notice } from './notice.ts';
 import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
 import { getFrontMatterInfo, setIcon, Modal, Setting, TFile, TFolder, normalizePath, type App, type CachedMetadata, type Events } from 'obsidian';
-import type { BoardModel, BoardTask } from '../core/board.ts';
+import { buildBoard, type BoardModel, type BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
 import { taskMatchesBoard } from '../core/filters.ts';
-import { planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, removeLinesAt, type NewTaskFields } from '../core/newTask.ts';
+import { backlogCell, planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, removeLinesAt, type NewTaskFields } from '../core/newTask.ts';
 import { parseTaskLine, setDueDate, normalizeRequestMarker } from '../core/taskLine.ts';
 import type { ShortcutTask } from '../core/shortcut.ts';
 import type TaskTrellisPlugin from '../../main.ts';
@@ -77,8 +77,8 @@ export class QuickAdd {
     return { kind: s.newTaskKind, note: s.newTaskNote, heading: s.newTaskHeading };
   }
 
-  /** From a board cell: the cell's column, the row's drop date, at the top of the cell. */
-  async addFromBoard(model: BoardModel, target: { rowId: string; columnId: string }, text: string, detailed: boolean): Promise<boolean> {
+  /** From a board cell: the cell's column, the row's drop date, at the top of the cell, with the labels picked in its composer. */
+  async addFromBoard(model: BoardModel, target: { rowId: string; columnId: string }, text: string, detailed: boolean, labels: string[] = []): Promise<boolean> {
     const { config } = model;
     const fields: NewTaskFields = {
       due: model.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
@@ -87,6 +87,7 @@ export class QuickAdd {
         slug: config.slug,
         column: target.columnId,
       },
+      labels,
     };
     const line = detailed ? await this.compose(text, fields) : text.trim() ? buildNewTaskLine(text, fields) : null;
     if (!line) return false;
@@ -99,6 +100,19 @@ export class QuickAdd {
       if (detailed) recoverDraft(this.app, line, save);
       throw error;
     }
+  }
+
+  /**
+   * From the boards sidebar: the top of the board's backlog, as if added there on the board. Cards
+   * the board's quick filters hide count too, so the task goes above every one of them.
+   */
+  async addToBacklog(config: BoardConfig, text: string, detailed: boolean, labels: string[] = []): Promise<boolean> {
+    const target = backlogCell(config);
+    if (!target) return false;
+    const { metadataCache } = this.app;
+    const model = buildBoard(this.plugin.index.all(), config, todayISO(),
+      (path) => metadataCache.getCache(path)?.frontmatter, (path) => noteTags(metadataCache.getCache(path)));
+    return this.addFromBoard(model, target, text, detailed, labels);
   }
 
   /** A subtask goes in the parent's note, under the parent, with no date or column of its own. */

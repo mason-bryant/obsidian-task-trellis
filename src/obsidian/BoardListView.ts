@@ -1,9 +1,17 @@
 import { ItemView, Notice, setIcon, type WorkspaceLeaf } from 'obsidian';
+import { backlogCell } from '../core/newTask.ts';
+import { renderBoardList, type BoardListHost } from '../ui/renderBoardList.ts';
+import { pickComposerLabels } from './LabelPickerModal.ts';
+import { notice } from './notice.ts';
+import { recoverDraft } from './recoverDraft.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 
 export const VIEW_TYPE_BOARD_LIST = 'task-trellis-board-list';
 
 export class BoardListView extends ItemView {
+  /** The board marked open when the list was last drawn. */
+  private openPath: string | null = null;
+
   constructor(leaf: WorkspaceLeaf, private plugin: TaskTrellisPlugin) {
     super(leaf);
   }
@@ -14,51 +22,58 @@ export class BoardListView extends ItemView {
 
   onload(): void {
     super.onload();
-    this.contentEl.addClass('tt-board-list');
-    this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateActive()));
+    // Clicking in the sidebar makes it the active leaf, but the board stays the active file.
+    const update = () => { if (this.activePath() !== this.openPath) this.render(); };
+    this.registerEvent(this.app.workspace.on('active-leaf-change', update));
+    this.registerEvent(this.app.workspace.on('file-open', update));
     this.render();
   }
 
   render(): void {
-    const focused = this.contentEl.doc.activeElement;
-    const focusedPath = this.contentEl.contains(focused) ? focused?.getAttribute('data-board-path') : null;
-    const focusCreate = focused === this.contentEl.querySelector('.tt-board-list-create');
-    this.contentEl.empty();
-    this.contentEl.createEl('h2', { text: 'Boards', cls: 'tt-board-list-title' });
-    const create = this.contentEl.createEl('button', { text: 'Create new board', cls: 'tt-board-list-create' });
-    create.addEventListener('click', () => this.plugin.promptNewBoard());
-    if (focusCreate) create.focus();
     const boards = this.plugin.boards.boards();
-    if (boards.length === 0) {
-      this.contentEl.createEl('p', { text: 'No boards yet. Create a board to get started.', cls: 'tt-board-list-empty' });
-      return;
-    }
-    const names = new Map<string, number>();
-    for (const { file } of boards) names.set(file.basename, (names.get(file.basename) ?? 0) + 1);
-    const list = this.contentEl.createEl('ul', { cls: 'tt-board-list-items', attr: { 'aria-label': 'Boards' } });
-    for (const { file } of boards) {
-      const row = list.createEl('li');
-      const button = row.createEl('button', { cls: 'tt-board-list-item', attr: { title: file.path } });
-      button.dataset.boardPath = file.path;
-      setIcon(button.createSpan({ cls: 'tt-board-list-icon', attr: { 'aria-hidden': 'true' } }), 'kanban');
-      const label = button.createSpan({ cls: 'tt-board-list-label' });
-      label.createSpan({ text: file.basename });
-      if (names.get(file.basename)! > 1) label.createSpan({ text: file.parent?.path ?? '', cls: 'tt-board-list-folder' });
-      button.addEventListener('click', () => {
-        void this.plugin.openBoard(file).catch(() => new Notice('Task Trellis: could not open this board. Check that its note still exists, then try again.'));
-      });
-      if (focusedPath === file.path) button.focus();
-    }
-    this.updateActive();
+    this.openPath = this.activePath();
+    const open = boards.find((b) => b.file.path === this.openPath);
+    const cell = open && backlogCell(open.config);
+    renderBoardList(this.contentEl,
+      boards.map(({ file }) => ({ path: file.path, name: file.basename, folder: file.parent?.path ?? '' })),
+      open && cell ? { path: open.file.path, place: cell.place, labels: { palette: open.config.labels, shape: open.config.labelShape } } : null,
+      this.host);
   }
 
-  private updateActive(): void {
-    const activePath = this.app.workspace.getActiveFile()?.path;
-    for (const button of this.contentEl.querySelectorAll<HTMLButtonElement>('[data-board-path]')) {
-      const active = button.dataset.boardPath === activePath;
-      button.toggleClass('is-active', active);
-      if (active) button.setAttribute('aria-current', 'page');
-      else button.removeAttribute('aria-current');
-    }
+  private activePath(): string | null {
+    return this.app.workspace.getActiveFile()?.path ?? null;
   }
+
+  /** The board as it is now, not as it was drawn. */
+  private board(path: string) {
+    return this.plugin.boards.boards().find((b) => b.file.path === path);
+  }
+
+  private readonly host: BoardListHost = {
+    icon: (el, name) => setIcon(el, name),
+    onCreateBoard: () => this.plugin.promptNewBoard(),
+    onOpenBoard: (path) => {
+      const board = this.board(path);
+      const failed = () => new Notice('Task Trellis: could not open this board. Check that its note still exists, then try again.');
+      if (!board) { failed(); return; }
+      void this.plugin.openBoard(board.file).catch(failed);
+    },
+    onAddTask: async (path, text, detailed, labels) => {
+      try {
+        const board = this.board(path);
+        if (!board) throw new Error(`No board at ${path}.`);
+        return await this.plugin.quickAdd.addToBacklog(board.config, text, detailed, labels);
+      } catch (error) {
+        console.error('[Task Trellis] add failed', error);
+        notice(this.app, 'Task Trellis: could not save the task. Your text has been kept; check the destination and try again.', { alert: true, region: this.contentEl });
+        return false;
+      }
+    },
+    onComposerLabels: (path, selected, choose, onClose) => {
+      const board = this.board(path);
+      if (board) pickComposerLabels(this.app, board, this.plugin.settings.showLabelSearch, selected, choose, onClose);
+      else onClose();
+    },
+    onUnsavedText: (text, retry) => recoverDraft(this.app, text, retry),
+  };
 }

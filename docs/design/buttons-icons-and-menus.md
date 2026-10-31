@@ -11,7 +11,7 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 | Create an item | A plus icon followed by Add task, Add label or Add quick filter, in that surface's add-button style |
 | Delete a board | A red Delete board… button with a trash icon, at the end of General in board settings. It opens a warning whose red Delete board button does it; Cancel has focus first. |
 | Save or cancel a draft | A green check on the left and an X on the right; see [editing and saving](editing-and-saving.md) |
-| Assign labels / edit a label | The tag icon / the pencil icon |
+| Assign labels, on a card or in a new task's composer / edit a label | The tag icon / the pencil icon |
 | Copy / remove a quick filter | Copy and trash icons, named for the filter. Removing a filter changes the settings draft. |
 | Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, and cards on touch screens |
 | More card actions | ⋯ opens Move to…, whose choices say what else the move changes, such as the due date it sets |

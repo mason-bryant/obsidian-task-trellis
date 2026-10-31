@@ -75,6 +75,12 @@ export function destinationFor(config: BoardConfig | null, fallback: NewTaskDest
   return { kind: config.newTasks, note: config.newTasksNote, heading: config.newTasksHeading };
 }
 
+/** The column a new task goes to when none is chosen: Backlog, or else the first open column that isn't No due date. */
+export function backlogColumn(config: BoardConfig): BoardColumn | undefined {
+  const ordinary = config.columns.filter((c) => c.id !== config.doneColumn && c.id !== config.undatedColumn);
+  return ordinary.find((c) => c.id === 'backlog') ?? ordinary[0];
+}
+
 export type DueNowUnit = 'days' | 'weeks';
 
 /** Board note front matter keys. */

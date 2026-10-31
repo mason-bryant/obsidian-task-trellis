@@ -135,7 +135,7 @@ it('the board reports task and subtask failures to the composer with a notice', 
   const f = fixture(); await f.ready(); const host = f.view.host();
   vi.mocked(f.plugin.quickAdd.addFromBoard).mockRejectedValue(new Error('Disk full'));
   vi.mocked(f.plugin.quickAdd.addSubtask).mockRejectedValue(new Error('Disk full'));
-  expect(await host.onAddTask({rowId: 'now', columnId: 'backlog'}, 'draft', false)).toBe(false);
+  expect(await host.onAddTask({rowId: 'now', columnId: 'backlog'}, 'draft', false, [])).toBe(false);
   expect(await host.onAddSubtask(f.index.all()[0]!, 'child', false)).toBe(false);
   expect(notices.filter((n) => n.includes('Your text has been kept'))).toHaveLength(2);
 });

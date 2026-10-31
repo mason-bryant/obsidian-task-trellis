@@ -62,7 +62,7 @@ Icons are Obsidian's line icons, drawn through the host's icon function (`setIco
 - **Editor:** a header with the check on the left, the title in the middle and the X on the right, above the scrolling fields.
 - **Board settings:** Card spacing and Hide column selector live in Appearance, use the normal draft/save flow, and are saved per board. Every Appearance checkbox is checked to hide and unchecked to show. Spacing and subtask ordering use dropdowns, since they are not visibility choices. The column selector starts visible; hiding it clears the chosen-column filter without disabling narrow-board page navigation. Tabs at the top, General first, the chosen section below them, and a footer with Save, a green check and the word. General holds the date settings, then Delete board… after a divider at the end.
 - **Menus:** Obsidian menus. Items can have an icon, active choices show a checkmark, and muted text after a choice explains what else it changes.
-- **Boards sidebar:** a Boards heading, a full-width Create new board button, then a row for each board with the kanban icon. The open board uses Obsidian's active navigation colors. When two boards share a name, each shows its folder too.
+- **Boards sidebar:** a Boards heading, a full-width Create new board button, then a row for each board with the kanban icon. The open board uses Obsidian's active navigation colors. When two boards share a name, each shows its folder too. Under the open board's row, in line with its name, + Add task looks like a board cell's and opens the same composer.
 - **Plugin settings tab:** Obsidian's own searchable setting rows, like other plugins' settings.
 
 ### Motion
@@ -79,4 +79,4 @@ Motion is brief and only decorates what already happened: a card lifting on hove
 - All styles: [styles.css](../../styles.css), scoped by component class.
 - Board, toolbar and cards: [renderBoard.ts](../../src/ui/renderBoard.ts), where `cell` and `CELL_PAGE` limit long cells. Editor headers: [editorHeader.ts](../../src/ui/editorHeader.ts).
 - Label text contrast: [labels.ts](../../src/core/labels.ts). Label color squares in the toolbar, menu and settings: [quickFilterColors.ts](../../src/ui/quickFilterColors.ts).
-- Boards sidebar: [BoardListView.ts](../../src/obsidian/BoardListView.ts). Plugin settings tab: [settings.ts](../../src/settings.ts).
+- Boards sidebar: `renderBoardList` in [renderBoardList.ts](../../src/ui/renderBoardList.ts), shared with the harness (`?sidebar`), drawn by [BoardListView.ts](../../src/obsidian/BoardListView.ts). Plugin settings tab: [settings.ts](../../src/settings.ts).

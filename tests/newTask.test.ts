@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, planNewTaskAtTop } from '../src/core/newTask.ts';
+import { backlogCell, buildNewTaskLine, finishNewTaskLine, insertUnderHeading, insertUnderHeadingAt, planNewTaskAtTop } from '../src/core/newTask.ts';
 
 import { applyEdit, buildBoard, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
@@ -118,7 +118,24 @@ describe('new task lines', () => {
     ).toBe('- [ ] Call ⏫ ➕ 2026-10-22 📅 2026-10-30 #tt/renovation/backlog');
   });
 
+  it('adds the labels picked in the composer, keeping ones typed in the text and other boards’ tags', () => {
+    expect(buildNewTaskLine('Call #tt/house/label/2 #tt/garden/label/1', {
+      due: '2026-10-28', placement: { slug: 'house', column: 'doing' }, labels: ['1', '2'],
+    })).toBe('- [ ] Call 📅 2026-10-28 #tt/house/label/2 #tt/house/label/1 #tt/garden/label/1 #tt/house/doing');
+    expect(finishNewTaskLine('- [ ] Call ⏫', { placement: { slug: 'house', column: 'backlog' }, labels: [] })).toBe('- [ ] Call ⏫ #tt/house/backlog');
+  });
+});
 
+describe('the backlog the boards sidebar adds to', () => {
+  const cell = (fm: Record<string, unknown>) => backlogCell(parseBoardConfig('House', { 'done-column': 'Done', ...fm }).config);
+  it('is the No due date row of Backlog, or of the first open column without one', () => {
+    expect(cell({ columns: ['Inbox', 'Backlog', 'Doing', 'Done'] })).toEqual({ rowId: 'none', columnId: 'backlog', place: 'Backlog, No due date' });
+    expect(cell({ columns: ['Done', 'To do', 'Doing'] })).toEqual({ rowId: 'none', columnId: 'to-do', place: 'To do, No due date' });
+  });
+  it('is the No due date column, when the board has one', () => {
+    expect(cell({ columns: ['Someday', 'Backlog', 'Doing', 'Done'], 'undated-column': 'Someday' }))
+      .toEqual({ rowId: 'none', columnId: 'someday', place: 'Someday' });
+  });
 });
 
 
