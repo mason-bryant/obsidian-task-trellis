@@ -8,19 +8,19 @@ Build boards around the way you work, use color to distinguish projects and cate
 
 [Quick start](#quick-start) · [iPhone capture](docs/ios-shortcuts.md) · [AI agents](docs/cli.md) · [Guides](#guides)
 
-![Task Trellis showing a home project board with workflow columns, due-date rows and colored labels](docs/images/board-desktop.png)
+![Task Trellis showing a sample work board: a Backlog of undated ideas, workflow columns of different widths, a Due now row and the next week, named labels, an overdue task, subtasks with some done, links in task text and struck-through completed tasks](docs/images/board-desktop.png)
 
-*See progress and timing together: columns show where work stands, and date rows show when it needs attention. Screenshots use sample tasks in the browser preview.*
+*See progress and timing together: columns show where work stands, and date rows show when it needs attention. The board above is a sample Work board in Obsidian; the phone screenshot below uses sample tasks in the browser preview.*
 
 ## See what matters and decide what comes next
 
 - **Know what you're working on.** Give work a clear place in columns such as Backlog, Doing, Waiting and Done—or name your own stages.
 - **Plan the week ahead.** See overdue tasks, upcoming deadlines and undated ideas together. Choose the planning window and drag cards between date rows to reschedule them.
-- **Give your backlog a useful order.** Reorder cards, bring the next task into focus, and leave ideas without a due date until you're ready to schedule them.
+- **Give your backlog a useful order.** Reorder cards, bring the next task into focus, and leave ideas without a due date in their own row or column until you're ready to schedule them. **Arrange → Sort by due date** puts every date row in order, sooner first, moving as few cards as it can.
 - **Triage a group at once.** Select cards individually, by column, or after filtering, then change their column, due date, labels or priority together. [Bulk triage →](docs/tasks.md#bulk-triage)
-- **Recognize projects and categories at a glance.** Assign multiple colored labels to a card: Urgent, Financial planning, Paint kitchen, or whatever matters to you. Each board has its own label names and colors.
+- **Recognize projects and categories at a glance.** Assign multiple colored labels to a card: Urgent, Financial planning, Paint kitchen, or whatever matters to you. Each board has its own label names and colors, shown as pills, circles or squares.
 - **Choose the right scope.** Build separate views for work, home or a specific project. Include or exclude tasks using tags, folders and note properties.
-- **Keep the context close.** Expand subtasks when you need the detail, collapse them for an overview, and jump from any card to its original note.
+- **Keep the context close.** Add subtasks from the card, expand them when you need the detail and collapse them for an overview, and reorder them by dragging on desktop. Open any card's note in a pop-up editor over the board, or in a tab.
 - **Let an AI agent help.** Agents such as Claude Code and Codex, and your own scripts, can read boards and add, move, complete and triage tasks through Obsidian's command line, with the same safety checks and Undo as the board. [Agents and the CLI →](docs/cli.md)
 
 ## Keep working with the tasks you already have
@@ -57,11 +57,13 @@ The commands answer in JSON. They see each board as you do, refuse to overwrite 
 
 Choose from eleven label color schemes or create your own colors. Switch back with **Previous scheme** if you prefer the old palette. Resize columns on desktop and tablet, use compact spacing when you want more on screen, and collapse subtasks to keep the board easy to scan.
 
-Narrow the board in one click with **quick filters** in the toolbar. Every board starts with **High priority**, **Overdue** and its first label, and you can add your own for priorities, labels, due dates, tags, folders or note properties. Turn on several at once to focus further, and each board remembers which ones you left on.
+Narrow the board in one click with **quick filters** in the toolbar. Every board starts with **High priority**, **Overdue** and its first label, and you can add your own for priorities, labels, due dates, tags, folders or note properties. Turn on several at once to focus further, keep the ones you use less in a menu, and each board remembers which ones you left on.
 
-In **Appearance**, choose whether completed subtasks move to the end of their list or are hidden, and whether overdue cards get a red edge.
+In **Appearance**, choose the label shape, whether completed subtasks move to the end of their list or are hidden, whether overdue cards get a red edge, and whether notes open in a pop-up or a tab. Big boards stay quick: a long cell shows 25 cards at a time, with **more** for the rest.
 
-Theme-aware styling, keyboard controls and save buttons above the mobile keyboard make everyday interactions easier. **Undo** is available for task moves, completion changes and label assignments.
+Rename a board from its title, optionally renaming its tags with a preview and a recovery copy, or delete it from **Settings → General**. Deleting moves only the board note to the trash; none of your tasks are deleted.
+
+Theme-aware styling, keyboard controls for cards, subtasks and settings, screen-reader announcements, and save buttons above the mobile keyboard make everyday interactions easier. **Undo** is available for task moves, completion changes, label assignments, bulk edits, subtask reordering and sorting.
 
 ## Quick start
 
