@@ -78,6 +78,6 @@ These properties are stored in the board note. The settings form handles the usu
 
 A cell with more than 25 cards shows the first 25, then **N more**, which shows the next 25 each time you select it; **Show fewer** goes back. Done and No due date start from `done-limit` and `undated-limit` instead. The extra cards stay shown while the board is open, but not after you close it, so a large board opens without drawing every card. Column and row counts, **Select all** and **Select column** still include every card.
 
-Every board gets an **Open board: ‹name›** command, so you can give each board its own hotkey. The command id comes from the slug, so the hotkey survives renaming the note.
+Every board gets an **Open board: ‹name›** command, so you can give each board its own hotkey, and an **Add task to ‹name›: ‹column›** command for each column but Done; see [Add a task](tasks.md#add-a-task). Command ids come from the slug and the column, so hotkeys survive renaming the note. Renaming a column, or renaming the board's tags, gives its commands new ids, so set those hotkeys again.
 
 The column name `Label` is reserved for the `#tt/<board>/label/<id>` tag namespace. Use a different column name.

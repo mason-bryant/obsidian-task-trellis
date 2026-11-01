@@ -406,3 +406,63 @@ it('adds from the boards sidebar to the top of the backlog, above every card the
   expect(files.get('Inbox.md')).toMatch(/^## Tasks\n- \[ \] Call the roofer #tt\/house\/label\/l1 #tt\/house\/backlog\/\d+$/);
   expect(files.get('Existing.md')).toContain('- [ ] Dated 📅 2026-10-26 #tt/house/backlog/50');
 });
+
+describe('Add task to ‹board›: ‹column›', () => {
+  const setup = (fm: Record<string, unknown>, typed: string, existing = '- [ ] First #tt/house/doing/100') => {
+    notices.length = 0;
+    const files = new Map([['Existing.md', existing], ['Inbox.md', '## Tasks']]);
+    const refs = new Map([...files.keys()].map((path) => [path, new TFile(path)]));
+    const tasks = () => [...files].flatMap(([path, content]) => content.split('\n').flatMap((raw, line) => {
+      const parsed = parseTaskLine(raw);
+      return parsed ? [{ ...parsed, raw, path, line, id: `${path}:${line}` }] : [];
+    }));
+    const plugin = {
+      register: () => undefined,
+      app: {
+        workspace: new Workspace(),
+        vault: { configDir: '.obsidian', getFileByPath: (path: string) => refs.get(path),
+          adapter: { read: async () => '{}' },
+          process: async (file: TFile, transform: (text: string) => string) => { files.set(file.path, transform(files.get(file.path)!)); } },
+        metadataCache: { getFileCache: () => ({}), getCache: () => ({}) },
+      },
+      index: { all: tasks },
+      settings: { newTaskKind: 'note', newTaskNote: 'Inbox.md', newTaskHeading: '## Tasks' },
+    } as unknown as TaskTrellisPlugin;
+    plugin.writer = new TaskWriter(plugin.app);
+    // The Tasks plugin's editor, which the command opens; here the user types `typed`.
+    const createTaskLineModal = vi.fn(async () => typed);
+    vi.spyOn(plugin.writer, 'tasksApi').mockReturnValue({ createTaskLineModal, editTaskLineModal: vi.fn() } as never);
+    const config = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Done'], 'done-column': 'Done', ...fm }).config;
+    return { files, tasks, config, createTaskLineModal, add: () => new QuickAdd(plugin).addToColumn(config, 'doing', 'House') };
+  };
+
+  it('opens the task editor, then adds to the top of the column without a due date, and says where', async () => {
+    const f = setup({}, '- [ ] Call the roofer');
+    await f.add();
+    expect(f.createTaskLineModal).toHaveBeenCalledTimes(1);
+    expect(f.files.get('Inbox.md')).toMatch(/^## Tasks\n- \[ \] Call the roofer #tt\/house\/doing\/\d+$/);
+    const board = buildBoard(f.tasks(), f.config, '2026-10-25', () => undefined);
+    expect(board.cells.none!.doing!.map((task) => task.text)).toEqual(['Call the roofer', 'First']);
+    expect(notices).toEqual(['Task Trellis: added to House: Doing.']);
+  });
+
+  it('says where an undated task shows on a board with a No due date column, and a dated one goes to its column', async () => {
+    const undated = setup({ columns: ['Backlog', 'Doing', 'Someday', 'Done'], 'undated-column': 'Someday' }, '- [ ] Call the roofer');
+    await undated.add();
+    expect(undated.files.get('Inbox.md')).toContain('#tt/house/doing/');
+    expect(notices).toEqual(['Task Trellis: added to House: Doing. Until it has a due date, it shows in Someday.']);
+    const dated = setup({ columns: ['Backlog', 'Doing', 'Someday', 'Done'], 'undated-column': 'Someday' }, '- [ ] Call the roofer 📅 2026-10-27');
+    await dated.add();
+    expect(notices).toEqual(['Task Trellis: added to House: Doing.']);
+  });
+
+  it('adds nothing when the editor is closed, and only warns when the board’s filters hide the note', async () => {
+    const cancelled = setup({}, '');
+    await cancelled.add();
+    expect(cancelled.files.get('Inbox.md')).toBe('## Tasks');
+    expect(notices).toEqual([]);
+    const hidden = setup({ 'include-folders': ['Projects'] }, '- [ ] Call the roofer');
+    await hidden.add();
+    expect(notices).toEqual(['Task Trellis: added to Inbox, but this board’s filters hide tasks from that note.']);
+  });
+});
