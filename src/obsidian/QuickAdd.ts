@@ -3,7 +3,7 @@ import { recoverDraft } from './recoverDraft.ts';
 import { notice } from './notice.ts';
 import { prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
 import { getFrontMatterInfo, setIcon, Modal, Setting, TFile, TFolder, normalizePath, type App, type CachedMetadata, type Events } from 'obsidian';
-import { buildBoard, type BoardModel, type BoardTask } from '../core/board.ts';
+import { buildBoard, columnOf, type BoardModel, type BoardTask } from '../core/board.ts';
 import { destinationFor, type BoardConfig, type NewTaskDestination } from '../core/boardConfig.ts';
 import { todayISO } from '../core/dates.ts';
 import { filterRules, taskMatchesBoard } from '../core/filters.ts';
@@ -109,10 +109,42 @@ export class QuickAdd {
   async addToBacklog(config: BoardConfig, text: string, detailed: boolean, labels: string[] = []): Promise<boolean> {
     const target = backlogCell(config);
     if (!target) return false;
+    return this.addFromBoard(this.boardModel(config), target, text, detailed, labels);
+  }
+
+  /**
+   * From a board's Add task to ‹board›: ‹column› command, which a hotkey can run from anywhere: the
+   * task editor, then the top of the column's cell without a due date, as if added there on the
+   * board. Says where it went, since the board may not be in view.
+   */
+  async addToColumn(config: BoardConfig, columnId: string, board: string): Promise<void> {
+    const label = (id: string) => config.columns.find((c) => c.id === id)?.label ?? id;
+    const fields: NewTaskFields = { due: null, created: await this.createdDate(), placement: { slug: config.slug, column: columnId } };
+    const model = this.boardModel(config);
+    let line: string | null = null;
+    const save = (draft: string, said?: string) => this.add(draft, destinationFor(config, this.defaultDestination()), config, model, said);
+    try {
+      line = await this.compose('', fields);
+      if (!line) return;
+      // A board's No due date column, or Done, holds a task by its state rather than its tag.
+      const parsed = parseTaskLine(line);
+      const shown = parsed ? columnOf(parsed, config) : columnId;
+      const said = shown === columnId || shown === config.doneColumn
+        ? `Task Trellis: added to ${board}: ${label(shown)}.`
+        : `Task Trellis: added to ${board}: ${label(columnId)}. Until it has a due date, it shows in ${label(shown)}.`;
+      if (!await save(line, said)) recoverDraft(this.app, line, save);
+    } catch (error) {
+      console.error('[Task Trellis] add failed', error);
+      notice(this.plugin.app, 'Task Trellis: could not save the task. Your draft has been kept.', { alert: true });
+      if (line) recoverDraft(this.app, line, save);
+    }
+  }
+
+  /** The board as it is now, including cards its quick filters hide, to place a new task among them. */
+  private boardModel(config: BoardConfig): BoardModel {
     const { metadataCache } = this.app;
-    const model = buildBoard(this.plugin.index.all(), config, todayISO(),
+    return buildBoard(this.plugin.index.all(), config, todayISO(),
       (path) => metadataCache.getCache(path)?.frontmatter, (path) => noteTags(metadataCache.getCache(path)));
-    return this.addFromBoard(model, target, text, detailed, labels);
   }
 
   /** A subtask goes in the parent's note, under the parent, with no date or column of its own. */
@@ -242,7 +274,8 @@ export class QuickAdd {
     return finishNewTaskLine(first, fields);
   }
 
-  private async add(line: string, dest: NewTaskDestination, board: BoardConfig | null, model?: BoardModel): Promise<boolean> {
+  /** `said` is the notice for a task added to a board that may not be in view, once the board shows it. */
+  private async add(line: string, dest: NewTaskDestination, board: BoardConfig | null, model?: BoardModel, said?: string): Promise<boolean> {
     if (this.stopped) return false;
     const target = await this.resolve(dest);
     if (!target || this.stopped) return false;
@@ -265,6 +298,7 @@ export class QuickAdd {
         notice(this.plugin.app, 'Task Trellis: template processing may have replaced the new task. Check the destination note.', { alert: true });
       });
       if (!board) notice(this.plugin.app, `Task Trellis: added to ${file.basename}.`);
+      else if (said) notice(this.plugin.app, said);
       return true;
     }
     const cache = this.app.metadataCache.getFileCache(file);
@@ -273,6 +307,8 @@ export class QuickAdd {
       notice(this.plugin.app, `Task Trellis: added to ${file.basename}, but this board’s filters hide tasks from that note.`);
     } else if (!board) {
       notice(this.plugin.app, `Task Trellis: added to ${file.basename}.`);
+    } else if (said) {
+      notice(this.plugin.app, said);
     }
     return true;
   }
