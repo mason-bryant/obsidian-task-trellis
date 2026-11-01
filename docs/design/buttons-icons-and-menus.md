@@ -11,6 +11,7 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 | Create an item | A plus icon followed by Add task, Add label, Add quick filter, or Add filter and Add filter group in filters, in that surface's add-button style |
 | Combine filters | As in Bases: an All the following are true / Any of the following are true / None of the following are true dropdown at the top of each group, and a trash icon at the right of a nested group's header (Remove group ‹n›) and at the end of each filter (Remove filter ‹n›). |
 | Rename or duplicate a board | Rename board… with the pencil icon and Duplicate board… with the copy icon, in General in board settings, after the date settings. Each opens its own editor. Clicking the board's name on the toolbar also opens the rename. |
+| Discard unsaved board settings | Closing the settings with changes opens a warning: Keep editing, with focus first, and a red Discard changes. |
 | Delete a board | A red Delete board… button with a trash icon, at the end of General in board settings. It opens a warning whose red Delete board button does it; Cancel has focus first. |
 | Save or cancel a draft | A green check on the left and an X on the right; see [editing and saving](editing-and-saving.md) |
 | Assign labels, on a card or in a new task's composer / edit a label | The tag icon / the pencil icon |

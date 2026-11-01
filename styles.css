@@ -568,7 +568,8 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-button.tt-button--danger:disabled { opacity: .5; cursor: default; }
 .tt-settings-board-actions, .tt-settings-danger { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-board-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-.tt-delete-board-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+/* The buttons at the end of a warning: the safe choice, then the destructive one. */
+.tt-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
 .tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }
