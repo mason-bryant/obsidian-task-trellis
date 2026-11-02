@@ -111,7 +111,7 @@ Commands run one at a time, so two agents or scripts can't interleave their writ
 The commands are the safest way to change tasks, but everything lives in your Markdown:
 
 - A task is an ordinary checkbox line. Tasks fields such as `📅 2026-11-08` (due), `⏫` (priority) and `✅ 2026-10-27` (done) go after the text.
-- `#tt/<board>/<column>/<n>` places the task on a board. `<n>` orders cards within a cell. Without a tag, a task matching the board's filters shows in its first workflow column.
+- `#tt/<board>/<column>/<n>` places the task on a board. `<n>`, a positive whole number, orders cards within a cell; a negative one still places the card, first in its cell. Without a tag, a task matching the board's filters shows in its first workflow column.
 - `#tt/<board>/label/<id>` assigns a label; the board note's `labels` property names and colors each id.
 - Tasks indented under a task are its subtasks.
 

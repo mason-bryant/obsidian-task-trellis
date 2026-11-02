@@ -19,7 +19,7 @@ export function planReorder<T>(
     ? left + SORT_STEP
     : left + Math.floor((right - left) / 2);
   // Avoid fractional, negative, overflowing, or colliding ranks from hand-edited tags.
-  if (Number.isSafeInteger(candidate) && candidate > (left ?? 0) &&
+  if (Number.isSafeInteger(candidate) && candidate > Math.max(0, left ?? 0) &&
       (right === undefined || candidate < right)) {
     return new Map([[dragged, candidate]]);
   }

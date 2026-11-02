@@ -63,8 +63,9 @@ export type ParsedTask = {
 
 const TASK_LINE_RE = /^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[)([^\]])(\]\s+)(.*)$/;
 const SEGMENT = '[\\p{L}\\p{N}_-]+';
+// A hand-edited negative order still places the card, first in its cell; reordering writes positive ones.
 const placementRe = () =>
-  new RegExp(`(^|\\s)#${TAG_PREFIX}\\/(${SEGMENT})\\/((?!label/)${SEGMENT})(?:\\/(\\d+))?(?=\\s|$)`, 'giu');
+  new RegExp(`(^|\\s)#${TAG_PREFIX}\\/(${SEGMENT})\\/((?!label/)${SEGMENT})(?:\\/(-?\\d+))?(?=\\s|$)`, 'giu');
 const TAG_RE = /(?:^|\s)#([\p{L}\p{N}_/-]+)/gu;
 // Trailing run of placement tags and a block id; new fields go in front of it.
 const TAIL_RE = new RegExp(`(?:\\s+(?:#${TAG_PREFIX}\\/[\\p{L}\\p{N}_/-]+|\\^[A-Za-z0-9-]+))+\\s*$`, 'u');
