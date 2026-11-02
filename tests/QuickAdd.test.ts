@@ -4,6 +4,8 @@ import { buildBoard, type BoardTask } from '../src/core/board.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
+import { todayISO } from '../src/core/dates.ts';
+import { dueNowEnd } from '../src/core/rows.ts';
 import { Events, notices, TFile, TFolder, Workspace } from './mocks/obsidian.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
@@ -408,7 +410,7 @@ it('adds from the boards sidebar to the top of the backlog, above every card the
 });
 
 describe('Add task to ‹board›: ‹column›', () => {
-  const setup = (fm: Record<string, unknown>, typed: string, existing = '- [ ] First #tt/house/doing/100') => {
+  const setup = (fm: Record<string, unknown>, typed: string | ((prefilled: string) => string), existing = '- [ ] First #tt/house/doing/100') => {
     notices.length = 0;
     const files = new Map([['Existing.md', existing], ['Inbox.md', '## Tasks']]);
     const refs = new Map([...files.keys()].map((path) => [path, new TFile(path)]));
@@ -429,11 +431,14 @@ describe('Add task to ‹board›: ‹column›', () => {
       settings: { newTaskKind: 'note', newTaskNote: 'Inbox.md', newTaskHeading: '## Tasks' },
     } as unknown as TaskTrellisPlugin;
     plugin.writer = new TaskWriter(plugin.app);
-    // The Tasks plugin's editor, which the command opens; here the user types `typed`.
-    const createTaskLineModal = vi.fn(async () => typed);
-    vi.spyOn(plugin.writer, 'tasksApi').mockReturnValue({ createTaskLineModal, editTaskLineModal: vi.fn() } as never);
+    // The Tasks plugin's editor, which the command opens, empty or prefilled; here the user leaves `typed`.
+    const editor = async (prefilled = '') => (typeof typed === 'string' ? typed : typed(prefilled));
+    const createTaskLineModal = vi.fn(() => editor());
+    const editTaskLineModal = vi.fn(editor);
+    vi.spyOn(plugin.writer, 'tasksApi').mockReturnValue({ createTaskLineModal, editTaskLineModal } as never);
     const config = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Done'], 'done-column': 'Done', ...fm }).config;
-    return { files, tasks, config, createTaskLineModal, add: () => new QuickAdd(plugin).addToColumn(config, 'doing', 'House') };
+    return { files, tasks, config, createTaskLineModal, editTaskLineModal,
+      add: (column = 'doing') => new QuickAdd(plugin).addToColumn(config, column, 'House') };
   };
 
   it('opens the task editor, then adds to the top of the column without a due date, and says where', async () => {
@@ -446,14 +451,33 @@ describe('Add task to ‹board›: ‹column›', () => {
     expect(notices).toEqual(['Task Trellis: added to House: Doing.']);
   });
 
-  it('says where an undated task shows on a board with a No due date column, and a dated one goes to its column', async () => {
-    const undated = setup({ columns: ['Backlog', 'Doing', 'Someday', 'Done'], 'undated-column': 'Someday' }, '- [ ] Call the roofer');
-    await undated.add();
-    expect(undated.files.get('Inbox.md')).toContain('#tt/house/doing/');
-    expect(notices).toEqual(['Task Trellis: added to House: Doing. Until it has a due date, it shows in Someday.']);
-    const dated = setup({ columns: ['Backlog', 'Doing', 'Someday', 'Done'], 'undated-column': 'Someday' }, '- [ ] Call the roofer 📅 2026-10-27');
-    await dated.add();
+  const someday = { columns: ['Backlog', 'Doing', 'Someday', 'Done'], 'undated-column': 'Someday' };
+
+  it('starts the task in Due now on a board with a No due date column, so it shows in its column', async () => {
+    const f = setup(someday, (prefilled) => prefilled.replace('- [ ]', '- [ ] Call the roofer'));
+    await f.add();
+    const due = dueNowEnd(f.config, todayISO());
+    expect(f.editTaskLineModal).toHaveBeenCalledWith(expect.stringContaining(`📅 ${due}`));
+    expect(f.files.get('Inbox.md')).toContain(`Call the roofer 📅 ${due} #tt/house/doing/`);
+    const board = buildBoard(f.tasks(), f.config, todayISO(), () => undefined);
+    expect(board.cells.now!.doing!.map((task) => task.text)).toEqual(['Call the roofer']);
     expect(notices).toEqual(['Task Trellis: added to House: Doing.']);
+    // As on the board, clearing the date in the editor still starts the task in Due now.
+    const cleared = setup(someday, '- [ ] Call the roofer');
+    await cleared.add();
+    expect(cleared.files.get('Inbox.md')).toContain(`Call the roofer 📅 ${due} #tt/house/doing/`);
+  });
+
+  it('keeps a date typed in the editor, and leaves a task for the No due date column undated', async () => {
+    const dated = setup(someday, '- [ ] Call the roofer 📅 2026-10-27');
+    await dated.add();
+    expect(dated.files.get('Inbox.md')).toContain('Call the roofer 📅 2026-10-27 #tt/house/doing/');
+    expect(notices).toEqual(['Task Trellis: added to House: Doing.']);
+    const undated = setup(someday, '- [ ] Call the roofer');
+    await undated.add('someday');
+    expect(undated.createTaskLineModal).toHaveBeenCalledTimes(1);
+    expect(undated.files.get('Inbox.md')).not.toContain('📅');
+    expect(notices).toEqual(['Task Trellis: added to House: Someday.']);
   });
 
   it('adds nothing when the editor is closed, and only warns when the board’s filters hide the note', async () => {
