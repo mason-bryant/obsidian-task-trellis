@@ -10,11 +10,11 @@ export type BoardEntry = {
   slugMissing: boolean;
 };
 
-const commandId = (slug: string) => `open-board-${slug}`;
-
 /**
- * Board notes in the boards folder, and one "Open board" command per board. Command ids come from
- * the slug, so hotkeys survive renaming or moving the note.
+ * Board notes in the boards folder, with an Open board command for each, and an Add task to ‹board›:
+ * ‹column› command for each column but Done, which a hotkey can run from anywhere. Command ids come
+ * from the slug and column id, so hotkeys survive renaming or moving the note; `--` can't occur in
+ * either, so it keeps one board's ids apart from another's.
  */
 export class BoardRegistry {
   /** Command id → the name it was registered with. */
@@ -52,26 +52,31 @@ export class BoardRegistry {
   }
 
   syncCommands(): void {
-    const wanted = new Map<string, { slug: string; name: string }>();
-    for (const board of this.boards()) {
-      const id = commandId(board.config.slug);
-      if (!wanted.has(id)) wanted.set(id, { slug: board.config.slug, name: `Open board: ${board.file.basename}` });
+    const wanted = new Map<string, { name: string; run: () => void }>();
+    for (const { file, config } of this.boards()) {
+      const { slug } = config;
+      // Two boards with one slug share tags; the first, by name, keeps the commands.
+      if (wanted.has(`open-board-${slug}`)) continue;
+      wanted.set(`open-board-${slug}`, { name: `Open board: ${file.basename}`, run: () => {
+        const board = this.bySlug(slug);
+        if (board) void this.plugin.openBoard(board.file);
+      } });
+      for (const column of config.columns) {
+        if (column.id === config.doneColumn) continue;
+        wanted.set(`add-task-${slug}--${column.id}`, { name: `Add task to ${file.basename}: ${column.label}`, run: () => {
+          const board = this.bySlug(slug);
+          if (board?.config.columns.some((c) => c.id === column.id)) void this.plugin.quickAdd.addToColumn(board.config, column.id, board.file.basename);
+        } });
+      }
     }
     for (const [id, name] of this.registered) {
       if (wanted.get(id)?.name === name) continue;
       this.plugin.removeCommand(id);
       this.registered.delete(id);
     }
-    for (const [id, { slug, name }] of wanted) {
+    for (const [id, { name, run }] of wanted) {
       if (this.registered.has(id)) continue;
-      this.plugin.addCommand({
-        id,
-        name,
-        callback: () => {
-          const board = this.bySlug(slug);
-          if (board) void this.plugin.openBoard(board.file);
-        },
-      });
+      this.plugin.addCommand({ id, name, callback: run });
       this.registered.set(id, name);
     }
   }

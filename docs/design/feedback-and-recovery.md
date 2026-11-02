@@ -5,7 +5,7 @@
 ## Rules
 
 - Respond as soon as work starts. Longer operations, such as previewing or applying board-tag changes, show an inline spinner and a busy label. Disable actions that would repeat or conflict with the work, expose the busy state to assistive technology, and clear it on success and on failure.
-- Skip success notices when the changed screen already shows the result.
+- Skip success notices when the changed screen already shows the result. A task added from somewhere its board may not be in view says where it went: the sidebar says Task added to ‹board›, and an Add task to ‹board›: ‹column› command shows a notice naming the board and column, and where an undated task shows instead.
 - When an action fails, say so on screen, and to screen readers; the console is never the only sign. Keep what the user entered, and where they were, whenever a retry is possible. How the message reads is in [wording](wording.md).
 - Tell a failed write apart from a failed follow-up. If the settings were saved but the board couldn't be opened, say that, so the user doesn't save again.
 
