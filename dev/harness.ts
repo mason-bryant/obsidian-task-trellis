@@ -97,6 +97,8 @@ let { config, warnings } = parseBoardConfig('House', {
 // A load board keeps the defaults, like the native one.
 if (load) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done' }));
 let collapsed: Record<string, boolean> = {};
+/** The board's search box text, as the plugin keeps it per open board. */
+let search = '';
 
 // Stands in for Obsidian's list parsing: a list item's parent is the nearest less-indented item above it.
 function tasks(): BoardTask[] {
@@ -216,6 +218,7 @@ const host: RenderHost = {
     collapsed = setActiveQuickFilterIds(collapsed, ids);
     render();
   },
+  onSearch: (query) => { search = query; render(); },
   onSortByDueDate: () => {
     const before = JSON.stringify(files);
     // Whole cells, as the plugin sorts them, including cards a quick filter hides.
@@ -394,7 +397,7 @@ function offerUndo(before: string, label: string): void {
 }
 
 function model() {
-  return buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags, activeQuickFilterIds(collapsed));
+  return buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags, activeQuickFilterIds(collapsed), search);
 }
 
 function render(): void {

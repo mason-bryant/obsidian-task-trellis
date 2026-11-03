@@ -2,9 +2,10 @@ import { setTaskLabels, taskLabels } from './labels.ts';
 import { diffDays, shortLabel, type ISODate } from './dates.ts';
 import { untaggedColumn, type BoardColumn, type BoardConfig } from './boardConfig.ts';
 import { filterRules, taskMatchesBoard, type Frontmatter } from './filters.ts';
-import { activeQuickFilters, taskMatchesQuickFilter } from './quickFilters.ts';
+import { activeQuickFilters, taskMatchesQuickFilter, type QuickFilter } from './quickFilters.ts';
 import { filterTaskFamilies, type QuickFilterContext } from './quickFilterHierarchy.ts';
 import { computeRows, rowForDue, type RowDef } from './rows.ts';
+import { searchTerms, searchText } from './search.ts';
 import { planReorder } from './sort.ts';
 import { parseTaskLine, priorityRank, replaceTaskText, setDueDate, setPlacement, setPriority, type Priority, type ParsedTask } from './taskLine.ts';
 
@@ -38,6 +39,8 @@ export type BoardModel = {
   total: number;
   /** Ids of the quick filters applied to the cards. */
   activeQuickFilters: string[];
+  /** The search applied to the cards, trimmed; empty when there's none. */
+  search: string;
   quickContext?: QuickFilterContext;
 };
 
@@ -102,6 +105,7 @@ export function buildBoard(
   frontmatterOf: (path: string) => Frontmatter,
   noteTagsOf: (path: string) => string[] = () => [],
   activeQuickFilterIds: string[] = [],
+  search = '',
 ): BoardModel {
   const rows = computeRows(config, today);
   const cells: BoardModel['cells'] = {};
@@ -153,11 +157,20 @@ export function buildBoard(
     list.sort((a, b) => (config.sortCompletedSubtasks ? Number(a.closed) - Number(b.closed) : 0) || a.line - b.line);
   }
 
+  // Each word of the search narrows like one more quick filter, which a matching subtask satisfies.
+  const terms = searchTerms(search);
+  const narrowing: (QuickFilter | { term: string; matchSubtasks: true })[] = [...quick, ...terms.map((term) => ({ term, matchSubtasks: true as const }))];
+  const haystacks = new Map<string, string>();
+  const haystack = (task: BoardTask) => {
+    if (!haystacks.has(task.id)) haystacks.set(task.id, searchText(task, config, rowOf[task.id] !== undefined));
+    return haystacks.get(task.id)!;
+  };
   let quickContext: QuickFilterContext | undefined;
-  if (quick.length) {
+  if (narrowing.length) {
     const cards = Object.values(cells).flatMap((row) => Object.values(row).flat());
-    const { keep, context } = filterTaskFamilies(cards, subtasks, byId, quick,
-      (task, filter) => taskMatchesQuickFilter(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)),
+    const { keep, context } = filterTaskFamilies(cards, subtasks, byId, narrowing,
+      (task, filter) => 'term' in filter ? haystack(task).includes(filter.term)
+        : taskMatchesQuickFilter(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)),
       (task) => isShown(task, config, today));
     quickContext = context;
     for (const row of Object.values(cells)) {
@@ -184,7 +197,10 @@ export function buildBoard(
     }
   }
 
-  return { config, today, rows, columns: config.columns, cells, rowOf, subtasks, total, activeQuickFilters: quick.map((f) => f.id), quickContext };
+  return {
+    config, today, rows, columns: config.columns, cells, rowOf, subtasks, total,
+    activeQuickFilters: quick.map((f) => f.id), search: terms.length ? search.trim() : '', quickContext,
+  };
 }
 
 /**

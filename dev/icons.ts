@@ -8,6 +8,7 @@ const paths: Record<string, Array<{ tag: keyof SVGElementTagNameMap; attrs: Reco
   "chevron-left": [{"tag": "path", "attrs": {"d": "m15 18-6-6 6-6"}}],
   "check": [{"tag": "path", "attrs": {"d": "m5 12 4 4L19 6"}}],
   "x": [{"tag": "path", "attrs": {"d": "m6 6 12 12M6 18 18 6"}}],
+  "search": [{"tag": "circle", "attrs": {"cx": "11", "cy": "11", "r": "7"}}, {"tag": "path", "attrs": {"d": "m21 21-4.3-4.3"}}],
   "arrow-up": [{"tag": "path", "attrs": {"d": "M12 19V5m-6 6 6-6 6 6"}}],
   "arrow-down": [{"tag": "path", "attrs": {"d": "M12 5v14m-6-6 6 6 6-6"}}],
   "arrow-left": [{"tag": "path", "attrs": {"d": "M19 12H5m6-6-6 6 6 6"}}],

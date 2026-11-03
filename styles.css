@@ -468,6 +468,22 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 }
 .tt-toolbar-button[aria-pressed='true'], .tt-quick-filter-menu.is-active { color: var(--text-accent); border-color: var(--interactive-accent); }
 .tt-arrange-menu { min-width: 32px; flex: none; }
+/* Search box: Obsidian's input[type=search] style outranks one class, so the input takes two. */
+.tt-board-search { position: relative; display: flex; align-items: center; flex: 0 1 220px; min-width: 140px; margin-inline-start: auto; }
+.tt-board-search > .tt-icon { position: absolute; inset-inline-start: 9px; color: var(--text-muted); pointer-events: none; }
+.tt-board-search > input.tt-board-search-input {
+  box-sizing: border-box; width: 100%; height: auto; min-height: 32px; margin: 0; padding: 4px 32px;
+  border: 1px solid var(--background-modifier-border); border-radius: 7px;
+  background: var(--background-primary); color: var(--text-normal); font-size: var(--font-ui-small);
+}
+.tt-board-search > input.tt-board-search-input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+.tt-board-search > button.tt-board-search-clear {
+  position: absolute; inset-inline-end: 2px; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px;
+  background: transparent; box-shadow: none; color: var(--text-muted); cursor: pointer;
+}
+.tt-board-search > button.tt-board-search-clear:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.tt-board-search > button.tt-board-search-clear[hidden] { display: none; }
 .tt-quick-filter-colors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .tt-quick-filter-colors[hidden] { display: none; }
 .tt-filter-context-note, .tt-filter-match-note { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
@@ -497,6 +513,8 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   transition: box-shadow 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 .tt-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.08); transform: translateY(-1px); }
+/* A card scrolled to, by focus or by the search's Enter, stops below the sticky column header. */
+.tt-card { scroll-margin-top: 64px; }
 .tt-card-text { line-height: 1.45; font-weight: 500; }
 .tt-card-meta { padding-left: 0; margin-top: 10px; gap: 6px 8px; }
 .tt-source { max-width: 45%; overflow: hidden; text-overflow: ellipsis; font-size: var(--font-ui-smaller); }
@@ -700,9 +718,13 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 @media (pointer: coarse) {
   .tt-icon-button, .tt-chip .tt-icon-button { width: 44px; height: 44px; }
   .tt-settings-tab, .tt-board-tools .tt-column-picker { min-height: 44px; }
+  .tt-board-search > input.tt-board-search-input { min-height: 44px; padding-inline-end: 44px; font-size: max(16px, var(--font-ui-small)); }
+  .tt-board-search > button.tt-board-search-clear { inset-inline-end: 0; width: 44px; height: 44px; }
 }
 .is-mobile :is(.tt-icon-button, .tt-chip .tt-icon-button) { width: 44px; height: 44px; }
 .is-mobile :is(.tt-settings-tab, .tt-board-tools .tt-column-picker) { min-height: 44px; }
+.is-mobile .tt-board-search > input.tt-board-search-input { min-height: 44px; padding-inline-end: 44px; font-size: max(16px, var(--font-ui-small)); }
+.is-mobile .tt-board-search > button.tt-board-search-clear { inset-inline-end: 0; width: 44px; height: 44px; }
 
 .tt-subtask-controls > .tt-add-subtask { opacity: 1; }
 
@@ -993,6 +1015,7 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 @container trellis (max-width: 600px) {
   .tt-quick-filter-group--desktop { display: none; }
   .tt-quick-filter-group--mobile { display: contents; }
+  .tt-board-search { flex: 1 1 100%; }
 }
 .menu-item-title .tt-quick-filter-colors { margin-inline-end: 6px; vertical-align: middle; }
 
