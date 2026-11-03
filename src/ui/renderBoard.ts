@@ -1132,7 +1132,7 @@ function searchField(root: HTMLElement, slug: string, query: string, host: Rende
   input.addEventListener('input', (event) => {
     clear.hidden = !input.value;
     // Wait for an input method to finish the word; compositionend searches then.
-    if ((event as InputEvent).isComposing) return;
+    if (event.isComposing) return;
     win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS);
   });
   input.addEventListener('compositionend', () => { win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS); });
