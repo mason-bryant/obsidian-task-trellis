@@ -4,7 +4,7 @@
 
 ## Rules
 
-- A board's rules, and each quick filter's tag, folder and property rules, are one group that matches All, Any or None of what's in it. Groups nest three levels deep: the whole filter, a group in it, and a group in that. Within one rule, any listed value can match. Empty rules and groups add no restriction. The board and quick filters use the same editor and the same matching.
+- A board's rules, and each quick filter's tag, folder and property rules, are one group that matches All, Any or None of what's in it. Groups nest three levels deep: the whole filter, a group in it, and a group in that. Within one rule, any listed value can match. Empty rules and groups add no restriction. The board, quick filters and color rules use the same editor and the same matching.
 - The editor follows Obsidian's Bases filter editor: All, Any or None the following are true at the top of each group, where, and or or before each filter (or in a None group, as in Bases), a nested group as a card, and each filter as one box with its trash button at the end. Removing a group's last filter removes the group. On narrow settings Bases hides where, and and or; Task Trellis keeps them, above each filter, because they make the logic easier to follow.
 - Filters are named by where they are, filter 2.1 and group 2, in their controls' names and in errors, and an unfinished filter's error shows beside it.
 - Rules that fit the plain lists are saved in them, as releases before groups wrote. Others are saved as a `filter` group, beside a folder rule older releases can't satisfy, so a device that hasn't updated shows no tasks instead of tasks the filter hides.
@@ -14,6 +14,7 @@
 - Label filters use the board's label ids and colors, and No labels is a choice of its own. The same color squares appear in settings, on the toolbar and in menus. Editing a label's color updates them everywhere without changing which tasks have the label.
 - The search box narrows like one more quick filter for each word, with Match subtasks on: every word must be in the card's text, its note's name or its labels' names, or in one subtask's text, the same subtask for every word the card lacks. It's case- and accent-insensitive, applies on top of the board's filters and quick filters, and matching subtasks are shown and marked as for quick filters, with Matches search (or Matches quick filters and search).
 - The search is kept per open board view while the board stays open in it, never saved, and starts empty when the view opens a note. It searches once typing pauses, and at once for Enter, clearing and Escape; nothing searches while an input method is composing. With no matching card, the empty state names the search and offers Clear search, and Turn off quick filters when they're on too.
+- A color rule matches with a quick filter's criteria, Priority, Labels, Due and filter groups, edited with the same controls, and tints the cards it matches. The first matching rule colors a card. Rules never change which cards show, and only cards are colored: subtasks inside a card share its color. Quick filters and color rules are edited in the same kind of list, with the same expanding header, name, Clone, Remove, reorder grip and criteria; quick filters add Show on board and Match subtasks, and color rules the label editor's palette and hex code.
 - Match subtasks is off by default. When it's on, a matching subtask shows inside its parent's card, for context. A parent shown only for context has the subdued, italic context note and is never a bulk target. Results keep the task hierarchy rather than flattening it.
 
 ### Bulk selection
@@ -32,7 +33,8 @@ None recorded.
 
 ## Where it lives
 
-- Rule groups, reading and saving them: [filterTree.ts](../../src/core/filterTree.ts), with the draft in [boardDraft.ts](../../src/core/boardDraft.ts) and the editor, `groupEditor`, in [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).
+- Rule groups, reading and saving them: [filterTree.ts](../../src/core/filterTree.ts), with the draft in [boardDraft.ts](../../src/core/boardDraft.ts) and the editor, `groupEditor`, in [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts). The quick filter and color rule lists share `ruleList` and `criteriaEditor` there.
+- Color rules: [colorRules.ts](../../src/core/colorRules.ts), matched in `buildBoard` in [board.ts](../../src/core/board.ts), with the criteria they share with quick filters in [quickFilters.ts](../../src/core/quickFilters.ts).
 - Matching: [filters.ts](../../src/core/filters.ts), [quickFilters.ts](../../src/core/quickFilters.ts), [search.ts](../../src/core/search.ts) and [quickFilterHierarchy.ts](../../src/core/quickFilterHierarchy.ts), within the board model in [board.ts](../../src/core/board.ts).
 - The search box: `searchField` in [renderBoard.ts](../../src/ui/renderBoard.ts), with its text kept by [BoardView.ts](../../src/obsidian/BoardView.ts).
 - How many filters stay on the toolbar: the `quick-filters-menu`, `quick-filters-visible` and `quick-filters-visible-mobile` board properties, read in [boardConfig.ts](../../src/core/boardConfig.ts). The toolbar and menu groups: [renderQuickFilters.ts](../../src/ui/renderQuickFilters.ts).

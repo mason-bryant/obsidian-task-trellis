@@ -4,7 +4,7 @@ import { buildBoard, taskId, type BoardTask } from '../src/core/board.ts';
 import { newBoardFrontmatter, parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds } from '../src/core/collapse.ts';
-import { hasCriteria, parseQuickFilters, taskMatchesQuickFilter } from '../src/core/quickFilters.ts';
+import { hasCriteria, parseQuickFilters, taskMatchesCriteria } from '../src/core/quickFilters.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 import { renderBoardSettings, type SettingsFormHost } from '../src/ui/renderBoardSettings.ts';
@@ -71,7 +71,7 @@ describe('applying quick filters', () => {
     expect(hasCriteria(filter)).toBe(true);
     expect(cards([filter.id], { 'quick-filters': [{ name: 'Needs a label', 'no-labels': true }] }))
       .toEqual(['Call the roofer', 'Sweep the porch #outside']);
-    const matches = (raw: string) => taskMatchesQuickFilter(task(raw, 0), filter, c, TODAY, undefined);
+    const matches = (raw: string) => taskMatchesCriteria(task(raw, 0), filter, c, TODAY, undefined);
     expect(matches('- [ ] Work #outside #tt/other/label/green #tt/house/doing/10')).toBe(true);
     expect(matches('- [ ] Work #tt/house/label/green')).toBe(false);
     expect(matches('- [ ] Work #tt/house/label/unknown')).toBe(false);
@@ -90,8 +90,8 @@ describe('applying quick filters', () => {
       expect(c.quickFilters[0]!.noLabels).toBe(expected);
     }
     const c = config({ 'quick-filters': [{ name: 'Label none', labels: ['none'] }] });
-    expect(taskMatchesQuickFilter(plain, c.quickFilters[0]!, c, TODAY, undefined)).toBe(false);
-    expect(taskMatchesQuickFilter(task('- [ ] Work #tt/house/label/none', 0), c.quickFilters[0]!, c, TODAY, undefined)).toBe(true);
+    expect(taskMatchesCriteria(plain, c.quickFilters[0]!, c, TODAY, undefined)).toBe(false);
+    expect(taskMatchesCriteria(task('- [ ] Work #tt/house/label/none', 0), c.quickFilters[0]!, c, TODAY, undefined)).toBe(true);
   });
 
   it('narrows the board with every filter that is on, and ignores ones that are off or hidden', () => {
@@ -118,7 +118,7 @@ describe('applying quick filters', () => {
       { id: 'outside', name: 'Outside', 'include-tags': ['outside'] },
     ] }).quickFilters;
     const ids = (filter: (typeof c)[number], noteTags: string[] = []) => tasks
-      .filter((t) => taskMatchesQuickFilter(t, filter, config(), TODAY, undefined, noteTags)).map((t) => t.line);
+      .filter((t) => taskMatchesCriteria(t, filter, config(), TODAY, undefined, noteTags)).map((t) => t.line);
     expect(ids(c[0]!)).toEqual([0]);
     expect(ids(c[1]!)).toEqual([0, 2, 3]);
     expect(ids(c[2]!)).toEqual([3]);

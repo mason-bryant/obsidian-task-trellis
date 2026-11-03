@@ -31,6 +31,7 @@ const paths: Record<string, Array<{ tag: keyof SVGElementTagNameMap; attrs: Reco
   "list-filter": [{"tag": "path", "attrs": {"d": "M4 6h16M7 12h10M10 18h4"}}],
   "palette": [{"tag": "circle", "attrs": {"cx": "12", "cy": "12", "r": "9"}}, {"tag": "circle", "attrs": {"cx": "8.5", "cy": "10", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "12", "cy": "7.5", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "15.5", "cy": "10", "r": "1"}}],
   "filter": [{"tag": "path", "attrs": {"d": "M22 3H2l8 9.46V19l4 2v-8.54Z"}}],
+  "paintbrush": [{"tag": "path", "attrs": {"d": "M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"}}, {"tag": "path", "attrs": {"d": "M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"}}, {"tag": "path", "attrs": {"d": "M14.5 17.5 4.5 15"}}],
   "copy": [{"tag": "rect", "attrs": {"x": "8", "y": "8", "width": "14", "height": "14", "rx": "2"}}, {"tag": "path", "attrs": {"d": "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"}}],
   "chevron-right": [{"tag": "path", "attrs": {"d": "m9 18 6-6-6-6"}}],
   "chevron-down": [{"tag": "path", "attrs": {"d": "m6 9 6 6 6-6"}}],

@@ -144,3 +144,23 @@ quick-filters:
 ```
 
 `id` keeps a filter's on/off state when it's renamed. Set `quick-filters: []` for a board with none.
+
+## Color cards
+
+Color rules tint the cards they match, such as every card from a client's folder or every high-priority task. Manage them in **Settings → Colors**: **Add color rule**, name it, pick one of the label palette's colors or enter an HTML color code, then choose what it matches. A rule matches on the same things as a quick filter: **Priority**, **Labels**, **Due**, and filters for tags, note folders and note properties, in groups. A rule with nothing chosen colors every card.
+
+A card takes the color of the first rule it matches, so put the most specific rules first: drag the grip beside a rule, or focus it and use the up/down arrow keys. Use the copy button to clone a rule and the trash button to remove one. Colors never change which cards show. Subtasks inside a card share its color, and overdue cards keep their red edge. Screen readers hear the rule's name with the card.
+
+They're stored in the board note:
+
+```yaml
+color-rules:
+  - name: Acme
+    color: '#1558bc'
+    include-folders: [Clients/Acme]
+  - name: Urgent
+    color: '#ae2e24'
+    priority: [highest, high]
+```
+
+A board without `color-rules` colors no cards.
