@@ -1,5 +1,5 @@
 import { contrastRatio, hexToHsl, hexToRgb, hslToHex, hueName, type Hsl, type Rgb } from '../core/colorMath.ts';
-import { rgbChannels } from '../core/colorRules.ts';
+import { CARD_PATTERNS, rgbChannels, type CardPattern } from '../core/colorRules.ts';
 import { LABEL_COLORS, normalizeLabelColor } from '../core/labels.ts';
 import { uiElement } from './dom.ts';
 
@@ -16,11 +16,15 @@ export type ColorPickerOptions = {
   changed(color: string): void;
   /** For a color rule: how strongly its cards are tinted, in percent, or undefined for automatic. */
   opacity?: { value: number | undefined; changed: (opacity: number | undefined) => void };
+  /** For a color rule: how its tint is drawn, or undefined for solid. */
+  pattern?: { value: CardPattern | undefined; changed: (pattern: CardPattern | undefined) => void };
 };
 
 export type ColorPicker = {
   /** The palette and the sliders. */
   element: HTMLElement;
+  /** With `pattern`: a choice of patterns, each drawn in the color. */
+  patterns: HTMLElement | null;
   /** With `opacity`: a sample card in the rule's tint, and a warning when its text would be hard to read. */
   preview: HTMLElement | null;
 };
@@ -49,6 +53,7 @@ export function renderColorPicker(doc: Document, options: ColorPickerOptions): C
   /** The last whole color, which the sample and opacity track keep while a code is being typed. */
   let shown = hex ?? hslToHex(hsl);
   let opacity = options.opacity?.value;
+  let pattern = options.pattern?.value;
 
   const element = node('div', 'tt-color-picker');
   const swatches = node('div', 'tt-label-colors');
@@ -89,6 +94,21 @@ export function renderColorPicker(doc: Document, options: ColorPickerOptions): C
     sync(); options.changed(code.value);
   });
 
+  let patterns: HTMLElement | null = null;
+  if (options.pattern) {
+    const changed = options.pattern.changed;
+    patterns = node('div', 'tt-color-patterns');
+    patterns.setAttribute('role', 'group'); patterns.setAttribute('aria-label', named('Pattern'));
+    for (const choice of CARD_PATTERNS) {
+      const b = node('button', 'tt-color-pattern'); b.type = 'button'; b.dataset.pattern = choice.id; focus(b, `pattern-${choice.id}`);
+      // Each choice shows its pattern stronger than a card would, so it can be told apart at this size.
+      const tile = node('span', `tt-color-pattern-tile tt-tint--${choice.id}`); tile.setAttribute('aria-hidden', 'true');
+      b.append(node('span', '', choice.name), tile);
+      b.onclick = () => { pattern = choice.id === 'solid' ? undefined : choice.id; sync(); changed(pattern); };
+      patterns.append(b);
+    }
+  }
+
   let preview: HTMLElement | null = null;
   let tint: (() => void) | null = null;
   if (options.opacity) {
@@ -114,6 +134,7 @@ export function renderColorPicker(doc: Document, options: ColorPickerOptions): C
       const rgb = rgbChannels(shown);
       paint(alpha, `${TRACK}, rgba(${rgb}, 0), rgb(${rgb}))`);
       sample.style.setProperty('--tt-card-rgb', rgb);
+      sample.className = pattern ? `tt-color-sample tt-tint--${pattern}` : 'tt-color-sample';
       if (opacity === undefined) sample.style.removeProperty('--tt-card-tint');
       else sample.style.setProperty('--tt-card-tint', String(opacity / 100));
       const percent = opacity ?? automaticOpacity(sample);
@@ -145,10 +166,14 @@ export function renderColorPicker(doc: Document, options: ColorPickerOptions): C
     const { h, s, l } = hsl;
     paint(channels[1]!, `${TRACK}, ${hslToHex({ h, s: 0, l })}, ${hslToHex({ h, s: 100, l })})`);
     paint(channels[2]!, `${TRACK}, ${[0, 50, 100].map((light) => hslToHex({ h, s, l: light })).join(', ')})`);
+    if (patterns) {
+      patterns.style.setProperty('--tt-card-rgb', rgbChannels(shown));
+      for (const b of patterns.querySelectorAll<HTMLButtonElement>('button')) b.setAttribute('aria-pressed', String(b.dataset.pattern === (pattern ?? 'solid')));
+    }
     tint?.();
   }
   sync();
-  return { element, preview };
+  return { element, patterns, preview };
 }
 
 /** The theme's automatic tint, which the stylesheet sets on the sample as it does on cards. */

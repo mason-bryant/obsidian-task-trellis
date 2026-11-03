@@ -187,14 +187,33 @@
 .tt-board--no-overdue-bar .tt-card.is-overdue { border-left: 1px solid var(--background-modifier-border); }
 /*
  * A color rule's tint, over the card's own background so its text keeps its contrast. The color
- * picker's sample card shares it, so the two can't differ. A rule's own opacity sets the tint inline.
- * The automatic tints are named in colorPicker.ts's help text too.
+ * picker's sample card and pattern choices share it, so they can't differ. A rule's own opacity sets
+ * the tint inline. The automatic tints are named in colorPicker.ts's help text too.
  */
-.tt-card.tt-card--colored, .tt-color-sample {
-  --tt-card-tint: .14;
-  background-image: linear-gradient(rgba(var(--tt-card-rgb), var(--tt-card-tint)), rgba(var(--tt-card-rgb), var(--tt-card-tint)));
-}
+.tt-card.tt-card--colored, .tt-color-sample { --tt-card-tint: .14; }
 .theme-dark :is(.tt-card.tt-card--colored, .tt-color-sample) { --tt-card-tint: .24; }
+.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile {
+  --tt-card-line: rgba(var(--tt-card-rgb), var(--tt-card-tint));
+  --tt-card-wash: rgba(var(--tt-card-rgb), calc(var(--tt-card-tint) * .4));
+  background-image: linear-gradient(var(--tt-card-line), var(--tt-card-line));
+}
+/* A pattern's marks take the full tint and the space between a lighter one, so the darkest part of a
+   patterned card is no darker than a solid one: the picker's contrast warning holds for both. */
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--stripes {
+  background-image: repeating-linear-gradient(-45deg, var(--tt-card-line) 0 2px, var(--tt-card-wash) 2.5px 8px, var(--tt-card-line) 8.5px);
+}
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--dots {
+  background-image: radial-gradient(circle, var(--tt-card-line) 0 2.5px, var(--tt-card-wash) 3px);
+  background-size: 10px 10px;
+}
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--grid {
+  background-image: conic-gradient(from 90deg at 2px 2px, var(--tt-card-wash) 90deg, var(--tt-card-line) 0);
+  background-size: 12px 12px;
+}
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--checks {
+  background-image: repeating-conic-gradient(var(--tt-card-line) 0 25%, var(--tt-card-wash) 0 50%);
+  background-size: 12px 12px;
+}
 
 .tt-card.is-dragging {
   opacity: 0.4;
@@ -688,7 +707,7 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-quick-choices .tt-check-field { margin: 4px 0; }
 .tt-quick-swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
 /* A color rule's palette, laid out like the label editor's. */
-.tt-settings .tt-label-colors, .tt-settings .tt-color-picker { max-width: 360px; }
+.tt-settings .tt-label-colors, .tt-settings .tt-color-picker, .tt-settings .tt-color-patterns { max-width: 360px; }
 .tt-settings .tt-label-colors > .tt-label-color { height: 32px; min-height: 32px; padding: 0; box-shadow: none; border: 2px solid transparent; border-radius: 6px; cursor: pointer; }
 
 /* Subtask visibility is an explicit action, independent of card density. */
@@ -920,6 +939,11 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   .tt-color-slider { grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; }
   .tt-color-slider > .tt-color-slider-track { grid-column: 1 / -1; grid-row: 2; }
 }
+/* Pattern choices look like the label editor's color scheme choices: a name over a preview. */
+.tt-color-patterns { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+button.tt-color-pattern { display: flex; flex-direction: column; align-items: stretch; height: auto; min-height: 64px; gap: 8px; padding: 10px; white-space: normal; }
+button.tt-color-pattern[aria-pressed='true'] { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.tt-color-pattern-tile { --tt-card-tint: .6; display: block; height: 20px; border-radius: 3px; background-color: var(--background-primary); box-shadow: inset 0 0 0 1px var(--background-modifier-border); }
 .tt-color-preview { display: flex; flex-direction: column; gap: 6px; }
 .tt-color-sample { box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; max-width: 360px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; background-color: var(--background-primary); box-shadow: var(--shadow-s); color: var(--text-normal); font-weight: 500; }
 .tt-color-sample-details { color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: normal; }

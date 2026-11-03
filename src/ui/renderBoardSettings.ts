@@ -419,7 +419,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     return square;
   }
 
-  /** The shared color picker, for a color rule, with its opacity and a sample card. */
+  /** The shared color picker, for a color rule, with its opacity, pattern and a sample card. */
   function colorField(parent: HTMLElement, rule: DraftColorRule, key: string, label: string, previewChanged: () => void): void {
     const hex = input(rule.color.toUpperCase(), `${label} color code`, () => undefined);
     hex.dataset.focus = `${key}-color-code`; hex.placeholder = '#AABBCC'; hex.autocomplete = 'off'; hex.spellcheck = false;
@@ -428,9 +428,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       color: rule.color, code: hex, prefix: label, focusKey: `${key}-color`,
       changed: (color) => { rule.color = color; markInvalid(); previewChanged(); },
       opacity: { value: rule.opacity, changed: (opacity) => { rule.opacity = opacity; } },
+      pattern: { value: rule.pattern, changed: (pattern) => { rule.pattern = pattern; } },
     });
     markInvalid();
-    parent.append(field('Color', picker.element), field('HTML color code', hex), field('Preview', picker.preview!));
+    parent.append(field('Color', picker.element), field('HTML color code', hex), field('Pattern', picker.patterns!), field('Preview', picker.preview!));
   }
 
   function colorRuleEditor(body: HTMLElement): void {

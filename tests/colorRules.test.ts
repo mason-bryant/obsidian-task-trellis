@@ -69,6 +69,22 @@ describe('color rules', () => {
     ]);
   });
 
+  it('reads a pattern, and falls back to solid', () => {
+    const warnings: string[] = [];
+    const rules = parseColorRules([
+      { name: 'Striped', color: '#1558bc', pattern: 'stripes' },
+      { name: 'Shouted', color: '#1558bc', pattern: ' DOTS ' },
+      { name: 'Solid', color: '#1558bc', pattern: 'solid' },
+      { name: 'Plaid', color: '#1558bc', pattern: 'plaid' },
+      { name: 'Number', color: '#1558bc', pattern: 3 },
+    ], warnings);
+    expect(rules.map((r) => [r.name, r.pattern])).toEqual([['Striped', 'stripes'], ['Shouted', 'dots'], ['Solid', undefined], ['Plaid', undefined], ['Number', undefined]]);
+    expect(warnings).toEqual([
+      'The Plaid color rule’s pattern must be solid, stripes, dots, grid or checks, so its tint is solid.',
+      'The Number color rule’s pattern must be solid, stripes, dots, grid or checks, so its tint is solid.',
+    ]);
+  });
+
   it('colors each card with the first rule it matches, and leaves subtasks to their card', () => {
     expect(colors([kitchen, urgent])).toEqual({ 'Repaint the walls': 'Kitchen', 'Get countertop quotes': 'Kitchen' });
     expect(colors([urgent, kitchen])).toEqual({ 'Repaint the walls': 'Urgent', 'Get countertop quotes': 'Kitchen' });
@@ -108,6 +124,9 @@ describe('color rules', () => {
     expect(card(quote).style.getPropertyValue('--tt-card-tint')).toBe('');
     renderBoard(root, buildBoard(tasks, config({ 'color-rules': [{ ...kitchen, opacity: 35 }] }), TODAY, () => undefined), host, { warnings: [], info: [] });
     expect(card(quote).style.getPropertyValue('--tt-card-tint')).toBe('0.35');
+    expect(card(quote).className).not.toMatch(/tt-tint--/);
+    renderBoard(root, buildBoard(tasks, config({ 'color-rules': [{ ...kitchen, pattern: 'stripes' }] }), TODAY, () => undefined), host, { warnings: [], info: [] });
+    expect(card(quote).classList.contains('tt-tint--stripes')).toBe(true);
   });
 });
 
@@ -202,6 +221,30 @@ describe('color rule settings', () => {
     expect(document.activeElement).toBe(opacity);
     expect(opacity.getAttribute('aria-valuetext')).toBe('Automatic, 14%');
     expect(sample.style.getPropertyValue('--tt-card-tint')).toBe('');
+    expect(changedFrontmatter(ui.draft, ui.original)).toEqual({});
+  });
+
+  it('chooses a pattern, shown in the rule’s color and on the sample card', () => {
+    const ui = editor({ 'color-rules': [kitchen] });
+    ui.root.querySelector<HTMLButtonElement>('.tt-quick-filter-toggle')!.click();
+    const patterns = ui.control<HTMLElement>('Color rule 1 pattern');
+    const choice = (name: string) => [...patterns.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === name)!;
+    const sample = ui.root.querySelector<HTMLElement>('.tt-color-sample')!;
+    expect([...patterns.querySelectorAll('button')].map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual(
+      [['Solid', 'true'], ['Stripes', 'false'], ['Dots', 'false'], ['Grid', 'false'], ['Checks', 'false']]);
+    expect(patterns.style.getPropertyValue('--tt-card-rgb')).toBe('21, 88, 188');
+    choice('Stripes').click();
+    expect(choice('Stripes').getAttribute('aria-pressed')).toBe('true');
+    expect(choice('Solid').getAttribute('aria-pressed')).toBe('false');
+    expect(sample.classList.contains('tt-tint--stripes')).toBe(true);
+    // The choices follow the color as it changes.
+    ui.swatch(0, 'Purple').click();
+    expect(patterns.style.getPropertyValue('--tt-card-rgb')).toBe(sample.style.getPropertyValue('--tt-card-rgb'));
+    expect(ui.saved().frontmatter['color-rules']).toEqual([{ name: 'Kitchen', color: '#803fa5', pattern: 'stripes', 'include-folders': ['Projects'] }]);
+    expect(ui.saved().config.colorRules[0]!.pattern).toBe('stripes');
+    choice('Solid').click();
+    expect(sample.classList.contains('tt-tint--stripes')).toBe(false);
+    ui.swatch(0, 'Blue').click();
     expect(changedFrontmatter(ui.draft, ui.original)).toEqual({});
   });
 

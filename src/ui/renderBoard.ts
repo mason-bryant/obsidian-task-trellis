@@ -998,6 +998,7 @@ function paintCard(c: HTMLElement, task: BoardTask, model: BoardModel): void {
   c.classList.add('tt-card--colored');
   c.style.setProperty('--tt-card-rgb', rgbChannels(rule.color));
   if (rule.opacity !== undefined) c.style.setProperty('--tt-card-tint', String(rule.opacity / 100));
+  if (rule.pattern) c.classList.add(`tt-tint--${rule.pattern}`);
   const description = c.getAttribute('aria-description');
   c.setAttribute('aria-description', description ? `${rule.name}. ${description}` : rule.name);
 }

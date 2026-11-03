@@ -27,7 +27,7 @@
 ## Exceptions
 
 - Drag grips on cards, desktop subtasks and settings rows, and the column-resize separators, are narrower than 44px, so they don't take space from or cover what's beside them. They keep their full height, and what they do has an alternative that isn't a drag. This doesn't extend to other buttons.
-- A color rule's tint is a color-only signal on the card. It repeats what the rule matched, which the card mostly shows already (its note, labels, priority and due date), so it's a quicker way to scan rather than the only way to know. Screen readers hear the rule's name first in the card's description.
+- A color rule's solid tint is a color-only signal on the card; a pattern tells rules apart without relying on color. The tint repeats what the rule matched, which the card mostly shows already (its note, labels, priority and due date), so it's a quicker way to scan rather than the only way to know. Screen readers hear the rule's name first in the card's description.
 - On touch screens, a filter's parts, its dropdowns, value box and trash button, are 44px tall but sit edge to edge in one box, with dividers between them rather than space, as in Bases' filter editor, which the maintainer wants it to match.
 
 ## Where it lives
