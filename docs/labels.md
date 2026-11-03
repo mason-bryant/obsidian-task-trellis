@@ -4,7 +4,7 @@
 
 Click or tap the **tag icon** on a main task card to open its label picker. Check one or more labels to assign them; uncheck a label to remove it. Selections save immediately. If enabled, the search box finds labels by name or color. The box for a new task, on a board or in the boards sidebar, has the same tag icon: the labels you check there are added with the task.
 
-Each board starts with six unnamed labels: green, yellow, orange, red, purple and blue. Use a label’s **pencil** to name it or change its color, then choose the **green checkmark** at the top to save. Pick a color swatch or enter an HTML hex code such as `#FFCC00`. **+ Add label** adds another label to that board. Names are optional. Editing a label updates every card using it on that board.
+Each board starts with six unnamed labels: green, yellow, orange, red, purple and blue. Use a label’s **pencil** to name it or change its color, then choose the **green checkmark** at the top to save. Pick a color swatch, mix your own with the **Hue**, **Saturation** and **Lightness** sliders, or enter an HTML hex code such as `#FFCC00`; the three stay in step. **+ Add label** adds another label to that board. Names are optional. Editing a label updates every card using it on that board.
 
 Assigned labels appear above the card’s title, starting at the left, as short pills, or as circles or squares; choose with **Settings → Appearance → Label shape**. Hover over one to see the label’s name, such as **Urgent**; a label without a name shows its color. On a phone, open the picker to see the labels’ names and selections. Subtasks do not have label controls or indicators.
 

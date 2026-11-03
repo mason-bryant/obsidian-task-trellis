@@ -265,6 +265,14 @@
         color: var(--text-muted);
         cursor: default;
       }
+      /* Stand-ins for Obsidian's range inputs: Obsidian draws the thumb, and the plugin the color track behind it. */
+      input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
+      input[type=range]::-webkit-slider-runnable-track { height: 6px; -webkit-appearance: none; }
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none; position: relative; top: -6px; width: 18px; height: 18px; border-radius: 18px;
+        background: white; box-shadow: 0 0 2px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.1);
+      }
+      input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--interactive-accent); }
     </style>
     <link rel="stylesheet" href="../styles.css" />
   </head>

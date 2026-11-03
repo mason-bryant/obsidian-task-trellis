@@ -34,7 +34,7 @@ export type DraftQuickFilter = DraftCriteria & {
 };
 
 /** `color` is as typed, checked when saved. */
-export type DraftColorRule = DraftCriteria & { name: string; color: string };
+export type DraftColorRule = DraftCriteria & { name: string; color: string; opacity?: number };
 
 /** The board settings form's state: what the user typed, before validation. */
 export type BoardDraft = DraftFilterSet & {
@@ -109,7 +109,7 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
       id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], noLabels: f.noLabels, matchSubtasks: f.matchSubtasks, due: [...f.due], filter: filterDraft(f.filter),
     })),
     colorRules: config.colorRules.map((r) => ({
-      name: r.name, color: r.color, priorities: [...r.priorities], labels: [...r.labels], noLabels: r.noLabels, due: [...r.due], filter: filterDraft(r.filter),
+      name: r.name, color: r.color, opacity: r.opacity, priorities: [...r.priorities], labels: [...r.labels], noLabels: r.noLabels, due: [...r.due], filter: filterDraft(r.filter),
     })),
     newTasks: config.newTasks,
     newTasksNote: config.newTasksNote,
@@ -150,7 +150,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     const color = normalizeLabelColor(r.color);
     if (!color) errors.push(`Color rule ${i + 1} needs a hex color such as #AABBCC or #ABC.`);
     return colorRuleFrontmatter(
-      { name, color: color ?? r.color.trim(), priorities: r.priorities, labels: r.labels, noLabels: r.noLabels, due: r.due },
+      { name, color: color ?? r.color.trim(), opacity: r.opacity, priorities: r.priorities, labels: r.labels, noLabels: r.noLabels, due: r.due },
       filterFrontmatter(filterFromDraft(r.filter, `Color rule ${i + 1}`, errors)));
   });
 
