@@ -2,18 +2,13 @@ import { NotePopups } from './src/obsidian/NotePopup.ts';
 import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
 import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
 import { boardNameError, siblingPath } from './src/core/boardName.ts';
-import { isComposing } from './src/ui/dom.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
-import { editorBusy, prepareEditorModal, renderEditorHeader, type EditorHeader } from './src/ui/editorHeader.ts';
 import { around } from 'monkey-around';
 import {
-  setIcon,
   FuzzySuggestModal,
-  Modal,
   Notice,
   Plugin,
-  Setting,
   TFile,
   WorkspaceLeaf,
   normalizePath,
@@ -22,7 +17,10 @@ import {
   type ViewCreator,
   type ViewState,
 } from 'obsidian';
-import { BOARD_NOTE_TEXT, duplicateBoardFrontmatter, FM, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
+import { BOARD_NOTE_TEXT, duplicateBoardFrontmatter, FM, parseBoardConfig, type BoardConfig } from './src/core/boardConfig.ts';
+import { BOARD_TEMPLATES, EXAMPLES_FOLDER, exampleNote, templateFrontmatter, type BoardTemplateId } from './src/core/boardTemplates.ts';
+import { todayISO } from './src/core/dates.ts';
+import { NewBoardModal } from './src/obsidian/NewBoardModal.ts';
 import { changedFrontmatter, draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
@@ -353,38 +351,58 @@ export default class TaskTrellisPlugin extends Plugin {
   }
 
   promptNewBoard(): void {
-    new NewBoardModal(this.app, (name) => this.createBoard(name)).open();
+    new NewBoardModal(this.app, (name) => this.examplesPath(name), (name, template) => this.createBoard(name, template)).open();
   }
 
-  private async createBoard(name: string): Promise<boolean> {
+  /** A free path for the example board's sample tasks, named after the board. */
+  private examplesPath(name: string): string {
+    const base = normalizePath(`${EXAMPLES_FOLDER}/${name.trim() || 'Example board'}`);
+    let path = `${base}.md`;
+    for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = `${base} ${i}.md`;
+    return path;
+  }
+
+  /**
+   * Makes a board from a template in a single write, then opens it and its New tasks settings. The
+   * example board writes its sample tasks first, so the board never shows without them.
+   */
+  private async createBoard(name: string, templateId: BoardTemplateId): Promise<void> {
+    const template = BOARD_TEMPLATES.find((t) => t.id === templateId)!;
     const folder = normalizePath(this.settings.boardsFolder);
-    if (!this.app.vault.getFolderByPath(folder)) await this.app.vault.createFolder(folder);
     const path = normalizePath(`${folder}/${name}.md`);
-    if (this.app.vault.getAbstractFileByPath(path)) {
-      new Notice(`Task Trellis: ${path} already exists.`);
-      return false;
-    }
+    if (this.app.vault.getAbstractFileByPath(path)) throw new Error(`${path} already exists. Choose another board name.`);
     const slug = this.freeSlug(name);
-    const file = await this.app.vault.create(path, BOARD_NOTE_TEXT);
-    // The note exists from here on, so a later failure must not suggest creating it again.
-    try {
-      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-        Object.assign(fm, newBoardFrontmatter(slug));
-      });
-    } catch (error) {
-      console.error('[Task Trellis] board settings failed', error);
-      new Notice(`Task Trellis: created ${path}, but its board settings could not be saved. Open it from the boards sidebar and check its settings.`);
-      return true;
+    let examples = '';
+    if (template.examples) {
+      examples = this.examplesPath(name);
+      try {
+        if (!this.app.vault.getFolderByPath(EXAMPLES_FOLDER)) await this.app.vault.createFolder(EXAMPLES_FOLDER);
+        await this.app.vault.create(examples, exampleNote(slug, name, todayISO()));
+      } catch (error) {
+        console.error('[Task Trellis] writing the sample tasks failed', error);
+        throw new Error('Could not write the sample tasks, so no board was made. Check the folder and try again.');
+      }
     }
+    let file: TFile;
+    try {
+      if (!this.app.vault.getFolderByPath(folder)) await this.app.vault.createFolder(folder);
+      file = await this.app.vault.create(path, `---\n${stringifyYaml(templateFrontmatter(templateId, slug, examples))}---\n${BOARD_NOTE_TEXT}`);
+    } catch (error) {
+      console.error('[Task Trellis] board creation failed', error);
+      throw new Error(examples
+        ? `Could not create the board. The sample tasks were saved in ${examples}; delete that note, or try again.`
+        : 'Could not create the board, so nothing was made. Your name has been kept; check the folder and try again.');
+    }
+    // The board exists from here on, so a later failure must not suggest creating it again.
     try {
       await this.openBoard(file);
     } catch (error) {
       console.error('[Task Trellis] opening the new board failed', error);
       new Notice(`Task Trellis: created ${path}, but the board could not be opened. Open it from the boards sidebar.`);
-      return true;
+      return;
     }
-    new BoardSettingsModal(this.app, this, file, parseBoardConfig(name, newBoardFrontmatter(slug)).config, 'destination').open();
-    return true;
+    if (examples) new Notice(`Task Trellis: the example board’s sample tasks are in ${examples}. Delete the note and the board when you’re done with them.`);
+    else new BoardSettingsModal(this.app, this, file, parseBoardConfig(name, templateFrontmatter(templateId, slug)).config, 'destination').open();
   }
 
   /** A slug from the board's name that no other board uses: house, or house-2 when that's taken. */
@@ -439,50 +457,3 @@ class BoardPicker extends FuzzySuggestModal<TFile> {
   }
 }
 
-class NewBoardModal extends Modal {
-  private chrome: ReturnType<typeof prepareEditorModal> | null = null;
-  private name = '';
-
-  constructor(
-    app: App,
-    private onSubmit: (name: string) => Promise<boolean>,
-  ) {
-    super(app);
-  }
-
-  onOpen(): void {
-    this.setTitle('New Task Trellis board');
-    let header: EditorHeader | null = null;
-    const submit = async () => {
-      if (editorBusy(this.modalEl)) return;
-      const name = this.name.trim();
-      const error = boardNameError(this.name);
-      if (error) { new Notice(error); return; }
-      header?.setBusy(true, 'Creating board…');
-      let created = false;
-      try { created = await this.onSubmit(name); }
-      catch (error) { console.error('[Task Trellis] board creation failed', error); new Notice('Task Trellis: could not create the board. Your name has been kept; check the folder and try again.'); }
-      finally { header?.setBusy(false); }
-      if (created) this.close();
-    };
-    new Setting(this.contentEl).setName('Board name').addText((text) => {
-      text.setPlaceholder('House projects').onChange((v) => (this.name = v));
-      text.inputEl.addEventListener('keydown', (e) => {
-        if (!isComposing(e) && e.key === 'Enter') { e.preventDefault(); void submit(); }
-      });
-      window.setTimeout(() => text.inputEl.focus(), 0);
-    });
-    this.chrome = prepareEditorModal(this.modalEl);
-    header = renderEditorHeader(this.chrome.header, 'New board', setIcon, () => void submit(), () => this.close(), 'Create board');
-  }
-
-  /** Escape and clicks outside wait until the board is created. */
-  close(): void {
-    if (!editorBusy(this.modalEl)) super.close();
-  }
-
-  onClose(): void {
-    this.chrome?.destroy(); this.chrome = null;
-    this.contentEl.empty();
-  }
-}

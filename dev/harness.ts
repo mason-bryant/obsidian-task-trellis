@@ -3,7 +3,8 @@ import { renderBulkEditor } from '../src/ui/renderBulkEditor.ts';
 import './browserDOM.ts';
 import { uiElement } from '../src/ui/dom.ts';
 import { promptText } from './promptText.ts';
-import { renderBoardNameEditor, renderDuplicateBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
+import { renderBoardNameEditor, renderDuplicateBoardEditor, renderNewBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
+import { EXAMPLE_PROPERTY, EXAMPLES_FOLDER, exampleNote, templateFrontmatter } from '../src/core/boardTemplates.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
@@ -23,7 +24,7 @@ import { renderBoardSettings, type Section } from '../src/ui/renderBoardSettings
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
 import { reorderSubtaskBlocks } from '../src/core/reorderSubtasks.ts';
-import { parseTaskLine, setClosedFallback, setPlacement } from '../src/core/taskLine.ts';
+import { parseTaskLine, setClosedFallback, setPlacement, slugify } from '../src/core/taskLine.ts';
 import { clearBulkSelection, isDragging, renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 
 const today = todayISO();
@@ -366,7 +367,19 @@ const sidebar = new URLSearchParams(location.search).has('sidebar');
 let openBoardPath = 'Task Trellis/House.md';
 const sidebarHost: BoardListHost = {
   icon: previewIcon,
-  onCreateBoard: () => undefined,
+  // Makes the board here instead of in a vault: the example board's tasks join the harness's notes.
+  onCreateBoard: () => nameDialog((body, header, close) => renderNewBoardEditor(body, header,
+    { examplesPath: (name) => `${EXAMPLES_FOLDER}/${name || 'Example board'}.md` }, previewIcon, async (name, template) => {
+      const slug = slugify(name);
+      const examples = template === 'example' ? `${EXAMPLES_FOLDER}/${name}.md` : '';
+      if (examples) {
+        const note = exampleNote(slug, name, today);
+        files[examples] = note.split('\n');
+        frontmatter[examples] = { [EXAMPLE_PROPERTY]: slug };
+      }
+      ({ config, warnings } = parseBoardConfig(name, templateFrontmatter(template, slug, examples)));
+      render();
+    }, close)),
   onOpenBoard: (path) => { openBoardPath = path; render(); },
   // Whole cells, as QuickAdd.addToBacklog builds them, including cards a quick filter hides.
   onAddTask: (_path, text, detailed, labels) =>

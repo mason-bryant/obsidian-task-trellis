@@ -1,4 +1,5 @@
 import { boardNameError } from '../core/boardName.ts';
+import { BOARD_TEMPLATES, type BoardTemplate, type BoardTemplateId } from '../core/boardTemplates.ts';
 import { isComposing, uiElement } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 import type { RenamePreview } from '../obsidian/BoardTagRename.ts';
@@ -130,6 +131,77 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
     }
   };
   const header = renderEditorHeader(headerRoot, 'Duplicate board', icon, () => void submit(), close, 'Duplicate board');
+  input.addEventListener('keydown', (event) => {
+    if (!isComposing(event) && event.key === 'Enter') { event.preventDefault(); void submit(); }
+  });
+  focusName(input);
+}
+
+/** Where the example board's sample tasks go: `name` is the board's name as typed. */
+export type NewBoardOptions = { examplesPath(name: string): string };
+
+/** Names a new board and chooses what it starts from. A failed create keeps the name and choice to try again. */
+export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement, options: NewBoardOptions,
+  icon: (el: HTMLElement, name: string) => void, create: (name: string, template: BoardTemplateId) => Promise<void>, close: () => void): void {
+  const doc = body.ownerDocument;
+  const node = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
+    const el = uiElement(doc, tag); el.className = cls; el.textContent = text; return el;
+  };
+  const label = node('label', 'tt-board-name-field');
+  const input = node('input'); input.type = 'text'; input.placeholder = 'House projects';
+  input.setAttribute('aria-label', 'Board name');
+  label.append(node('span', '', 'Board name'), input);
+  const field = node('div', 'tt-board-name-field tt-board-template-field');
+  const choices = node('div', 'tt-board-templates');
+  choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'Start from');
+  field.append(node('span', '', 'Start from'), choices);
+  const examples = node('p', 'tt-help tt-board-template-examples');
+  const error = node('p', 'tt-note tt-note--warning'); error.setAttribute('role', 'alert'); error.hidden = true;
+  body.replaceChildren(label, field, examples, error);
+
+  let chosen: BoardTemplate = BOARD_TEMPLATES[0]!;
+  // The name follows the choice until it's typed in.
+  let suggested = '';
+  for (const template of BOARD_TEMPLATES) {
+    const b = node('button', 'tt-board-template'); b.type = 'button'; b.dataset.template = template.id;
+    b.append(node('span', 'tt-board-template-name', template.name), node('span', 'tt-board-template-description', template.description));
+    b.onclick = () => {
+      chosen = template;
+      if (input.value.trim() === suggested) input.value = suggested = template.suggestedName;
+      sync();
+    };
+    choices.append(b);
+  }
+  const sync = () => {
+    for (const b of choices.querySelectorAll<HTMLButtonElement>('button')) b.setAttribute('aria-pressed', String(b.dataset.template === chosen.id));
+    examples.hidden = !chosen.examples;
+    examples.textContent = chosen.examples
+      ? `The sample tasks go in ${options.examplesPath(input.value.trim() || chosen.suggestedName)}, and the board shows only them. Boards that show tasks from every note will show them too.`
+      : '';
+  };
+  input.addEventListener('input', sync);
+  sync();
+
+  let busy = false;
+  const submit = async () => {
+    if (busy) return;
+    const invalid = boardNameError(input.value);
+    error.hidden = true; input.removeAttribute('aria-invalid');
+    if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    busy = true; input.readOnly = true; header.setBusy(true, 'Creating board…');
+    try {
+      await create(input.value.trim(), chosen.id);
+      header.setBusy(false);
+      close();
+    } catch (reason) {
+      header.setBusy(false);
+      error.textContent = reason instanceof Error ? reason.message : 'Could not create the board. Please try again.';
+      error.hidden = false; input.focus();
+    } finally {
+      busy = false; input.readOnly = false;
+    }
+  };
+  const header = renderEditorHeader(headerRoot, 'New board', icon, () => void submit(), close, 'Create board');
   input.addEventListener('keydown', (event) => {
     if (!isComposing(event) && event.key === 'Enter') { event.preventDefault(); void submit(); }
   });

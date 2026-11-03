@@ -487,6 +487,14 @@ button.tt-board-rename:hover { color: var(--interactive-accent); background: tra
 button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 4px; }
 .tt-board-name-field { display: flex; flex-direction: column; gap: 8px; }
 .tt-board-name-field input { width: 100%; }
+/* New board's templates look like the label editor's color scheme choices: a name over what it gives you. */
+.tt-board-template-field { margin-top: 16px; }
+.tt-board-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 8px; }
+button.tt-board-template { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; height: auto; min-height: 64px; gap: 4px; padding: 10px 12px; white-space: normal; text-align: start; }
+button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.tt-board-template-name { font-weight: 600; }
+.tt-board-template-description { color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: normal; line-height: 1.4; }
+.tt-board-template-examples[hidden] { display: none; }
 .tt-board-total, .tt-filter-count { font-size: var(--font-ui-smaller); color: var(--text-muted); }
 .tt-filter-count { border-left: 1px solid var(--background-modifier-border); padding-left: 10px; }
 .tt-toolbar-button, .tt-button {

@@ -35,23 +35,48 @@ it.each(['partial', 'board-write', 'success'])('column rename handles %s without
   }
 });
 
-it.each([
-  ['settings', 'Task Trellis: created Boards/House.md, but its board settings could not be saved. Open it from the boards sidebar and check its settings.'],
-  ['open', 'Task Trellis: created Boards/House.md, but the board could not be opened. Open it from the boards sidebar.'],
-])('a new board that fails to finish (%s) is reported as created, not as a failure to retry', async (step, message) => {
-  const { notices } = await import('./mocks/obsidian.ts');
-  const create = vi.fn(async (path: string) => new TFile(path));
+/** The plugin's board creation, with a vault that records what it creates. */
+function newBoardPlugin(create: (path: string, data: string) => Promise<TFile>, openBoard: () => Promise<void> = async () => undefined) {
   const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
   Object.assign(plugin, {
     settings: { boardsFolder: 'Boards' }, boards: { boards: () => [] },
-    app: { workspace: new Workspace(), vault: { getFolderByPath: () => ({}), getAbstractFileByPath: () => null, create },
-      fileManager: { processFrontMatter: async () => { if (step === 'settings') throw new Error('Disk full'); } } },
-    openBoard: async () => { throw new Error('No leaf'); },
+    app: { workspace: new Workspace(), vault: { getFolderByPath: () => ({}), getAbstractFileByPath: () => null, create } },
+    openBoard,
   });
-  const createBoard = (plugin as unknown as { createBoard(name: string): Promise<boolean> }).createBoard.bind(plugin);
+  return (plugin as unknown as { createBoard(name: string, template: string): Promise<void> }).createBoard.bind(plugin);
+}
+
+it('makes a new board from its template in one write, and reports a board that can’t open as created', async () => {
+  const { notices } = await import('./mocks/obsidian.ts');
+  const create = vi.fn(async (path: string, _data: string) => new TFile(path));
+  const createBoard = newBoardPlugin(create, async () => { throw new Error('No leaf'); });
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  await expect(createBoard('House')).resolves.toBe(true);
-  expect(create).toHaveBeenCalledOnce(); expect(notices.at(-1)).toBe(message);
+  await expect(createBoard('House', 'project')).resolves.toBeUndefined();
+  expect(create).toHaveBeenCalledOnce();
+  expect(create.mock.calls[0]![0]).toBe('Boards/House.md');
+  expect(JSON.parse(create.mock.calls[0]![1].split('\n')[1]!)).toMatchObject({ slug: 'house', columns: ['Backlog', 'Ready', 'In progress', 'Review', 'Done'] });
+  expect(notices.at(-1)).toBe('Task Trellis: created Boards/House.md, but the board could not be opened. Open it from the boards sidebar.');
+});
+
+it('keeps the dialog open with a reason when the board can’t be written', async () => {
+  const createBoard = newBoardPlugin(vi.fn(async (_path: string, _data: string): Promise<TFile> => { throw new Error('Disk full'); }));
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await expect(createBoard('House', 'kanban')).rejects.toThrow('Could not create the board, so nothing was made. Your name has been kept; check the folder and try again.');
+});
+
+it('writes the example board’s sample tasks before the board, and says where they are', async () => {
+  const { notices } = await import('./mocks/obsidian.ts');
+  const create = vi.fn(async (path: string, _data: string) => new TFile(path));
+  await newBoardPlugin(create)('Sandbox', 'example');
+  expect(create.mock.calls.map(([path]) => path)).toEqual(['Task Trellis examples/Sandbox.md', 'Boards/Sandbox.md']);
+  expect(create.mock.calls[0]![1]).toMatch(/^---\ntask-trellis-example: sandbox\n---\n/);
+  expect(JSON.parse(create.mock.calls[1]![1].split('\n')[1]!)).toMatchObject({ 'filter-properties': ['task-trellis-example: sandbox'], 'new-tasks': 'note', 'new-tasks-note': 'Task Trellis examples/Sandbox.md' });
+  expect(notices.at(-1)).toBe('Task Trellis: the example board’s sample tasks are in Task Trellis examples/Sandbox.md. Delete the note and the board when you’re done with them.');
+
+  // A board that fails after its sample tasks were written says where they were left.
+  const failing = vi.fn(async (path: string, _data: string) => { if (path.startsWith('Boards/')) throw new Error('Disk full'); return new TFile(path); });
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await expect(newBoardPlugin(failing)('Sandbox', 'example')).rejects.toThrow('Could not create the board. The sample tasks were saved in Task Trellis examples/Sandbox.md; delete that note, or try again.');
 });
 
 it('removes the filter group from the board note once its rules fit the plain lists again', async () => {
