@@ -625,6 +625,12 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 .tt-settings-board-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The buttons at the end of a warning: the safe choice, then the destructive one. */
 .tt-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+/* What’s new after an update: each feature's name over a line about it, then Don’t show this again. */
+.tt-whats-new-list { display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; padding-inline-start: 1.2em; }
+.tt-whats-new-list > li { display: flex; flex-direction: column; gap: 2px; }
+.tt-whats-new-description { color: var(--text-muted); }
+.tt-whats-new-hide { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; }
+.tt-whats-new-hide input { margin: 0; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
 .tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }

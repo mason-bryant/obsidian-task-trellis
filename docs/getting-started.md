@@ -43,6 +43,15 @@ Make sure the destination for new tasks matches the board’s filters. For examp
 
 The example board writes its sample tasks to a note of their own, **Task Trellis examples/‹board name›.md**, and shows only the tasks in that note: the note has a `task-trellis-example` property that the board filters on. Tasks you add on the board go to that note too. Its New tasks settings don’t open, since it already has a destination. Boards that show tasks from every note will show the sample tasks as well, so delete the note, and the board, when you’re done with them.
 
+## After an update
+
+When an update adds features worth trying, the first board you open afterwards shows **What’s new** once: what the update added, and **Try them in settings**, which opens **Settings → Task Trellis → What’s new**. That section stays there, describing each recent feature, with a button to try it:
+
+- **Create board…** opens the new board dialog, with its templates.
+- **Add suggested color rules…** asks which board, then opens its **Colors** settings with three rules added: **Overdue** in red stripes, **Due today** in orange and **High priority** in purple dots. Nothing is saved until you save the settings; change or remove the rules first if you like, or discard them.
+
+Check **Don’t show this again** in the window, or turn off **Show what’s new after updates** in the settings, to stop it showing after updates. A new install doesn’t show it.
+
 ## Make it yours
 
 - [Configure columns and dates](boards.md).

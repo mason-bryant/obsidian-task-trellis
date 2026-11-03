@@ -23,6 +23,7 @@ An editor that saves explicitly has a header with a green check on the left, the
 | Source-note popup | Obsidian's own editor. It saves when it closes or expands into a tab. A failed save keeps it open. | Closing saves; it doesn't discard. |
 | Tasks plugin editor | Another plugin's editor, with its own controls. | |
 | Plugin settings tab | Each change saves as it's made, like Obsidian's own settings. | |
+| What's new (after an update) | Don't show this again saves as soon as it changes, like the label checkboxes. Try them in settings closes the window and opens the plugin's settings at What's new. | Close, the X and Escape close it. It shows once per update either way. |
 
 Board settings is the one editor that asks before discarding: its draft can span six tabs. The other editors hold a name or a few choices, so closing them discards at once.
 

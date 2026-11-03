@@ -21,6 +21,8 @@ import { BOARD_NOTE_TEXT, duplicateBoardFrontmatter, FM, parseBoardConfig, type 
 import { BOARD_TEMPLATES, EXAMPLES_FOLDER, exampleNote, templateFrontmatter, type BoardTemplateId } from './src/core/boardTemplates.ts';
 import { todayISO } from './src/core/dates.ts';
 import { NewBoardModal } from './src/obsidian/NewBoardModal.ts';
+import { WhatsNewModal } from './src/obsidian/WhatsNewModal.ts';
+import { unseenFeatures, type FeatureAction } from './src/core/whatsNew.ts';
 import { changedFrontmatter, draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
@@ -61,6 +63,7 @@ export default class TaskTrellisPlugin extends Plugin {
   private boardNavigation!: BoardNavigation;
   private openingBoardList: Promise<void> | null = null;
   /** Leaves showing a board note as markdown on purpose, with the path they were switched for. */
+  private settingTab: TaskTrellisSettingTab | null = null;
   private syncTimer: number | null = null;
   private configTimer: number | null = null;
   private stopped = false;
@@ -78,7 +81,10 @@ export default class TaskTrellisPlugin extends Plugin {
       if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
       this.markIndexed();
     });
-    this.settings = normalizeSettings(await this.loadData());
+    const saved: unknown = await this.loadData();
+    this.settings = normalizeSettings(saved);
+    // A new install has nothing to catch up on: What’s new starts from this version.
+    if (saved === null || saved === undefined) this.settings.whatsNewSeen = this.manifest.version;
     if (this.stopped) return;
     this.index = new TaskIndex(this.app, (path) => this.isExcludedFromIndex(path));
     this.writer = new TaskWriter(this.app);
@@ -129,7 +135,8 @@ export default class TaskTrellisPlugin extends Plugin {
       }),
     );
 
-    this.addSettingTab(new TaskTrellisSettingTab(this.app, this));
+    this.settingTab = new TaskTrellisSettingTab(this.app, this);
+    this.addSettingTab(this.settingTab);
 
     this.app.workspace.onLayoutReady(async () => {
       if (this.stopped) return;
@@ -144,8 +151,65 @@ export default class TaskTrellisPlugin extends Plugin {
           const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
           if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', 12000);
         } catch { new Notice('Task Trellis: a board rename recovery record could not be read. Check the Task Trellis recovery folder.'); }
+        // After an update, the first board shown says what the update added.
+        this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => { if (leaf?.view instanceof BoardView) this.showWhatsNew(); }));
+        if (this.app.workspace.getActiveViewOfType(BoardView)) this.showWhatsNew();
       }
     });
+  }
+
+  /** Once per update with new features, unless Don’t show this again was checked. */
+  private showWhatsNew(): void {
+    const features = unseenFeatures(this.settings.whatsNewSeen, this.manifest.version);
+    if (this.stopped || this.settings.whatsNewHidden || !features.length) return;
+    this.settings.whatsNewSeen = this.manifest.version;
+    void this.saveSettings();
+    new WhatsNewModal(this.app, {
+      version: this.manifest.version, features, hidden: this.settings.whatsNewHidden,
+      setHidden: (hidden) => { this.settings.whatsNewHidden = hidden; void this.saveSettings(); },
+      openSettings: () => this.openWhatsNewSettings(),
+    }).open();
+  }
+
+  /**
+   * Obsidian's settings window, which plugins can't open or close through the public API. Every
+   * use falls back to telling the user where to go.
+   */
+  private settingsWindow(): { open(): void; openTabById(id: string): unknown; close(): void } | undefined {
+    const setting = (this.app as unknown as { setting?: Partial<{ open(): void; openTabById(id: string): unknown; close(): void }> }).setting;
+    return setting?.open && setting.openTabById && setting.close ? setting as { open(): void; openTabById(id: string): unknown; close(): void } : undefined;
+  }
+
+  /** Settings → Task Trellis, scrolled to What’s new. */
+  openWhatsNewSettings(): void {
+    const setting = this.settingsWindow();
+    if (!setting) { new Notice('Task Trellis: to try the new features, open the app’s settings and choose Task Trellis.'); return; }
+    setting.open(); setting.openTabById(this.manifest.id);
+    // Settings may open in a window of their own and draw a moment later, so find the section through the tab.
+    const scroll = (tries: number) => {
+      const section = this.settingTab?.containerEl.querySelector('.tt-whats-new');
+      if (section) section.scrollIntoView({ block: 'start' });
+      else if (tries > 0) window.setTimeout(() => scroll(tries - 1), 100);
+    };
+    window.setTimeout(() => scroll(10), 50);
+  }
+
+  /** A What’s new button in the settings: closes them, then starts what it tries. */
+  tryFeature(kind: FeatureAction['kind']): void {
+    this.settingsWindow()?.close();
+    if (kind === 'create-board') { this.promptNewBoard(); return; }
+    const boards = this.boards.boards();
+    if (!boards.length) { this.promptNewBoard(); return; }
+    const suggest = async (file: TFile) => {
+      await this.openBoard(file);
+      const config = this.boards.boards().find((b) => b.file === file)?.config;
+      if (!config) return;
+      const settings = new BoardSettingsModal(this.app, this, file, config, 'colors');
+      settings.addSuggestedColorRules();
+      settings.open();
+    };
+    if (boards.length === 1) void suggest(boards[0]!.file);
+    else new BoardPicker(this.app, boards.map((b) => b.file), (file) => void suggest(file), 'Add suggested color rules to a board').open();
   }
 
   async saveSettings(): Promise<void> {
@@ -439,9 +503,10 @@ class BoardPicker extends FuzzySuggestModal<TFile> {
     app: App,
     private files: TFile[],
     private onPick: (file: TFile) => void,
+    placeholder = 'Open a board',
   ) {
     super(app);
-    this.setPlaceholder('Open a board');
+    this.setPlaceholder(placeholder);
   }
 
   getItems(): TFile[] {

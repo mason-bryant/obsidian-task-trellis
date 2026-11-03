@@ -11,6 +11,7 @@ import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
 import { notice } from './notice.ts';
 import { shortcutURL } from '../core/shortcut.ts';
+import { suggestedColorRules } from '../core/whatsNew.ts';
 import { DeleteBoardModal } from './DeleteBoardModal.ts';
 import { DiscardChangesModal } from './DiscardChangesModal.ts';
 import { DuplicateBoardModal } from './DuplicateBoardModal.ts';
@@ -40,6 +41,11 @@ export class BoardSettingsModal extends Modal {
   ) {
     super(app);
     this.draft = draftFromConfig(this.config);
+  }
+
+  /** Adds starter color rules to the draft, for the user to look over and save or discard. Call before opening. */
+  addSuggestedColorRules(): void {
+    this.draft.colorRules.push(...suggestedColorRules(this.draft.colorRules));
   }
 
   /**

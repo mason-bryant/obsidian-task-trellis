@@ -5,6 +5,8 @@ import { uiElement } from '../src/ui/dom.ts';
 import { promptText } from './promptText.ts';
 import { renderBoardNameEditor, renderDuplicateBoardEditor, renderNewBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
 import { EXAMPLE_PROPERTY, EXAMPLES_FOLDER, exampleNote, templateFrontmatter } from '../src/core/boardTemplates.ts';
+import { FEATURES, unseenFeatures } from '../src/core/whatsNew.ts';
+import { renderWhatsNew } from '../src/ui/renderWhatsNew.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
@@ -360,6 +362,15 @@ function pickLabels(selected: string[], saveSelection: (ids: string[]) => Promis
     },
   });
   dialog.showModal();
+}
+
+// ?whats-new shows the window an update opens, with this release's features.
+if (new URLSearchParams(location.search).has('whats-new')) {
+  nameDialog((body, header, close) => renderWhatsNew(body, header, {
+    version: FEATURES[0]!.version, features: unseenFeatures('1.3.0', FEATURES[0]!.version), hidden: false,
+    setHidden: (hidden) => { (window as unknown as { whatsNewHidden: boolean }).whatsNewHidden = hidden; },
+    openSettings: () => undefined,
+  }, previewIcon, close));
 }
 
 // ?sidebar shows the boards sidebar beside the board. Only House has tasks here; the other board is for switching.
