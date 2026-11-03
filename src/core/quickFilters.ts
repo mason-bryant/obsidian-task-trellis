@@ -19,23 +19,27 @@ export const QUICK_DUES: [QuickDue, string][] = [
 ];
 
 /**
- * A toolbar toggle that narrows the board. Its own criteria all must match; within one, any listed
- * value can. Its tag, folder and property rules work like the board's.
+ * What a quick filter or color rule matches. Every part that's filled in must match; within one, any
+ * listed value can. Its tag, folder and property rules work like the board's.
  */
-export type QuickFilter = FilterSet & {
-  /** Stable, so the remembered on/off state survives a rename. */
-  id: string;
-  name: string;
-  /** Shown as a toolbar button; a hidden filter is never applied. */
-  show: boolean;
+export type TaskCriteria = FilterSet & {
   priorities: QuickPriority[];
   /** Board label ids. */
   labels: string[];
   /** Also match tasks with no label assignments for this board. */
   noLabels: boolean;
+  due: QuickDue[];
+};
+
+/** A toolbar toggle that narrows the board. */
+export type QuickFilter = TaskCriteria & {
+  /** Stable, so the remembered on/off state survives a rename. */
+  id: string;
+  name: string;
+  /** Shown as a toolbar button; a hidden filter is never applied. */
+  show: boolean;
   /** Allow a subtask to satisfy this filter while keeping its parent as context. */
   matchSubtasks: boolean;
-  due: QuickDue[];
 };
 
 export const QUICK_FM = {
@@ -94,15 +98,26 @@ export function parseQuickFilters(raw: unknown, labels: BoardLabel[], warnings: 
       id,
       name,
       show: show === false || (typeof show === 'string' && show.trim().toLowerCase() === 'false') ? false : true,
-      priorities: known(stringList(f[QUICK_FM.priority]), QUICK_PRIORITIES),
-      labels: stringList(f[QUICK_FM.labels]).map((v) => v.toLowerCase()),
-      noLabels: f[QUICK_FM.noLabels] === true || (typeof f[QUICK_FM.noLabels] === 'string' && (f[QUICK_FM.noLabels] as string).trim().toLowerCase() === 'true'),
-      matchSubtasks: f[QUICK_FM.matchSubtasks] === true || (typeof f[QUICK_FM.matchSubtasks] === 'string' && (f[QUICK_FM.matchSubtasks] as string).trim().toLowerCase() === 'true'),
-      due: known(stringList(f[QUICK_FM.due]), QUICK_DUES),
-      filter: readFilter(f, warnings, `The ${name} quick filter’s rules`),
+      matchSubtasks: isTrue(f[QUICK_FM.matchSubtasks]),
+      ...parseCriteria(f, warnings, `The ${name} quick filter’s rules`),
     });
   }
   return filters;
+}
+
+/** The criteria in a quick filter's or color rule's properties; `where` names its rules in a warning. */
+export function parseCriteria(f: Record<string, unknown>, warnings: string[], where: string): TaskCriteria {
+  return {
+    priorities: known(stringList(f[QUICK_FM.priority]), QUICK_PRIORITIES),
+    labels: stringList(f[QUICK_FM.labels]).map((v) => v.toLowerCase()),
+    noLabels: isTrue(f[QUICK_FM.noLabels]),
+    due: known(stringList(f[QUICK_FM.due]), QUICK_DUES),
+    filter: readFilter(f, warnings, where),
+  };
+}
+
+function isTrue(value: unknown): boolean {
+  return value === true || (typeof value === 'string' && value.trim().toLowerCase() === 'true');
 }
 
 function known<T extends string>(values: string[], choices: [T, string][]): T[] {
@@ -115,13 +130,19 @@ export function quickFilterFrontmatter(filter: Omit<QuickFilter, 'filter'>, rule
   const fm: Record<string, unknown> = { [QUICK_FM.id]: filter.id, [QUICK_FM.name]: filter.name, [QUICK_FM.show]: filter.show };
   if (filter.noLabels) fm[QUICK_FM.noLabels] = true;
   if (filter.matchSubtasks) fm[QUICK_FM.matchSubtasks] = true;
-  const lists: [string, unknown[]][] = [[QUICK_FM.priority, filter.priorities], [QUICK_FM.labels, filter.labels], [QUICK_FM.due, filter.due]];
+  return criteriaFrontmatter(filter, rules, fm);
+}
+
+/** Adds a quick filter's or color rule's criteria to `fm`, leaving out empty ones. */
+export function criteriaFrontmatter(criteria: Omit<TaskCriteria, 'filter'>, rules: Record<string, unknown>, fm: Record<string, unknown> = {}): Record<string, unknown> {
+  if (criteria.noLabels) fm[QUICK_FM.noLabels] = true;
+  const lists: [string, unknown[]][] = [[QUICK_FM.priority, criteria.priorities], [QUICK_FM.labels, criteria.labels], [QUICK_FM.due, criteria.due]];
   for (const [key, values] of lists) if (values.length) fm[key] = values;
   for (const [key, value] of Object.entries(rules)) if (Array.isArray(value) ? value.length : value !== undefined) fm[key] = value;
   return fm;
 }
 
-export function hasCriteria(filter: QuickFilter): boolean {
+export function hasCriteria(filter: TaskCriteria): boolean {
   return filter.noLabels || filter.filter.items.length > 0 || [filter.priorities, filter.labels, filter.due].some((list: unknown[]) => list.length > 0);
 }
 
@@ -130,9 +151,9 @@ export function activeQuickFilters(config: BoardConfig, activeIds: string[]): Qu
   return config.quickFilters.filter((f) => f.show && activeIds.includes(f.id));
 }
 
-export function taskMatchesQuickFilter(
+export function taskMatchesCriteria(
   task: ParsedTask & { path: string; raw: string },
-  filter: QuickFilter,
+  filter: TaskCriteria,
   config: BoardConfig,
   today: ISODate,
   fm: Frontmatter,

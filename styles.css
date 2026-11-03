@@ -185,6 +185,12 @@
   box-shadow: var(--shadow-s);
 }
 .tt-board--no-overdue-bar .tt-card.is-overdue { border-left: 1px solid var(--background-modifier-border); }
+/* A color rule's tint, over the card's own background so its text keeps its contrast. */
+.tt-card.tt-card--colored {
+  --tt-card-tint: .14;
+  background-image: linear-gradient(rgba(var(--tt-card-rgb), var(--tt-card-tint)), rgba(var(--tt-card-rgb), var(--tt-card-tint)));
+}
+.theme-dark .tt-card.tt-card--colored { --tt-card-tint: .24; }
 
 .tt-card.is-dragging {
   opacity: 0.4;
@@ -677,6 +683,9 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-quick-choices > legend { margin-bottom: 4px; padding: 0; }
 .tt-quick-choices .tt-check-field { margin: 4px 0; }
 .tt-quick-swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+/* A color rule's palette, laid out like the label editor's. */
+.tt-settings .tt-label-colors { max-width: 360px; }
+.tt-settings .tt-label-colors > .tt-label-color { height: 32px; min-height: 32px; padding: 0; box-shadow: none; border: 2px solid transparent; border-radius: 6px; cursor: pointer; }
 
 /* Subtask visibility is an explicit action, independent of card density. */
 .tt-subtask-controls {
@@ -718,11 +727,13 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 @media (pointer: coarse) {
   .tt-icon-button, .tt-chip .tt-icon-button { width: 44px; height: 44px; }
   .tt-settings-tab, .tt-board-tools .tt-column-picker { min-height: 44px; }
+  .tt-settings .tt-label-colors > .tt-label-color { height: 44px; }
   .tt-board-search > input.tt-board-search-input { min-height: 44px; padding-inline-end: 44px; font-size: max(16px, var(--font-ui-small)); }
   .tt-board-search > button.tt-board-search-clear { inset-inline-end: 0; width: 44px; height: 44px; }
 }
 .is-mobile :is(.tt-icon-button, .tt-chip .tt-icon-button) { width: 44px; height: 44px; }
 .is-mobile :is(.tt-settings-tab, .tt-board-tools .tt-column-picker) { min-height: 44px; }
+.is-mobile .tt-settings .tt-label-colors > .tt-label-color { height: 44px; }
 .is-mobile .tt-board-search > input.tt-board-search-input { min-height: 44px; padding-inline-end: 44px; font-size: max(16px, var(--font-ui-small)); }
 .is-mobile .tt-board-search > button.tt-board-search-clear { inset-inline-end: 0; width: 44px; height: 44px; }
 

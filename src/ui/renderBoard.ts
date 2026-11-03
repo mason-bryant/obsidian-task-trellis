@@ -5,6 +5,7 @@ import { installColumnResize } from './columnResize.ts';
 import { watchComposerViewport } from './composerViewport.ts';
 import type { Section } from './renderBoardSettings.ts';
 import { labelDescription, taskLabels, type BoardLabel } from '../core/labels.ts';
+import { rgbChannels } from '../core/colorRules.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
 import type { BoardColumn, LabelShape } from '../core/boardConfig.ts';
 import { filterRules } from '../core/filters.ts';
@@ -883,6 +884,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (host.highlightIds?.has(task.id)) c.classList.add('tt-card--updated');
   c.setAttribute('aria-description', 'Press Enter to edit or open the source. Use Alt and Up or Down to reorder open tasks.');
   c.setAttribute('aria-keyshortcuts', task.closed ? 'Enter' : 'Enter Alt+ArrowUp Alt+ArrowDown');
+  paintCard(c, task, model);
   c.addEventListener('keydown', (e) => {
     if (e.target !== c) return;
     if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); host.onEdit(task); return; }
@@ -989,6 +991,16 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   return c;
 }
 
+/** Tints a card with the first color rule it matches, whose name screen readers hear before the rest of its description. */
+function paintCard(c: HTMLElement, task: BoardTask, model: BoardModel): void {
+  const rule = model.colors[task.id];
+  if (!rule) return;
+  c.classList.add('tt-card--colored');
+  c.style.setProperty('--tt-card-rgb', rgbChannels(rule.color));
+  const description = c.getAttribute('aria-description');
+  c.setAttribute('aria-description', description ? `${rule.name}. ${description}` : rule.name);
+}
+
 /** A card's labels in the board's shape. Obsidian shows the aria-label, the label's name, on hover. */
 function labelMarks(labels: BoardLabel[], shape: LabelShape): HTMLElement {
   const marks = el('div', `tt-card-labels tt-card-labels--${shape}`);
@@ -1006,6 +1018,7 @@ function labelMarks(labels: BoardLabel[], shape: LabelShape): HTMLElement {
 function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const selection = host.selection!;
   const c = el('div', 'tt-card tt-selection-card'); c.dataset.id = task.id;
+  paintCard(c, task, model);
   appendFilterContext(c, task, model, host);
   const selected = selection.has(task);
   // A parent shown only for context can't be picked, but one that became context after an edit can be unticked.

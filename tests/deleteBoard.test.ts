@@ -52,7 +52,7 @@ describe('the General tab', () => {
   it('comes first, opens by default, and holds the date settings that had their own tab', () => {
     const root = settings();
     const tabs = [...root.querySelectorAll<HTMLElement>('[role=tab]')].map((tab) => tab.textContent);
-    expect(tabs).toEqual(['General', 'Columns', 'Filters', 'Quick filters', 'Appearance', 'New tasks']);
+    expect(tabs).toEqual(['General', 'Columns', 'Filters', 'Quick filters', 'Colors', 'Appearance', 'New tasks']);
     expect(root.querySelector('#tt-tab-general')!.getAttribute('aria-selected')).toBe('true');
     for (const name of ['Due now window', 'Window unit', 'Future week rows', 'Weeks start on', 'Show completed tasks for']) {
       expect(root.querySelector(`[aria-label="${name}"]`), name).not.toBeNull();
