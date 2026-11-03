@@ -58,6 +58,11 @@ export class ItemView {
   constructor(leaf: { app: unknown }) { this.app = leaf.app; this.contentEl = document.createElement('div'); }
 }
 export class FileView extends ItemView {}
+export class Scope {
+  keys: { modifiers: string[] | null; key: string | null; func: (evt: KeyboardEvent) => unknown }[] = [];
+  constructor(public parent?: Scope) {}
+  register(modifiers: string[] | null, key: string | null, func: (evt: KeyboardEvent) => unknown) { const k = { modifiers, key, func }; this.keys.push(k); return k; }
+}
 export const MarkdownRenderer = { render: async () => {} };
 export class Menu {}
 export const setIcon = () => {};

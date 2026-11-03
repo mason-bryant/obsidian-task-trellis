@@ -29,6 +29,8 @@ export type RenderHost = {
   onSetSubtasksCollapsed(keys: string[], collapsed: boolean): void;
   /** Persists which quick filters are switched on. Without it the board shows no quick filter buttons. */
   onSetQuickFilters?(ids: string[]): void;
+  /** Narrows the board to cards matching the search box's text, which the next model's `search` reflects. Without it the board has no search box. */
+  onSearch?(query: string): void;
   onQuickFiltersMenu?: QuickFilterMenu;
   /** Opens the host's accessible Arrange menu with these choices; calls onClose when dismissed. */
   onArrangeMenu?(anchor: HTMLElement, choices: ArrangeChoice[], choose: (choice: ArrangeChoice) => void, onClose: () => void): void;
@@ -83,8 +85,16 @@ function disposeSubtaskReorders(root: HTMLElement): void {
 }
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 /** What each board last said in its live region, so a redraw doesn't say it again. */
-const spoken = new WeakMap<HTMLElement, { undo?: RenderHost['undo']; count?: string; result?: string }>();
+const spoken = new WeakMap<HTMLElement, { undo?: RenderHost['undo']; count?: string; result?: string; search?: string }>();
 const quickDisclosures = new WeakMap<HTMLElement, { scope: string; collapsed: Set<string>; all: Set<string> }>();
+/** Wait this long after typing stops before searching, so a big board doesn't redraw for every letter. */
+export const SEARCH_DELAY_MS = 150;
+type SearchField = { slug: string; wrap: HTMLElement; reset(): void; dispose(): void };
+/**
+ * The toolbar and its tools are refilled around the search box rather than redrawn, so the box
+ * keeps focus, its caret and the phone keyboard while the cards below update.
+ */
+const toolbars = new WeakMap<HTMLElement, { toolbar: HTMLElement; tools: HTMLElement; search?: SearchField }>();
 /**
  * How many cards a cell draws at a time; its "more" button draws the next page. Every card drawn
  * costs memory, and on an iPhone a board that drew about a thousand restarted Obsidian.
@@ -106,6 +116,8 @@ export function disposeBoardSelection(root: HTMLElement): void {
   bulkStates.delete(root);
   quickDisclosures.delete(root);
   cellPages.delete(root);
+  toolbars.get(root)?.search?.dispose();
+  toolbars.delete(root);
 }
 
 const DRAG_TYPE = 'application/x-task-trellis';
@@ -178,7 +190,13 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const keep = new Set([...host.highlightIds ?? [], ...focusedCard ? [focusedCard] : []]);
   composerViewportCleanup.get(root)?.();
   disposeSubtaskReorders(root);
-  clearForRedraw(root);
+  let bar = toolbars.get(root);
+  if (!bar) {
+    bar = { toolbar: el('div', 'tt-board-toolbar'), tools: el('div', 'tt-board-tools') };
+    bar.toolbar.append(bar.tools);
+    toolbars.set(root, bar);
+  }
+  clearForRedraw(root, [bar.toolbar]);
   root.classList.add('tt-board');
 
   for (const text of notes.warnings) root.append(el('div', 'tt-note tt-note--warning', text));
@@ -204,7 +222,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   if (!config.showColumnSelector || !model.columns.some((c) => c.id === display.column)) display.column = '';
   let bulk = bulkStates.get(root);
   if (!bulk) { bulk = new BulkSelection(); bulkStates.set(root, bulk); }
-  bulk.resetScope(JSON.stringify([config.slug, config.filter, model.activeQuickFilters, config.quickFilters, display.column]));
+  bulk.resetScope(JSON.stringify([config.slug, config.filter, model.activeQuickFilters, config.quickFilters, model.search, display.column]));
   const selection = bulk;
   const redraw = () => {
     const latest = renderInputs.get(root)!;
@@ -216,7 +234,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     cellPages.set(root, paged);
   }
   const paging: Paging = { pages: paged.pages, keep, redraw };
-  const quickScope = JSON.stringify([config.slug, model.activeQuickFilters, config.quickFilters]);
+  const quickScope = JSON.stringify([config.slug, model.activeQuickFilters, config.quickFilters, model.search]);
   let disclosures = quickDisclosures.get(root);
   if (!disclosures || disclosures.scope !== quickScope) {
     disclosures = { scope: quickScope, collapsed: new Set(), all: new Set() };
@@ -279,7 +297,14 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   root.classList.toggle('tt-board--selecting', selection.active);
   root.classList.toggle('tt-board--compact', config.compact);
   root.classList.toggle('tt-board--no-overdue-bar', !config.overdueBar);
-  const toolbar = el('div', 'tt-board-toolbar');
+  const { toolbar, tools } = bar;
+  if (bar.search && (!host.onSearch || bar.search.slug !== config.slug)) { bar.search.wrap.remove(); bar.search = undefined; }
+  if (host.onSearch) bar.search ??= searchField(root, config.slug, model.search, host);
+  const search = bar.search;
+  // The search box ends the heading's row, where there's room for it, before the tools.
+  for (const child of [...toolbar.children]) if (child !== tools && child !== search?.wrap) child.remove();
+  tools.replaceChildren();
+  if (search && !search.wrap.parentElement) toolbar.insertBefore(search.wrap, tools);
   const heading = el('div', 'tt-board-heading');
   if (host.onRename) {
     const name = el('button', 'tt-board-name tt-board-rename', config.name);
@@ -288,7 +313,6 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     heading.append(name);
   } else heading.append(el('span', 'tt-board-name', config.name));
   heading.append(el('span', 'tt-board-total', `${model.total} ${model.total === 1 ? 'card' : 'cards'}`));
-  const tools = el('div', 'tt-board-tools');
   const picker = el('select', 'tt-column-picker'); picker.setAttribute('aria-label', 'Visible board column');
   picker.dataset.boardFocus = 'column';
   for (const [id, label] of [['', 'All columns'], ...model.columns.map((c) => [c.id, c.label])]) {
@@ -348,7 +372,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     const settings = el('button', 'tt-toolbar-button'); settings.type = 'button'; settings.dataset.boardFocus = 'settings';
     settings.append(hostIcon(host, 'sliders-horizontal'), el('span', '', 'Settings')); settings.onclick = () => host.onSettings?.(); tools.append(settings);
   }
-  toolbar.append(heading, tools); root.insertBefore(toolbar, root.firstChild);
+  toolbar.insertBefore(heading, toolbar.firstChild);
+  // Moving the toolbar would take focus from the search box, so it moves only on the first draw.
+  if (root.firstChild !== toolbar) root.insertBefore(toolbar, root.firstChild);
   const visibleColumns = display.column ? model.columns.filter((c) => c.id === display.column) : model.columns;
   scrollEl.style.setProperty('--tt-columns', String(visibleColumns.length));
   grid.style.setProperty('--tt-columns', String(visibleColumns.length));
@@ -357,12 +383,23 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   hint.hidden = !!display.column; root.insertBefore(hint, scrollEl);
   const filters = filterRules(config.filter).length;
   if (filters) heading.append(el('span', 'tt-filter-count', `${filters} filter ${filters === 1 ? 'condition' : 'conditions'}`));
-  if (model.total === 0 && model.activeQuickFilters.length && host.onSetQuickFilters) {
+  const quickOn = model.activeQuickFilters.length > 0 && !!host.onSetQuickFilters;
+  const searching = !!model.search && !!search;
+  if (model.total === 0 && (quickOn || searching)) {
     const empty = el('section', 'tt-note tt-empty-state');
-    empty.append(el('p', '', 'No tasks match the quick filters that are on.'));
-    const clear = el('button', 'tt-toolbar-button', 'Turn off quick filters'); clear.type = 'button';
-    clear.dataset.boardFocus = 'quick-clear'; clear.onclick = () => host.onSetQuickFilters?.([]);
-    empty.append(clear); root.insertBefore(empty, scrollEl);
+    empty.append(el('p', '', searching && quickOn ? `No tasks match “${model.search}” and the quick filters that are on.`
+      : searching ? `No tasks match “${model.search}”.` : 'No tasks match the quick filters that are on.'));
+    if (searching) {
+      const clear = el('button', 'tt-toolbar-button', 'Clear search'); clear.type = 'button';
+      clear.dataset.boardFocus = 'search-reset'; clear.onclick = () => search.reset();
+      empty.append(clear);
+    }
+    if (quickOn) {
+      const clear = el('button', 'tt-toolbar-button', 'Turn off quick filters'); clear.type = 'button';
+      clear.dataset.boardFocus = 'quick-clear'; clear.onclick = () => host.onSetQuickFilters?.([]);
+      empty.append(clear);
+    }
+    root.insertBefore(empty, scrollEl);
   } else if (model.total === 0 && host.onSettings) {
     const empty = el('section', 'tt-note tt-empty-state');
     empty.setAttribute('aria-label', 'Get started with this board');
@@ -383,6 +420,10 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     if (host.undo !== said.undo && !selection.active) announce(root, host.undo.label);
   }
   said.undo = host.undo;
+  if (search && model.search !== said.search && model.search) {
+    announce(root, model.total ? `${model.total} ${model.total === 1 ? 'card matches' : 'cards match'} “${model.search}”.` : `No tasks match “${model.search}”.`);
+  }
+  said.search = model.search;
   if (selection.active) {
     const bar = el('div', 'tt-bulk-bar'); bar.setAttribute('aria-label', 'Bulk task actions'); bar.setAttribute('role', 'region');
     bar.append(el('span', 'tt-bulk-count', `${selection.tasks.length} selected`));
@@ -1018,7 +1059,8 @@ function appendFilterContext(node: HTMLElement, task: BoardTask, model: BoardMod
   }
   if (model.quickContext?.matches.has(task.id)) {
     node.classList.add('tt-filter-match');
-    node.append(el('span', 'tt-filter-match-note', 'Matches quick filters'));
+    node.append(el('span', 'tt-filter-match-note', !model.search ? 'Matches quick filters'
+      : model.activeQuickFilters.length ? 'Matches quick filters and search' : 'Matches search'));
   }
 }
 
@@ -1050,6 +1092,52 @@ function taskMain(task: BoardTask, host: RenderHost): HTMLElement {
   host.renderText(text, task);
   main.append(box, text);
   return main;
+}
+
+/**
+ * The toolbar's search box. It searches once typing pauses, or at once for Enter and clearing, through
+ * the latest host. Escape clears it; Enter moves to the first card.
+ */
+function searchField(root: HTMLElement, slug: string, query: string, host: RenderHost): SearchField {
+  const win = root.ownerDocument.defaultView ?? window;
+  const wrap = el('div', 'tt-board-search');
+  const input = el('input', 'tt-board-search-input');
+  input.type = 'search'; input.value = query; input.placeholder = 'Search cards…';
+  input.setAttribute('aria-label', 'Search cards'); input.enterKeyHint = 'search';
+  input.spellcheck = false; input.autocomplete = 'off'; input.dataset.boardFocus = 'search';
+  const clear = el('button', 'tt-board-search-clear');
+  clear.type = 'button'; clear.setAttribute('aria-label', 'Clear search'); clear.hidden = !query;
+  clear.append(hostIcon(host, 'x'));
+  wrap.append(hostIcon(host, 'search'), input, clear);
+  let timer: number | undefined;
+  const send = () => {
+    win.clearTimeout(timer); timer = undefined;
+    const latest = renderInputs.get(root);
+    if (latest && input.value.trim() !== latest.model.search) latest.host.onSearch?.(input.value);
+  };
+  const reset = () => { input.value = ''; clear.hidden = true; send(); input.focus({ preventScroll: true }); };
+  input.addEventListener('input', (event) => {
+    clear.hidden = !input.value;
+    // Wait for an input method to finish the word; compositionend searches then.
+    if ((event as InputEvent).isComposing) return;
+    win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS);
+  });
+  input.addEventListener('compositionend', () => { win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS); });
+  input.addEventListener('keydown', (event) => {
+    if (isComposing(event)) return;
+    if (event.key === 'Escape' && input.value) {
+      // Clearing comes first; with the box empty, Escape does what it does on the board.
+      event.preventDefault(); event.stopPropagation(); reset();
+    } else if (event.key === 'Enter') {
+      event.preventDefault(); send();
+      // On a narrow board this pages to the card's column. Cards' scroll margin keeps them clear of the column header.
+      const first = root.querySelector<HTMLElement>('.tt-grid .tt-card[tabindex], .tt-grid .tt-select-card');
+      first?.focus({ preventScroll: true });
+      first?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+  });
+  clear.onclick = reset;
+  return { slug, wrap, reset, dispose: () => win.clearTimeout(timer) };
 }
 
 function hostIcon(host: RenderHost, name: string): HTMLElement {

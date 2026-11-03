@@ -5,7 +5,7 @@ import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
 import { taskLabels } from '../core/labels.ts';
 import { boardPalette, LabelPickerModal, pickComposerLabels } from './LabelPickerModal.ts';
-import { Component, FileView, MarkdownRenderer, Menu, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { Component, FileView, MarkdownRenderer, Menu, parseLinktext, Scope, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { planDueDateSort } from '../core/dueSort.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
@@ -45,6 +45,8 @@ export class BoardView extends FileView {
   private undoControls = new WeakMap<object, NonNullable<RenderHost['undo']>>();
   private highlightIds = new Set<string>();
   private highlightUntil = 0;
+  /** The search box's text. It lasts while this board stays open here, and isn't saved. */
+  private search = '';
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -80,6 +82,14 @@ export class BoardView extends FileView {
       this.renderQueued = false;
     });
     this.contentEl.addClass('task-trellis-view');
+    // Cmd/Ctrl+F searches the board, as it searches a note in the editor.
+    this.scope = new Scope(this.app.scope);
+    this.scope.register(['Mod'], 'f', () => {
+      const field = this.contentEl.querySelector<HTMLInputElement>('.tt-board-search-input');
+      if (!field) return true;
+      field.focus(); field.select();
+      return false;
+    });
     this.addAction('settings', 'Board settings', () => {
       if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config).open();
     });
@@ -121,6 +131,7 @@ export class BoardView extends FileView {
     this.board = null;
     this.model = null;
     this.undoAction = null;
+    this.search = '';
     this.pending.clear();
   }
 
@@ -187,7 +198,7 @@ export class BoardView extends FileView {
     this.model = buildBoard(tasks, this.board.config, this.today,
       (path) => this.app.metadataCache.getCache(path)?.frontmatter,
       (path) => noteTags(this.app.metadataCache.getCache(path)),
-      this.plugin.activeQuickFilters(this.board.config.slug));
+      this.plugin.activeQuickFilters(this.board.config.slug), this.search);
 
     const info: string[] = [];
     if (!this.plugin.writer.tasksApi()) {
@@ -317,6 +328,7 @@ export class BoardView extends FileView {
         void this.plugin.setActiveQuickFilters(this.board.config.slug, ids);
         this.render();
       },
+      onSearch: (query) => { this.search = query; this.renderWhenIdle(); },
       onDrop: (taskId, target) => void this.drop(taskId, target),
       onReorderSubtask: (move) => void this.reorderSubtask(move),
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {

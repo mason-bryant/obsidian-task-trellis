@@ -30,10 +30,13 @@ function liveRegions(owner: HTMLElement): Regions {
   return found;
 }
 
-/** Empties `owner` for a redraw, keeping its live regions where screen readers already know them. */
-export function clearForRedraw(owner: HTMLElement): void {
+/**
+ * Empties `owner` for a redraw, keeping its live regions where screen readers already know them, and
+ * `keep`, which a redraw refills in place so a field in it keeps focus.
+ */
+export function clearForRedraw(owner: HTMLElement, keep: Node[] = []): void {
   const { box } = liveRegions(owner);
-  for (const child of [...owner.childNodes]) if (child !== box) child.remove();
+  for (const child of [...owner.childNodes]) if (child !== box && !keep.includes(child)) child.remove();
 }
 
 /**

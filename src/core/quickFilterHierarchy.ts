@@ -1,5 +1,4 @@
 import type { BoardTask } from './board.ts';
-import type { QuickFilter } from './quickFilters.ts';
 
 /** Presentation metadata only: no task, placement or saved collapse preference is changed. */
 export type QuickFilterContext = {
@@ -11,10 +10,13 @@ export type QuickFilterContext = {
   parents: Record<string, BoardTask[]>;
 };
 
-/** Filter existing board families, preserving the board's inclusion rules and normal placement. */
-export function filterTaskFamilies(
+/**
+ * Filter existing board families, preserving the board's inclusion rules and normal placement.
+ * `filters` are the quick filters that are on, and the search when there is one.
+ */
+export function filterTaskFamilies<F extends { matchSubtasks: boolean }>(
   cards: BoardTask[], subtasks: Record<string, BoardTask[]>, byId: Map<string, BoardTask>,
-  filters: QuickFilter[], matches: (task: BoardTask, filter: QuickFilter) => boolean,
+  filters: F[], matches: (task: BoardTask, filter: F) => boolean,
   isShown: (task: BoardTask) => boolean,
 ): { keep: Set<string>; context: QuickFilterContext } {
   const context: QuickFilterContext = {

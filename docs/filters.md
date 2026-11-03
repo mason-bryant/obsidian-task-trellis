@@ -75,6 +75,25 @@ A property filter names one property, written as in `filter-properties`. A list 
 
 The extra `include-folders` value is for older versions of Task Trellis, which don't know `filter`: on a device that hasn't updated yet, the board shows no tasks, instead of tasks its filter should hide. Update Task Trellis on every device that opens the board. Saving settings simplifies what says nothing extra, such as a group of one filter, and goes back to the plain lists, without `filter`, once the filters fit them again.
 
+## Search the board
+
+Type in **Search cards…**, beside the board's name, to show only the cards that contain every word you type, in any order. Case and accents don't matter, so `cafe` finds Café. The search looks at what a card shows:
+
+- the task's text, including links and tags;
+- the name of the note it's in;
+- its labels on this board, by name, or by color for a label without one.
+
+A subtask is searched by its own text. A matching subtask brings its card into view, just as **Match subtasks** does for a quick filter. Words the card doesn't contain must all be in one of its subtasks. For example, `kitchen trim` finds a card in your Kitchen note through its **Paint the trim** subtask.
+
+The search narrows the board on top of its filters and any quick filters that are on. The card count shows how many cards match. If none do, the board says so and offers **Clear search**.
+
+- **Searching:** the board updates as you type.
+- **Cmd/Ctrl+F** in a board jumps to the search box.
+- **Enter** moves to the first matching card.
+- **Escape**, or the × in the box, clears it.
+
+The search lasts while the board stays open in its tab. It isn't saved, and it starts empty when you open the board again.
+
 ## Quick filters
 
 Quick filters are buttons at the top of the board that narrow it further while they're pressed. They never widen the board: a task must pass the board's filters and every quick filter that is on. Each board remembers which of its quick filters are on.
