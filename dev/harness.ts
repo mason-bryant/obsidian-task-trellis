@@ -22,7 +22,7 @@ import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/b
 import { propertyValueStrings } from '../src/core/filters.ts';
 import { backlogCell, planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
 import { renderBoardList, type BoardListHost } from '../src/ui/renderBoardList.ts';
-import { renderBoardSettings, type SettingsTarget } from '../src/ui/renderBoardSettings.ts';
+import { renderBoardSettings, SETTINGS_TABS, type Section, type SettingsTarget } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
 import { reorderSubtaskBlocks } from '../src/core/reorderSubtasks.ts';
@@ -451,7 +451,10 @@ function render(): void {
 }
 
 
-function openSettings(initialSection: SettingsTarget = 'general'): void {
+/** The tab showing when the settings last closed, as the plugin settings remember it. */
+let lastSettingsTab: Section = SETTINGS_TABS[0].id;
+
+function openSettings(initialSection: SettingsTarget = lastSettingsTab): void {
   const dialog = document.getElementById('settings') as HTMLDialogElement;
   const body = dialog.querySelector<HTMLElement>('.modal-content')!;
   const chrome = prepareEditorModal(dialog);
@@ -487,6 +490,7 @@ function openSettings(initialSection: SettingsTarget = 'general'): void {
       }
     }
     if (save) saves++;
+    lastSettingsTab = form.section();
     form.destroy(); chrome.destroy();
     dialog.close();
     render();

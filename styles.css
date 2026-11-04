@@ -622,7 +622,7 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 .tt-button.tt-button--danger:hover { background: var(--background-modifier-error-hover, #d32640); }
 .tt-button.tt-button--danger:disabled { opacity: .5; cursor: default; }
 .tt-settings-board-actions, .tt-settings-danger, .tt-settings-part { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
-.tt-settings-body > :is(.tt-settings-board-actions, .tt-settings-danger):first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.tt-settings-body > :is(.tt-settings-board-actions, .tt-settings-danger, .tt-settings-part):first-child { margin-top: 0; padding-top: 0; border-top: 0; scroll-margin-top: 18px; }
 .tt-settings-board-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The buttons at the end of a warning: the safe choice, then the destructive one. */
 .tt-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }

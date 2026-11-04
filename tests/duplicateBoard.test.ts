@@ -79,7 +79,7 @@ describe('the General tab', () => {
     const root = document.createElement('div'); document.body.append(root);
     const original = parseBoardConfig('House', { slug: 'house' }).config;
     renderBoardSettings(root, draftFromConfig(original), original, {
-      icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
+      initialSection: 'general', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
       taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(), ...host,
     });
     return root;
@@ -230,6 +230,7 @@ describe('Duplicate board… and Rename board… in the settings dialog', () => 
     } as unknown as App;
     const plugin = {
       index: { all: () => [] }, boards: { boards: () => [] }, boardRenames: migration, isExcludedFromIndex: () => false,
+      settings: { boardSettingsTab: 'general' }, saveSettings: vi.fn(async () => {}),
       quickAdd: { defaultDestination: () => ({ kind: 'note', note: 'Inbox.md', heading: '' }), dailyNotesAvailable: () => false },
       duplicateBoard: vi.fn(async () => copy), openBoard: vi.fn(async () => {}), saveBoardSettings: vi.fn(async (..._args: unknown[]) => []),
     };

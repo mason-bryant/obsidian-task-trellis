@@ -34,8 +34,22 @@ export type SettingsFormHost = {
   /** Asks before moving the board note to the trash. */
   onDeleteBoard?(): void;
 };
-export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
-export type Section = 'general' | 'setup' | 'quick' | 'appearance' | 'destination';
+export type SettingsForm = {
+  showErrors(errors: string[]): void;
+  setSaving(saving: boolean): void;
+  /** The tab showing now, for the settings to open on next time. */
+  section(): Section;
+  destroy(): void;
+};
+/** In order. Settings open on the first until they have a last tab to go back to. */
+export const SETTINGS_TABS = [
+  { id: 'appearance', title: 'Appearance', glyph: 'palette' },
+  { id: 'quick', title: 'Quick filters', glyph: 'filter' },
+  { id: 'general', title: 'General', glyph: 'sliders-horizontal' },
+  { id: 'setup', title: 'Setup', glyph: 'columns-3' },
+  { id: 'destination', title: 'New tasks', glyph: 'file-plus-2' },
+] as const;
+export type Section = typeof SETTINGS_TABS[number]['id'];
 /** Where settings can open: a tab, or a part of a long one, which they scroll to and focus. */
 export type SettingsTarget = Section | 'filters' | 'color-rules';
 const TAB_PARTS: Partial<Record<SettingsTarget, { tab: Section; start: string; focus: string }>> = {
@@ -46,7 +60,7 @@ const TAB_PARTS: Partial<Record<SettingsTarget, { tab: Section; start: string; f
 /** Shared by the Obsidian modal and harness. Drafts are written only by an explicit save. */
 export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, original: BoardConfig, host: SettingsFormHost): SettingsForm {
   const initialPart = host.initialSection ? TAB_PARTS[host.initialSection] : undefined;
-  let section: Section = initialPart?.tab ?? (host.initialSection as Section | undefined) ?? 'general';
+  let section: Section = initialPart?.tab ?? (host.initialSection as Section | undefined) ?? SETTINGS_TABS[0].id;
   let openAtPart = initialPart;
   let errors: string[] = [];
   let validation = false;
@@ -468,8 +482,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const selection = focused?.selectionStart;
     dispose(); clearForRedraw(root); root.classList.add('tt-settings');
     const nav = el('div', 'tt-settings-tabs'); nav.setAttribute('role', 'tablist'); nav.setAttribute('aria-label', 'Board settings sections');
-    const sections: [Section, string, string][] = [['general', 'General', 'sliders-horizontal'], ['setup', 'Setup', 'columns-3'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
-    for (const [id, title, glyph] of sections) {
+    for (const { id, title, glyph } of SETTINGS_TABS) {
       const tab = button(title, 'tt-settings-tab'); tab.prepend(icon(glyph));
       tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(section === id)); tab.setAttribute('aria-controls', 'tt-settings-panel');
       tab.id = `tt-tab-${id}`; tab.tabIndex = section === id ? 0 : -1; tab.dataset.focus = tab.id;
@@ -478,8 +491,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
         if (!step && e.key !== 'Home' && e.key !== 'End') return;
         e.preventDefault();
-        const next = e.key === 'Home' ? 0 : e.key === 'End' ? sections.length - 1 : (sections.findIndex(([key]) => key === id) + step + sections.length) % sections.length;
-        section = sections[next]![0]; redraw(`tt-tab-${section}`);
+        const next = e.key === 'Home' ? 0 : e.key === 'End' ? SETTINGS_TABS.length - 1 : (SETTINGS_TABS.findIndex((t) => t.id === id) + step + SETTINGS_TABS.length) % SETTINGS_TABS.length;
+        section = SETTINGS_TABS[next]!.id; redraw(`tt-tab-${section}`);
       };
       nav.append(tab);
     }
@@ -562,7 +575,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     } else if (section === 'quick') {
       quickFilterEditor(body);
     } else if (section === 'appearance') {
-      heading(body, 'Choose how cards look', 'Saved in the board note, so they follow the board to other devices.');
+      colorRuleEditor(body);
+      part(body, 'tt-settings-card-look', 'Choose how cards look', 'Saved in the board note, so they follow the board to other devices.');
       body.append(field('Label shape', select('Label shape', [['circle', 'Circles'], ['pill', 'Pills'], ['square', 'Squares']], draft.labelShape, (v) => { draft.labelShape = v as BoardConfig['labelShape']; })));
       body.append(field('Card spacing', select('Card spacing', [['comfortable', 'Comfortable'], ['compact', 'Compact']], draft.compact ? 'compact' : 'comfortable', (v) => { draft.compact = v === 'compact'; }),
         'Compact spacing does not change expanded subtask lists.'));
@@ -574,7 +588,6 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(check('Hide overdue bars', !draft.overdueBar, (v) => { draft.overdueBar = !v; }));
       body.append(field('Open notes and links in', select('Open notes and links in', [['popup', 'Pop-up editor'], ['tab', 'A tab']], draft.openLinks, (v) => { draft.openLinks = v === 'tab' ? 'tab' : 'popup'; }),
         'A card’s note and the links in its text. The pop-up editor edits the note without leaving the board. Cmd/Ctrl-click always opens a new tab.'));
-      colorRuleEditor(body);
     } else {
       heading(body, 'Give new tasks a home', 'Tasks added on this board go to this note and section.');
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));
@@ -642,6 +655,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       else root.querySelector('.tt-settings-errors')?.scrollIntoView({ block: 'nearest' });
     },
     setSaving(value) { saving = value; draw(); },
+    section: () => section,
     destroy: dispose,
   };
 }

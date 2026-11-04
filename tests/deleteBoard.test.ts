@@ -43,18 +43,11 @@ describe('the General tab', () => {
     const root = document.createElement('div'); document.body.append(root);
     const original = parseBoardConfig('House', { slug: 'house' }).config;
     renderBoardSettings(root, draftFromConfig(original), original, {
-      icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
+      initialSection: 'general', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
       taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(), ...(onDeleteBoard ? { onDeleteBoard } : {}),
     });
     return root;
   };
-
-  it('comes first and opens by default', () => {
-    const root = settings();
-    const tabs = [...root.querySelectorAll<HTMLElement>('[role=tab]')].map((tab) => tab.textContent);
-    expect(tabs).toEqual(['General', 'Setup', 'Quick filters', 'Appearance', 'New tasks']);
-    expect(root.querySelector('#tt-tab-general')!.getAttribute('aria-selected')).toBe('true');
-  });
 
   it('ends with a red Delete board… button that says no tasks are deleted', () => {
     const onDeleteBoard = vi.fn();

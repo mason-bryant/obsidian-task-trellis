@@ -36,7 +36,7 @@ export class BoardSettingsModal extends Modal {
     private plugin: TaskTrellisPlugin,
     private file: TFile,
     private config: BoardConfig,
-    private initialSection: SettingsTarget = 'general',
+    private initialSection: SettingsTarget = plugin.settings.boardSettingsTab,
     private onClosed?: () => void,
   ) {
     super(app);
@@ -179,6 +179,11 @@ export class BoardSettingsModal extends Modal {
 
   onClose(): void {
     this.chrome?.destroy(); this.chrome = null;
+    const tab = this.form?.section();
+    if (tab && tab !== this.plugin.settings.boardSettingsTab) {
+      this.plugin.settings.boardSettingsTab = tab;
+      void this.plugin.saveSettings();
+    }
     this.form?.destroy();
     this.form = null;
     this.contentEl.empty();

@@ -20,8 +20,35 @@ function open(initialSection?: SettingsTarget) {
 }
 
 describe('board settings tabs', () => {
-  it('keep General to renaming, duplicating and deleting the board', () => {
+  it('start with Appearance, then Quick filters, and open on the first when told nothing else', () => {
     const ui = open();
+    const tabs = [...ui.root.querySelectorAll('[role=tab]')].map((tab) => tab.textContent);
+    expect(tabs).toEqual(['Appearance', 'Quick filters', 'General', 'Setup', 'New tasks']);
+    expect(ui.selected()).toBe('Appearance');
+    expect(ui.form.section()).toBe('appearance');
+  });
+
+  it('go from the last tab to the first with the arrow keys, and report the tab showing', () => {
+    const ui = open('destination');
+    expect(ui.form.section()).toBe('destination');
+    ui.root.querySelector('#tt-tab-destination')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    expect(ui.selected()).toBe('Appearance');
+    ui.root.querySelector('#tt-tab-appearance')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    expect(ui.selected()).toBe('Quick filters');
+    expect(ui.form.section()).toBe('quick');
+  });
+
+  it('put Card color rules ahead of the rest of Appearance', () => {
+    const ui = open('appearance');
+    expect(ui.titles()).toEqual(['Card color rules', 'Choose how cards look']);
+    expect(ui.panel().firstElementChild!.classList.contains('tt-settings-color-rules')).toBe(true);
+    const look = ui.panel().querySelector('.tt-settings-card-look')!;
+    expect(look.classList.contains('tt-settings-part')).toBe(true);
+    expect(look.nextElementSibling!.getAttribute('aria-label')).toBe('Label shape');
+  });
+
+  it('keep General to renaming, duplicating and deleting the board', () => {
+    const ui = open('general');
     expect(ui.selected()).toBe('General');
     expect(ui.titles()).toEqual(['Rename or duplicate', 'Delete board']);
     expect(ui.panel().querySelector('input, select')).toBeNull();
@@ -53,12 +80,13 @@ describe('board settings tabs', () => {
     expect(document.activeElement).toBe(ui.panel().querySelector('[aria-label="Filters: Match"]'));
   });
 
-  it('return to Setup for an unfinished filter', () => {
+  it('return to Setup for an unfinished filter, which then counts as the tab showing', () => {
     Element.prototype.scrollIntoView = vi.fn();
     const ui = open();
     ui.draft.filter.items.push({ kind: 'property', key: '', condition: 'exists', values: [] });
     ui.form.showErrors(draftToFrontmatter(ui.draft, ui.original).errors);
     expect(ui.selected()).toBe('Setup');
+    expect(ui.form.section()).toBe('setup');
     expect(document.activeElement?.getAttribute('aria-invalid')).toBe('true');
   });
 });
