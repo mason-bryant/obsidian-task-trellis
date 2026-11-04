@@ -22,7 +22,7 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 
 A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks or Show subtasks.
 
-The board toolbar always ends with Settings, after Select or Done selecting. Keep that order in the DOM, keyboard navigation and wrapped layouts, even when other controls are hidden.
+The board toolbar always ends with Settings, after Select or Done selecting and What's new. Keep that order in the DOM, keyboard navigation and wrapped layouts, even when other controls are hidden.
 
 ### Toggles and menus
 

@@ -36,6 +36,7 @@ const paths: Record<string, Array<{ tag: keyof SVGElementTagNameMap; attrs: Reco
   "chevron-right": [{"tag": "path", "attrs": {"d": "m9 18 6-6-6-6"}}],
   "chevron-down": [{"tag": "path", "attrs": {"d": "m6 9 6 6 6-6"}}],
   "sliders-horizontal": [{"tag": "path", "attrs": {"d": "M3 6h4m4 0h10M3 12h10m4 0h4M3 18h4m4 0h10M7 3v6M17 9v6M7 15v6"}}],
+  "sparkles": [{"tag": "path", "attrs": {"d": "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"}}, {"tag": "path", "attrs": {"d": "M20 3v4M22 5h-4M4 17v2M5 18H3"}}],
   "trash-2": [{"tag": "path", "attrs": {"d": "M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"}}],
   "more-horizontal": [{"tag": "circle", "attrs": {"cx": "5", "cy": "12", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "12", "cy": "12", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "19", "cy": "12", "r": "1"}}],
   "grip-vertical": [{"tag": "circle", "attrs": {"cx": "9", "cy": "5", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "9", "cy": "12", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "9", "cy": "19", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "15", "cy": "5", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "15", "cy": "12", "r": "1"}}, {"tag": "circle", "attrs": {"cx": "15", "cy": "19", "r": "1"}}],

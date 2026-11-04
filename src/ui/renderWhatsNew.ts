@@ -1,19 +1,25 @@
-import type { Feature } from '../core/whatsNew.ts';
+import type { Feature, FeatureAction } from '../core/whatsNew.ts';
 import { uiElement } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 
 export type WhatsNewOptions = {
-  version: string;
   features: Feature[];
-  /** Whether Don’t show this again starts checked. */
-  hidden: boolean;
-  /** Saves Don’t show this again as soon as it changes. */
-  setHidden(hidden: boolean): void;
-  /** Opens Settings → Task Trellis → What’s new, which describes each feature and has a button to try it. */
-  openSettings(): void;
+  /** Starts what a feature's button tries, once the window has closed. */
+  tryFeature(kind: FeatureAction['kind']): void;
+  /** Set when an update opens the window by itself, rather than the toolbar. */
+  update?: {
+    version: string;
+    /** Whether Don’t show this again starts checked. */
+    hidden: boolean;
+    /** Saves Don’t show this again as soon as it changes. */
+    setHidden(hidden: boolean): void;
+  };
 };
 
-/** What an update added, once, with a way to try it in the settings and a box to stop showing this after updates. */
+/**
+ * Describes what Task Trellis has added, with a button to try each feature that has one. The toolbar
+ * opens it with every feature. After an update it opens by itself with what the update added.
+ */
 export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, options: WhatsNewOptions,
   icon: (el: HTMLElement, name: string) => void, close: () => void): void {
   const doc = body.ownerDocument;
@@ -21,23 +27,28 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
     const el = uiElement(doc, tag); el.className = cls; el.textContent = text; return el;
   };
   renderEditorHeader(headerRoot, 'What’s new', icon, null, close);
+  const { update } = options;
   const list = node('ul', 'tt-whats-new-list');
   for (const feature of options.features) {
     const item = node('li');
-    item.append(node('strong', '', feature.name), node('span', 'tt-whats-new-description', feature.description));
+    item.append(node('strong', '', feature.name),
+      node('span', 'tt-whats-new-description', update ? feature.description : `${feature.description} New in ${feature.version}.`));
+    const { action } = feature;
+    if (action) {
+      const button = node('button', 'tt-button', action.label); button.type = 'button';
+      button.onclick = () => { close(); options.tryFeature(action.kind); };
+      item.append(button);
+    }
     list.append(item);
   }
-  const hide = node('label', 'tt-whats-new-hide');
-  const box = node('input'); box.type = 'checkbox'; box.checked = options.hidden;
-  box.addEventListener('change', () => options.setHidden(box.checked));
-  hide.append(box, node('span', '', 'Don’t show this again'));
-  const actions = node('div', 'tt-confirm-actions');
-  const dismiss = node('button', 'tt-button', 'Close'); dismiss.type = 'button'; dismiss.onclick = close;
-  const open = node('button', 'tt-button', 'Try them in settings'); open.type = 'button';
-  open.onclick = () => { close(); options.openSettings(); };
-  actions.append(dismiss, open);
-  body.replaceChildren(node('p', '', `Task Trellis ${options.version} adds:`), list,
-    node('p', 'tt-help', 'Settings → Task Trellis → What’s new describes each one, with a button to try it.'), hide, actions);
-  // Obsidian focuses a dialog's first button once it opens; the way forward takes focus after that.
-  doc.defaultView?.setTimeout(() => { if (open.isConnected) open.focus(); }, 0);
+  body.replaceChildren(node('p', '', update ? `Task Trellis ${update.version} adds:` : 'What Task Trellis has added lately:'), list);
+  if (update) {
+    const hide = node('label', 'tt-whats-new-hide');
+    const box = node('input'); box.type = 'checkbox'; box.checked = update.hidden;
+    box.addEventListener('change', () => update.setHidden(box.checked));
+    hide.append(box, node('span', '', 'Don’t show this again'));
+    body.append(node('p', 'tt-help', 'The What’s new button on a board’s toolbar shows this at any time.'), hide);
+  }
+  // Obsidian focuses a dialog's first button once it opens; closing is the safe place to start.
+  doc.defaultView?.setTimeout(() => headerRoot.querySelector<HTMLButtonElement>('.tt-editor-cancel')?.focus(), 0);
 }

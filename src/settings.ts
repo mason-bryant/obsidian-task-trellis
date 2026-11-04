@@ -1,5 +1,4 @@
-import { App, PluginSettingTab, type SettingDefinition, type SettingDefinitionItem } from 'obsidian';
-import { FEATURES } from './core/whatsNew.ts';
+import { App, PluginSettingTab, type SettingDefinitionItem } from 'obsidian';
 import type { NewTaskKind } from './core/boardConfig.ts';
 import type TaskTrellisPlugin from '../main.ts';
 
@@ -108,21 +107,10 @@ export class TaskTrellisSettingTab extends PluginSettingTab {
         desc: plugin.writer.tasksApi() ? 'Found. Cards open the Tasks editor; completing a card uses Tasks dates and recurrence.' : 'Not found or disabled. Cards open their source line; completing a card adds a done date.',
       },
       {
-        // The What’s new window after an update links here.
-        type: 'group', heading: 'What’s new', cls: 'tt-whats-new',
-        items: [
-          ...FEATURES.map((feature): SettingDefinition => {
-            const definition = { name: feature.name, desc: `${feature.description} New in ${feature.version}.` };
-            const action = feature.action;
-            return action ? { ...definition, render: (setting) => { setting.addButton((button) => button.setButtonText(action.label).onClick(() => plugin.tryFeature(action.kind))); } } : definition;
-          }),
-          {
-            name: 'Show what’s new after updates', desc: 'After an update, the first board you open shows what the update added, once.',
-            render: (setting) => { setting.addToggle((toggle) => toggle.setValue(!settings.whatsNewHidden).onChange(async (value) => {
-              settings.whatsNewHidden = !value; await plugin.saveSettings();
-            })); },
-          },
-        ],
+        name: 'Show what’s new after updates', desc: 'After an update, the first board you open shows what the update added, once. A button on each board’s toolbar shows it at any time.',
+        render: (setting) => { setting.addToggle((toggle) => toggle.setValue(!settings.whatsNewHidden).onChange(async (value) => {
+          settings.whatsNewHidden = !value; await plugin.saveSettings();
+        })); },
       },
     ];
   }

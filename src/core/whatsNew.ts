@@ -2,10 +2,10 @@ import { parseBoardConfig } from './boardConfig.ts';
 import { draftFromConfig, type DraftColorRule } from './boardDraft.ts';
 import { LABEL_COLORS } from './labels.ts';
 
-/** What a feature's button in Settings → Task Trellis → What’s new does. */
+/** What a feature's button in What’s new does. */
 export type FeatureAction = { kind: 'create-board' | 'color-rules'; label: string };
 
-/** A feature worth pointing out after an update, and in the settings for good. */
+/** A feature worth pointing out after an update, and from the board's toolbar for good. */
 export type Feature = { version: string; name: string; description: string; action?: FeatureAction };
 
 /**

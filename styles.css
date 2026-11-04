@@ -625,9 +625,12 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 .tt-settings-board-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The buttons at the end of a warning: the safe choice, then the destructive one. */
 .tt-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-/* What’s new after an update: each feature's name over a line about it, then Don’t show this again. */
-.tt-whats-new-list { display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; padding-inline-start: 1.2em; }
-.tt-whats-new-list > li { display: flex; flex-direction: column; gap: 2px; }
+/* What’s new: each feature's name over a line about it, then its button. An update adds Don’t show this again. */
+.tt-whats-new-list { display: flex; flex-direction: column; gap: 16px; margin: 0 0 16px; padding: 0; list-style: none; }
+.tt-whats-new-list > li { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.tt-whats-new-list .tt-button { margin-top: 4px; }
+@media (pointer: coarse) { .tt-whats-new-list .tt-button { min-height: 44px; } }
+.is-mobile .tt-whats-new-list .tt-button { min-height: 44px; }
 .tt-whats-new-description { color: var(--text-muted); }
 .tt-whats-new-hide { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; }
 .tt-whats-new-hide input { margin: 0; }
