@@ -633,7 +633,7 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 @media (pointer: coarse) { .tt-whats-new-list .tt-button { min-height: 44px; } }
 .is-mobile .tt-whats-new-list .tt-button { min-height: 44px; }
 .tt-whats-new-description { color: var(--text-muted); }
-.tt-whats-new-notes { display: inline-block; }
+.tt-whats-new-notes { display: inline-block; color: var(--text-accent); }
 @media (pointer: coarse) { .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; } }
 .is-mobile .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; }
 .tt-whats-new-notes + .tt-help { margin-top: 12px; }
