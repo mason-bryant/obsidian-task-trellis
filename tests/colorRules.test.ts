@@ -155,9 +155,14 @@ describe('color rule settings', () => {
   it('ends the Appearance tab with Card color rules, empty to start, and leaves boards without rules unchanged', () => {
     const ui = editor();
     expect(ui.control('Board settings sections').querySelector('[aria-selected="true"]')!.textContent).toBe('Appearance');
-    const section = ui.root.querySelector('.tt-settings-body')!.querySelector('.tt-settings-color-rules')!;
+    const panel = ui.root.querySelector('.tt-settings-body')!;
+    const section = panel.querySelector('.tt-settings-color-rules')!;
     expect(section.querySelector('.tt-section-title')!.textContent).toBe('Card color rules');
-    expect(section.nextElementSibling).toBeNull();
+    expect(section.compareDocumentPosition(panel.querySelector('[aria-label="Open notes and links in"]')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    // Dragging a rule scrolls the panel, so rules have to be directly in it.
+    ui.button('Add color rule').click();
+    expect(ui.root.querySelector('.tt-color-rule-editor')!.parentElement).toBe(ui.root.querySelector('.tt-settings-body'));
+    ui.root.querySelector<HTMLButtonElement>('.tt-color-rule-editor [aria-label="Remove color rule 1"]')!.click();
     expect(ui.root.querySelector('.tt-filter-empty')!.textContent).toBe('No color rules.');
     expect(draftChanged(ui.draft, ui.original)).toBe(false);
     expect('color-rules' in ui.saved().frontmatter && ui.saved().frontmatter['color-rules'] !== undefined).toBe(false);
@@ -175,8 +180,8 @@ describe('color rule settings', () => {
     });
     expect(root.querySelector('#tt-tab-appearance')!.getAttribute('aria-selected')).toBe('true');
     vi.runAllTimers(); vi.useRealTimers();
-    expect(scrolled.mock.results.map((r) => r.value as string)).toEqual(['tt-settings-color-rules']);
-    expect(document.activeElement).toBe(root.querySelector('.tt-settings-color-rules .tt-quick-filter-toggle'));
+    expect(scrolled.mock.results.map((r) => r.value as string)).toEqual(['tt-settings-part tt-settings-color-rules']);
+    expect(document.activeElement).toBe(root.querySelector('.tt-color-rule-editor .tt-quick-filter-toggle'));
   });
 
   it('adds a rule with a palette color, criteria and its own folder filter', () => {

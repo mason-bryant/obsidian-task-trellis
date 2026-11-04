@@ -86,6 +86,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   const heading = (parent: HTMLElement, title: string, help: string) => {
     parent.append(el('h3', 'tt-section-title', title), el('p', 'tt-help', help));
   };
+  /** Starts a part of a long tab, after a divider. What follows stays in the panel, which dragging a row scrolls. */
+  const part = (parent: HTMLElement, cls: string, title: string, help: string) => {
+    const start = el('div', `tt-settings-part ${cls}`); heading(start, title, help); parent.append(start);
+  };
   const redraw = (focus?: string) => { focusNext = focus ?? null; draw(); };
 
   function chips(values: string[], label: string, changed: (values: string[]) => void, suggest: (node: HTMLInputElement) => void | (() => void), splitCommas = false): HTMLElement {
@@ -438,7 +442,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   }
 
   function colorRuleEditor(body: HTMLElement): void {
-    heading(body, 'Card color rules', 'Cards that match a rule are tinted with its color. A card takes the color of the first rule it matches, so drag rules to put them in order.');
+    part(body, 'tt-settings-color-rules', 'Card color rules', 'Cards that match a rule are tinted with its color. A card takes the color of the first rule it matches, so drag rules to put them in order.');
     ruleList(body, draft.colorRules, {
       key: 'color', noun: 'Color rule', icon: 'paintbrush', add: 'Add color rule', empty: 'No color rules.',
       matchesAll: 'With nothing chosen, the rule colors every card.',
@@ -566,8 +570,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(check('Hide overdue bars', !draft.overdueBar, (v) => { draft.overdueBar = !v; }));
       body.append(field('Open notes and links in', select('Open notes and links in', [['popup', 'Pop-up editor'], ['tab', 'A tab']], draft.openLinks, (v) => { draft.openLinks = v === 'tab' ? 'tab' : 'popup'; }),
         'A card’s note and the links in its text. The pop-up editor edits the note without leaving the board. Cmd/Ctrl-click always opens a new tab.'));
-      const colorRules = el('div', 'tt-settings-color-rules');
-      colorRuleEditor(colorRules); body.append(colorRules);
+      colorRuleEditor(body);
     } else {
       heading(body, 'Give new tasks a home', 'Tasks added on this board go to this note and section.');
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));
@@ -602,9 +605,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       showColorRules = false;
       // Once the dialog is on screen, and after Obsidian focuses its first button.
       root.ownerDocument.defaultView?.setTimeout(() => {
-        const rules = root.querySelector('.tt-settings-color-rules');
-        rules?.scrollIntoView({ block: 'start' });
-        rules?.querySelector<HTMLElement>('.tt-quick-filter-toggle')?.focus({ preventScroll: true });
+        root.querySelector('.tt-settings-color-rules')?.scrollIntoView({ block: 'start' });
+        root.querySelector<HTMLElement>('.tt-color-rule-editor .tt-quick-filter-toggle')?.focus({ preventScroll: true });
       }, 0);
     }
     if (restoreKey) {
