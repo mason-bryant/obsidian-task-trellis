@@ -18,7 +18,7 @@ import type { SubtaskReorder } from '../core/reorderSubtasks.ts';
 
 /** What the board needs from its host (the Obsidian view, or the dev harness). */
 /** What the toolbar's Arrange menu can offer. */
-export type ArrangeChoice = 'collapse' | 'expand' | 'sort';
+export type ArrangeChoice = 'collapse' | 'expand' | 'completed' | 'sort';
 
 export type RenderHost = {
   renderText(el: HTMLElement, task: BoardTask): void;
@@ -35,6 +35,8 @@ export type RenderHost = {
   onQuickFiltersMenu?: QuickFilterMenu;
   /** Opens the host's accessible Arrange menu with these choices; calls onClose when dismissed. */
   onArrangeMenu?(anchor: HTMLElement, choices: ArrangeChoice[], choose: (choice: ArrangeChoice) => void, onClose: () => void): void;
+  /** Saves whether the board shows completed subtasks, the opposite of its Hide completed subtasks setting. Without it Arrange doesn't offer this. */
+  onShowCompletedSubtasks?(show: boolean): void;
   /** Puts every dated cell in due-date order with the fewest moves; see planDueDateSort. */
   onSortByDueDate?(): void;
   onDrop(taskId: string, target: DropTarget): void;
@@ -324,7 +326,11 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   picker.value = display.column;
   picker.onchange = () => { display.column = picker.value; renderBoard(root, model, baseHost, notes); };
   const subtaskKeys = subtaskListKeys(model);
-  const choices: ArrangeChoice[] = [...(subtaskKeys.length > 0 ? ['collapse', 'expand'] as const : []), ...(host.onSortByDueDate ? ['sort'] as const : [])];
+  const choices: ArrangeChoice[] = [
+    ...(subtaskKeys.length > 0 ? ['collapse', 'expand'] as const : []),
+    ...(subtaskKeys.length > 0 && host.onShowCompletedSubtasks ? ['completed'] as const : []),
+    ...(host.onSortByDueDate ? ['sort'] as const : []),
+  ];
   if (choices.length > 0 && host.onArrangeMenu) {
     const action = el('button', 'tt-toolbar-button tt-arrange-menu');
     action.type = 'button';
@@ -344,6 +350,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       action.setAttribute('aria-expanded', 'true');
       host.onArrangeMenu?.(action, choices, (choice) => {
         if (choice === 'sort') { host.onSortByDueDate?.(); restoreFocus(); return; }
+        if (choice === 'completed') { host.onShowCompletedSubtasks?.(config.hideCompletedSubtasks); restoreFocus(); return; }
         const collapsed = choice === 'collapse';
         for (const id of model.quickContext?.branches ?? []) {
           if (collapsed) temporary.collapsed.add(id); else temporary.collapsed.delete(id);

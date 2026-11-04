@@ -157,7 +157,7 @@ describe('subtask visibility controls', () => {
     click(toggle(quoted)); expect(document.activeElement).toBe(toggle(quoted));
   });
 
-  it('honors the hide-completed setting without a duplicate toolbar toggle', () => {
+  it('honors the hide-completed setting without a toolbar button of its own', () => {
     renderBoard(root, buildBoard(tasks, { ...config, hideCompletedSubtasks: true }, today, () => undefined), host, { warnings: [], info: [] });
     expect(button('Hide completed subtasks')).toBeUndefined();
     expect(owner(completed)).toBeUndefined();
@@ -197,6 +197,36 @@ describe('subtask visibility controls', () => {
     expect(host.onSortByDueDate).toHaveBeenCalledTimes(1);
     expect(host.onSetSubtasksCollapsed).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(button('Arrange'));
+    renderBoard(root, buildBoard([parent], config, today, () => undefined), host, { warnings: [], info: [] });
+    click(button('Arrange'));
+    expect(offered).toEqual(['sort']);
+  });
+
+  it('offers Show completed subtasks in Arrange, which saves the opposite of what the board shows', () => {
+    const save = vi.fn((show: boolean) => { config = { ...config, hideCompletedSubtasks: !show }; draw(); });
+    host.onShowCompletedSubtasks = save; host.onSortByDueDate = vi.fn(); draw();
+    click(button('Arrange'));
+    expect(offered).toEqual(['collapse', 'expand', 'completed', 'sort']);
+    expect(owner(completed)).toBeDefined();
+
+    chooseArrange('completed'); closeArrange();
+    expect(save).toHaveBeenLastCalledWith(false);
+    expect(owner(completed)).toBeUndefined();
+    expect(owner(child)).toBeDefined();
+    expect(toggle(parent).textContent).toBe('1/2');
+    expect(document.activeElement).toBe(button('Arrange'));
+    expect(host.onSetSubtasksCollapsed).not.toHaveBeenCalled();
+
+    // It stays on offer with them hidden, so it can bring them back.
+    click(button('Arrange'));
+    expect(offered).toContain('completed');
+    chooseArrange('completed'); closeArrange();
+    expect(save).toHaveBeenLastCalledWith(true);
+    expect(owner(completed)).toBeDefined();
+  });
+
+  it('leaves Show completed subtasks out of Arrange without subtasks', () => {
+    host.onShowCompletedSubtasks = vi.fn(); host.onSortByDueDate = vi.fn();
     renderBoard(root, buildBoard([parent], config, today, () => undefined), host, { warnings: [], info: [] });
     click(button('Arrange'));
     expect(offered).toEqual(['sort']);

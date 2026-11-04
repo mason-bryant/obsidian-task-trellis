@@ -194,11 +194,15 @@ const host: RenderHost = {
   onArrangeMenu: (_anchor, choices, choose, onClose) => {
     const dialog = uiElement(document, 'dialog');
     dialog.setAttribute('aria-label', 'Arrange');
-    const titles = { collapse: 'Collapse all subtasks', expand: 'Expand all subtasks', sort: 'Sort by due date' } as const;
+    const titles = { collapse: 'Collapse all subtasks', expand: 'Expand all subtasks', completed: 'Show completed subtasks', sort: 'Sort by due date' } as const;
     for (const choice of choices) {
       const item = uiElement(document, 'button');
       item.className = 'move-item';
       item.textContent = titles[choice];
+      if (choice === 'completed') {
+        item.setAttribute('role', 'menuitemcheckbox');
+        item.setAttribute('aria-checked', String(!config.hideCompletedSubtasks));
+      }
       item.onclick = () => { dialog.close(); choose(choice); };
       dialog.append(item);
     }
@@ -223,6 +227,10 @@ const host: RenderHost = {
     render();
   },
   onSearch: (query) => { search = query; render(); },
+  onShowCompletedSubtasks: (show) => {
+    config = { ...config, hideCompletedSubtasks: !show };
+    render();
+  },
   onSortByDueDate: () => {
     const before = JSON.stringify(files);
     // Whole cells, as the plugin sorts them, including cards a quick filter hides.
