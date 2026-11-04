@@ -49,14 +49,11 @@ describe('the General tab', () => {
     return root;
   };
 
-  it('comes first, opens by default, and holds the date settings that had their own tab', () => {
+  it('comes first and opens by default', () => {
     const root = settings();
     const tabs = [...root.querySelectorAll<HTMLElement>('[role=tab]')].map((tab) => tab.textContent);
-    expect(tabs).toEqual(['General', 'Columns', 'Filters', 'Quick filters', 'Appearance', 'New tasks']);
+    expect(tabs).toEqual(['General', 'Setup', 'Quick filters', 'Appearance', 'New tasks']);
     expect(root.querySelector('#tt-tab-general')!.getAttribute('aria-selected')).toBe('true');
-    for (const name of ['Due now window', 'Window unit', 'Future week rows', 'Weeks start on', 'Show completed tasks for']) {
-      expect(root.querySelector(`[aria-label="${name}"]`), name).not.toBeNull();
-    }
   });
 
   it('ends with a red Delete board… button that says no tasks are deleted', () => {

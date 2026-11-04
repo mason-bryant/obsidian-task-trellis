@@ -3,7 +3,7 @@ import { uiElement, isComposing } from './dom.ts';
 import { announce, clearForRedraw } from './announce.ts';
 import { installColumnResize } from './columnResize.ts';
 import { watchComposerViewport } from './composerViewport.ts';
-import type { Section } from './renderBoardSettings.ts';
+import type { SettingsTarget } from './renderBoardSettings.ts';
 import { labelDescription, taskLabels, type BoardLabel } from '../core/labels.ts';
 import { rgbChannels } from '../core/colorRules.ts';
 import { columnOf, isOverdue, moreKey, moveChoices, quickMoveTarget, subtaskListKeys, subtasksKey, workflowColumnOf, type BoardModel, type BoardTask, type DropTarget, type MoveChoices } from '../core/board.ts';
@@ -52,7 +52,7 @@ export type RenderHost = {
   onUnsavedText?(text: string, retry: (text: string) => Promise<boolean>): void;
   /** Offers a card's "Move to…" choices, applying the one picked like a drop; calls onClose when dismissed. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent, onClose?: (moved: boolean) => void): void;
-  onSettings?(section?: Section): void;
+  onSettings?(section?: SettingsTarget): void;
   /** Opens What’s new. Without it the toolbar has no What’s new button. */
   onWhatsNew?(): void;
   onRename?(): void;

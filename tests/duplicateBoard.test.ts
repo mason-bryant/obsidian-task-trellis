@@ -85,7 +85,7 @@ describe('the General tab', () => {
     return root;
   };
 
-  it('offers Rename board… and Duplicate board… after the date settings and before Delete board', () => {
+  it('offers Rename board… and Duplicate board… before Delete board', () => {
     const host = { onRenameBoard: vi.fn(), onDuplicateBoard: vi.fn(), onDeleteBoard: vi.fn() };
     const root = settings(host);
     const section = root.querySelector('.tt-settings-board-actions')!;
@@ -94,7 +94,6 @@ describe('the General tab', () => {
     const buttons = [...section.querySelectorAll<HTMLButtonElement>('button')];
     expect(buttons.map((b) => b.textContent)).toEqual(['Rename board…', 'Duplicate board…']);
     expect(buttons.every((b) => b.className === 'tt-button')).toBe(true);
-    expect(section.compareDocumentPosition(root.querySelector('[aria-label="Show completed tasks for"]')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     expect(section.compareDocumentPosition(root.querySelector('.tt-settings-danger')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     buttons[0]!.click(); buttons[1]!.click();
     expect(host.onRenameBoard).toHaveBeenCalledTimes(1);
@@ -238,7 +237,10 @@ describe('Duplicate board… and Rename board… in the settings dialog', () => 
     settings.open();
     const button = (text: string) => [...settings.contentEl.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text)!;
     const dialog = () => document.body.lastElementChild as HTMLElement;
-    return { app, file, copy, plugin, settings, button, dialog };
+    const tab = (id: string) => settings.contentEl.querySelector<HTMLButtonElement>(`#tt-tab-${id}`)!.click();
+    // The date rows are in Setup, and Rename board… and Duplicate board… in General.
+    const editDueNow = () => { tab('setup'); typeInto(settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!, '10'); tab('general'); };
+    return { app, file, copy, plugin, settings, button, dialog, tab, editDueNow };
   };
 
   it('copies the saved board, then closes the settings and opens the copy', async () => {
@@ -256,20 +258,21 @@ describe('Duplicate board… and Rename board… in the settings dialog', () => 
   });
 
   it('keeps unsaved settings open over the copy, and says so', async () => {
-    const { plugin, settings, button, dialog } = setup();
-    typeInto(settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!, '10');
+    const { plugin, settings, button, dialog, tab, editDueNow } = setup();
+    editDueNow();
     button('Duplicate board…').click();
     expect(dialog().textContent).toContain('Changes you haven’t saved in board settings aren’t included.');
     enter(dialog().querySelector<HTMLInputElement>('input')!);
     await vi.waitFor(() => expect(plugin.openBoard).toHaveBeenCalled());
     expect(settings.modalEl.isConnected).toBe(true);
+    tab('setup');
     expect(settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!.value).toBe('10');
     expect(notices).toEqual(['Task Trellis: created the House copy board. It’s open behind these settings.']);
   });
 
   it('renames the note and returns to the settings with the draft, under the new name', async () => {
-    const { app, file, plugin, settings, button, dialog } = setup();
-    typeInto(settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!, '10');
+    const { app, file, plugin, settings, button, dialog, editDueNow } = setup();
+    editDueNow();
     button('Rename board…').click();
     const input = dialog().querySelector<HTMLInputElement>('input')!;
     expect(input.value).toBe('House');
@@ -286,8 +289,8 @@ describe('Duplicate board… and Rename board… in the settings dialog', () => 
     const plan = { oldSlug: 'house', newSlug: 'home', tagCount: 2, paths: ['Tasks.md'], referencePaths: [] };
     const migration = { busy: false, preview: vi.fn(async () => plan),
       apply: vi.fn(async () => { file.path = 'Task Trellis/Home.md'; return 'Task Trellis recovery/1.json'; }) };
-    const { file, plugin, settings, button, dialog } = setup(migration);
-    typeInto(settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!, '10');
+    const { file, plugin, settings, button, dialog, editDueNow } = setup(migration);
+    editDueNow();
     button('Rename board…').click();
     const rename = dialog();
     const input = rename.querySelector<HTMLInputElement>('input[type=text]')!;

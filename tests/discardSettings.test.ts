@@ -57,13 +57,16 @@ function setup() {
   const settings = new BoardSettingsModal(app, plugin as never, file as never, parseBoardConfig('House', { slug: 'house' }).config, 'general', onClosed);
   settings.open();
   const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text)!;
+  const tab = (id: string) => settings.contentEl.querySelector<HTMLButtonElement>(`#tt-tab-${id}`)!.click();
   const edit = () => {
+    tab('setup');
     const due = settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!;
     due.value = '10'; due.dispatchEvent(new Event('input'));
+    tab('general');
   };
   const cancel = () => settings.modalEl.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.click();
   const warning = () => [...document.body.children].find((el) => el !== settings.modalEl && el.textContent?.includes('Discard changes')) as HTMLElement | undefined;
-  return { app, plugin, settings, onClosed, button, edit, cancel, warning };
+  return { app, plugin, settings, onClosed, button, tab, edit, cancel, warning };
 }
 
 it('closes at once when nothing has changed', () => {
@@ -91,6 +94,7 @@ it('asks before the X, Escape or a click outside throws away changes, with Keep 
   ui.button('Keep editing').click();
   expect(ui.warning()).toBeUndefined();
   expect(ui.settings.modalEl.isConnected).toBe(true);
+  ui.tab('setup');
   expect(ui.settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!.value).toBe('10');
   expect(ui.onClosed).not.toHaveBeenCalled();
 

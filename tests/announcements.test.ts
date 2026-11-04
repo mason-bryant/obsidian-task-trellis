@@ -67,7 +67,7 @@ function settings(properties: Record<string, unknown>) {
   const original = parseBoardConfig('Filters', properties).config;
   const form = document.createElement('div'); document.body.replaceChildren(form);
   const formHost: SettingsFormHost = {
-    initialSection: 'filters', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+    initialSection: 'setup', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
     attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
   };
   renderBoardSettings(form, draftFromConfig(original), original, formHost);

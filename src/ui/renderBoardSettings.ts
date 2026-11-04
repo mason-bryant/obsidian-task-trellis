@@ -13,9 +13,7 @@ import type { ParsedTask } from '../core/taskLine.ts';
 
 export type SettingsFormHost = {
   header?: HTMLElement;
-  initialSection?: Section;
-  /** Opens at Card color rules, in the Appearance tab, in place of `initialSection`. */
-  showColorRules?: boolean;
+  initialSection?: SettingsTarget;
   createTextInput?(): HTMLInputElement;
   createDropdown?(): HTMLSelectElement;
   destinationAdvice?(draft: BoardDraft): string[];
@@ -37,12 +35,19 @@ export type SettingsFormHost = {
   onDeleteBoard?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
-export type Section = 'general' | 'columns' | 'filters' | 'quick' | 'appearance' | 'destination';
+export type Section = 'general' | 'setup' | 'quick' | 'appearance' | 'destination';
+/** Where settings can open: a tab, or a part of a long one, which they scroll to and focus. */
+export type SettingsTarget = Section | 'filters' | 'color-rules';
+const TAB_PARTS: Partial<Record<SettingsTarget, { tab: Section; start: string; focus: string }>> = {
+  filters: { tab: 'setup', start: '.tt-settings-filters', focus: '.tt-settings-filters ~ .tt-filter-group select' },
+  'color-rules': { tab: 'appearance', start: '.tt-settings-color-rules', focus: '.tt-color-rule-editor .tt-quick-filter-toggle' },
+};
 
 /** Shared by the Obsidian modal and harness. Drafts are written only by an explicit save. */
 export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, original: BoardConfig, host: SettingsFormHost): SettingsForm {
-  let section: Section = host.showColorRules ? 'appearance' : host.initialSection ?? 'general';
-  let showColorRules = !!host.showColorRules;
+  const initialPart = host.initialSection ? TAB_PARTS[host.initialSection] : undefined;
+  let section: Section = initialPart?.tab ?? (host.initialSection as Section | undefined) ?? 'general';
+  let openAtPart = initialPart;
   let errors: string[] = [];
   let validation = false;
   let saving = false;
@@ -463,7 +468,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const selection = focused?.selectionStart;
     dispose(); clearForRedraw(root); root.classList.add('tt-settings');
     const nav = el('div', 'tt-settings-tabs'); nav.setAttribute('role', 'tablist'); nav.setAttribute('aria-label', 'Board settings sections');
-    const sections: [Section, string, string][] = [['general', 'General', 'sliders-horizontal'], ['columns', 'Columns', 'columns-3'], ['filters', 'Filters', 'list-filter'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
+    const sections: [Section, string, string][] = [['general', 'General', 'sliders-horizontal'], ['setup', 'Setup', 'columns-3'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
     for (const [id, title, glyph] of sections) {
       const tab = button(title, 'tt-settings-tab'); tab.prepend(icon(glyph));
       tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(section === id)); tab.setAttribute('aria-controls', 'tt-settings-panel');
@@ -479,8 +484,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       nav.append(tab);
     }
     const body = el('div', 'tt-settings-body'); body.id = 'tt-settings-panel'; body.setAttribute('role', 'tabpanel'); body.setAttribute('aria-labelledby', `tt-tab-${section}`);
-    if (section === 'columns') {
-      heading(body, 'Shape your workflow', 'Arrange columns from left to right. Renaming a column updates its task tags.');
+    if (section === 'setup') {
+      heading(body, 'Columns', 'Arrange columns from left to right. Renaming a column updates its task tags.');
       draft.columns.forEach((column, i) => {
         const row = el('div', 'tt-column-editor');
         const name = input(column.label, `Column ${i + 1} name`, (v) => column.label = v); name.dataset.focus = `column-${i}`;
@@ -523,13 +528,18 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         body.append(check('Limit cards without a due date', draft.limitUndated, (v) => { draft.limitUndated = v; redraw(); }));
         if (draft.limitUndated) body.append(field('Undated card limit', input(draft.undatedLimit, 'Undated card limit', (v) => draft.undatedLimit = v, 'number')));
       }
-    } else if (section === 'general') {
-      heading(body, 'Plan your time', 'Overdue tasks stay in Due now. Future tasks are grouped into weekly rows.');
+      part(body, 'tt-settings-dates', 'Date rows', 'Overdue tasks stay in Due now. Future tasks are grouped into weekly rows.');
       body.append(field('Due now window', input(draft.dueNow, 'Due now window', (v) => draft.dueNow = v, 'number')));
       body.append(field('Window unit', select('Window unit', [['days', 'Days'], ['weeks', 'Weeks']], draft.dueNowUnit, (v) => { draft.dueNowUnit = v as 'days' | 'weeks'; draft.dueNow = convertDueNow(draft.dueNow, draft.dueNowUnit); redraw(); }), draft.dueNowUnit === 'weeks' ? 'This week counts as week 1.' : 'Includes today through this many days ahead.'));
       body.append(field('Future week rows', input(draft.weekHorizon, 'Future week rows', (v) => draft.weekHorizon = v, 'number')));
       body.append(field('Weeks start on', select('Weeks start on', WEEKDAY_NAMES.map((name, i) => [String(i), name]), String(draft.weekStart), (v) => draft.weekStart = Number(v))));
       body.append(field('Show completed tasks for', input(draft.showCompletedDays, 'Show completed tasks for', (v) => draft.showCompletedDays = v, 'number'), 'Days after completion. Set to 0 to hide completed cards.'));
+      part(body, 'tt-settings-filters', 'Filters', 'Filter by tags, note folders and note properties. Put filters in a group to combine them another way.');
+      body.append(groupEditor(draft, draft.filter, [], boardScope));
+      const warnings = el('div', 'tt-filter-warnings');
+      warnings.append(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text))); body.append(warnings);
+      body.append(el('p', 'tt-scope-note', 'Tags match the task or its page, including nested tags. Folders include their descendants. Properties belong to the source note. Press Enter or choose a suggestion to add a value. Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
+    } else if (section === 'general') {
       if (host.onRenameBoard || host.onDuplicateBoard) {
         const board = el('div', 'tt-settings-board-actions');
         heading(board, 'Rename or duplicate', 'Duplicating makes a new board with this board’s saved settings. No tasks are copied or changed.');
@@ -549,12 +559,6 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         remove.dataset.focus = 'delete-board'; remove.onclick = () => host.onDeleteBoard?.();
         danger.append(remove); body.append(danger);
       }
-    } else if (section === 'filters') {
-      heading(body, 'Choose what belongs here', 'Filter by tags, note folders and note properties. Put filters in a group to combine them another way.');
-      body.append(groupEditor(draft, draft.filter, [], boardScope));
-      const warnings = el('div', 'tt-filter-warnings');
-      warnings.append(...filterWarnings(draft).map((text) => el('p', 'tt-filter-warning', text))); body.append(warnings);
-      body.append(el('p', 'tt-scope-note', 'Tags match the task or its page, including nested tags. Folders include their descendants. Properties belong to the source note. Press Enter or choose a suggestion to add a value. Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
     } else if (section === 'quick') {
       quickFilterEditor(body);
     } else if (section === 'appearance') {
@@ -601,12 +605,13 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     root.append(nav, body, footer);
     if (saving) root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input, select, button').forEach((control) => control.disabled = true);
     body.scrollTop = scroll;
-    if (showColorRules) {
-      showColorRules = false;
+    if (openAtPart) {
+      const { start, focus } = openAtPart;
+      openAtPart = undefined;
       // Once the dialog is on screen, and after Obsidian focuses its first button.
       root.ownerDocument.defaultView?.setTimeout(() => {
-        root.querySelector('.tt-settings-color-rules')?.scrollIntoView({ block: 'start' });
-        root.querySelector<HTMLElement>('.tt-color-rule-editor .tt-quick-filter-toggle')?.focus({ preventScroll: true });
+        root.querySelector(start)?.scrollIntoView({ block: 'start' });
+        root.querySelector<HTMLElement>(focus)?.focus({ preventScroll: true });
       }, 0);
     }
     if (restoreKey) {
@@ -628,7 +633,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       const unfinished = (group: DraftGroup): boolean => group.items.some((item) => item.kind === 'group' ? unfinished(item) : item.kind === 'property' && !!filterError(item));
       const quickInvalid = draft.quickFilters.filter((q) => !q.name.trim() || unfinished(q.filter));
       const colorsInvalid = draft.colorRules.filter((r) => !r.name.trim() || !normalizeLabelColor(r.color) || unfinished(r.filter));
-      if (unfinished(draft.filter)) section = 'filters';
+      if (unfinished(draft.filter)) section = 'setup';
       else if (quickInvalid.length) { section = 'quick'; for (const q of quickInvalid) expanded.add(q); }
       else if (colorsInvalid.length) { section = 'appearance'; for (const r of colorsInvalid) expanded.add(r); }
       draw();

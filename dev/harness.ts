@@ -22,7 +22,7 @@ import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/b
 import { propertyValueStrings } from '../src/core/filters.ts';
 import { backlogCell, planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
 import { renderBoardList, type BoardListHost } from '../src/ui/renderBoardList.ts';
-import { renderBoardSettings, type Section } from '../src/ui/renderBoardSettings.ts';
+import { renderBoardSettings, type SettingsTarget } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
 import { reorderSubtaskBlocks } from '../src/core/reorderSubtasks.ts';
@@ -369,7 +369,7 @@ function pickLabels(selected: string[], saveSelection: (ids: string[]) => Promis
 function whatsNew(features: Feature[], update?: WhatsNewOptions['update']): void {
   nameDialog((body, header, close) => renderWhatsNew(body, header, {
     features, update,
-    tryFeature: (kind) => { if (kind === 'create-board') sidebarHost.onCreateBoard(); else openSettings(undefined, true); },
+    tryFeature: (kind) => { if (kind === 'create-board') sidebarHost.onCreateBoard(); else openSettings('color-rules'); },
   }, previewIcon, close));
 }
 if (new URLSearchParams(location.search).has('whats-new')) {
@@ -451,7 +451,7 @@ function render(): void {
 }
 
 
-function openSettings(initialSection: Section = 'general', suggestRules = false): void {
+function openSettings(initialSection: SettingsTarget = 'general'): void {
   const dialog = document.getElementById('settings') as HTMLDialogElement;
   const body = dialog.querySelector<HTMLElement>('.modal-content')!;
   const chrome = prepareEditorModal(dialog);
@@ -466,7 +466,8 @@ function openSettings(initialSection: Section = 'general', suggestRules = false)
   // Mirrors the native modal: explicit save, with cancel/escape discarding the draft.
   const original = config;
   const draft = draftFromConfig(original);
-  if (suggestRules) draft.colorRules.push(...suggestedColorRules(draft.colorRules));
+  // As What's new's Add suggested color rules… does.
+  if (initialSection === 'color-rules') draft.colorRules.push(...suggestedColorRules(draft.colorRules));
   let discard = false;
   const tryClose = (save = false) => {
     if (!discard && save) {
@@ -501,7 +502,6 @@ function openSettings(initialSection: Section = 'general', suggestRules = false)
   };
   const form = renderBoardSettings(body, draft, original, {
     initialSection,
-    showColorRules: suggestRules,
     destinationAdvice: (draft) => destinationAdvice(parseBoardConfig(original.name, { slug: original.slug, ...draftToFrontmatter(draft, original).frontmatter }).config,
       { kind: 'note', note: 'Daily/Today.md', heading: '' }, {
         dailyAvailable: true, excluded: (path) => path.startsWith('Task Trellis/'),

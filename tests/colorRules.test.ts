@@ -175,7 +175,7 @@ describe('color rule settings', () => {
     const original = config({ 'color-rules': [kitchen] });
     const root = document.createElement('div'); document.body.replaceChildren(root);
     renderBoardSettings(root, draftFromConfig(original), original, {
-      showColorRules: true, icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+      initialSection: 'color-rules', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
       attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
     });
     expect(root.querySelector('#tt-tab-appearance')!.getAttribute('aria-selected')).toBe('true');

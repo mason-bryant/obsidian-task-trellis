@@ -6,7 +6,7 @@ import type { BoardTask } from '../core/board.ts';
 import { parseBoardConfig, type BoardConfig } from '../core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } from '../core/boardDraft.ts';
 import { propertyValueStrings } from '../core/filters.ts';
-import { renderBoardSettings, type SettingsForm, type Section } from '../ui/renderBoardSettings.ts';
+import { renderBoardSettings, type SettingsForm, type SettingsTarget } from '../ui/renderBoardSettings.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
 import { notice } from './notice.ts';
@@ -26,7 +26,6 @@ export class BoardSettingsModal extends Modal {
   private draft: BoardDraft;
   private form: SettingsForm | null = null;
   private saving = false;
-  private showColorRules = false;
   /** The warning about unsaved changes is open. */
   private confirming = false;
   /** Tasks by the column their tag names on this board, for the removed-column notes and Delete board. Counted when first needed. */
@@ -37,7 +36,7 @@ export class BoardSettingsModal extends Modal {
     private plugin: TaskTrellisPlugin,
     private file: TFile,
     private config: BoardConfig,
-    private initialSection: Section = 'general',
+    private initialSection: SettingsTarget = 'general',
     private onClosed?: () => void,
   ) {
     super(app);
@@ -47,7 +46,7 @@ export class BoardSettingsModal extends Modal {
   /** Adds starter color rules to the draft and opens at them, for the user to look over and save or discard. Call before opening. */
   addSuggestedColorRules(): void {
     this.draft.colorRules.push(...suggestedColorRules(this.draft.colorRules));
-    this.showColorRules = true;
+    this.initialSection = 'color-rules';
   }
 
   /**
@@ -113,7 +112,6 @@ export class BoardSettingsModal extends Modal {
       createTextInput: () => new TextComponent(uiElement(this.contentEl.ownerDocument, 'div')).inputEl,
       createDropdown: () => new DropdownComponent(uiElement(this.contentEl.ownerDocument, 'div')).selectEl,
       initialSection: this.initialSection,
-      showColorRules: this.showColorRules,
       destinationAdvice: (draft) => {
         const config = parseBoardConfig(this.config.name, { slug: this.config.slug, ...draftToFrontmatter(draft, this.config).frontmatter }).config;
         return destinationAdvice(config, this.plugin.quickAdd.defaultDestination(), {

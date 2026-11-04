@@ -12,7 +12,7 @@ function editor(properties: Record<string, unknown> = {}) {
   const root = document.createElement('div'); document.body.replaceChildren(root);
   const dispose = vi.fn();
   const host: SettingsFormHost = {
-    initialSection: 'filters', icon: vi.fn(), attachKeySuggest: vi.fn(() => dispose), attachValueSuggest: vi.fn(() => dispose),
+    initialSection: 'setup', icon: vi.fn(), attachKeySuggest: vi.fn(() => dispose), attachValueSuggest: vi.fn(() => dispose),
     attachTagSuggest: vi.fn(() => dispose), attachFolderSuggest: vi.fn(() => dispose), taggedTasks: () => [],
     onSave: vi.fn(), onDiscard: vi.fn(),
     createTextInput: vi.fn(() => document.createElement('input')), createDropdown: vi.fn(() => document.createElement('select')),
@@ -196,7 +196,7 @@ it('keeps chip entry IME-safe, and keeps the filters across tab changes and whil
   input.dispatchEvent(new Event('blur')); expect(ui.draft.filter.items[0]).toEqual({kind: 'tags', values: []});
   input.dispatchEvent(new Event('compositionend')); input.dispatchEvent(new Event('change'));
   expect(ui.draft.filter.items[0]).toEqual({kind: 'tags', values: ['仕事']});
-  ui.root.querySelector<HTMLButtonElement>('#tt-tab-general')!.click(); ui.root.querySelector<HTMLButtonElement>('#tt-tab-filters')!.click();
+  ui.root.querySelector<HTMLButtonElement>('#tt-tab-general')!.click(); ui.root.querySelector<HTMLButtonElement>('#tt-tab-setup')!.click();
   expect(ui.root.querySelector('.tt-chip-text')?.textContent).toBe('仕事');
   ui.form.setSaving(true); expect(ui.control<HTMLButtonElement>('Filters: Add filter').disabled).toBe(true);
   ui.form.setSaving(false); expect(ui.control<HTMLButtonElement>('Filters: Add filter').disabled).toBe(false);
