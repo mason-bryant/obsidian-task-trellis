@@ -1,4 +1,4 @@
-import type { Feature, FeatureAction } from '../core/whatsNew.ts';
+import { RELEASE_NOTES_URL, type Feature, type FeatureAction } from '../core/whatsNew.ts';
 import { uiElement } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 
@@ -41,7 +41,10 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
     }
     list.append(item);
   }
-  body.replaceChildren(node('p', '', update ? `Task Trellis ${update.version} adds:` : 'What Task Trellis has added lately:'), list);
+  // A link rather than a button, since it leaves Obsidian. Obsidian opens it in the browser.
+  const notes = node('a', 'tt-whats-new-notes', 'See all release notes on GitHub');
+  notes.href = RELEASE_NOTES_URL; notes.target = '_blank'; notes.rel = 'noopener';
+  body.replaceChildren(node('p', '', update ? `Task Trellis ${update.version} adds:` : 'What Task Trellis has added lately:'), list, notes);
   if (update) {
     const hide = node('label', 'tt-whats-new-hide');
     const box = node('input'); box.type = 'checkbox'; box.checked = update.hidden;

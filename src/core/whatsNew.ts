@@ -29,6 +29,9 @@ export const FEATURES: Feature[] = [
   },
 ];
 
+/** Every release's notes, older ones included. Publishing a release puts its notes there (see docs/releasing.md). */
+export const RELEASE_NOTES_URL = 'https://github.com/mason-bryant/obsidian-task-trellis/releases';
+
 /** Orders `1.10.0` after `1.9.2`. Missing parts count as 0. */
 export function compareVersions(a: string, b: string): number {
   const parts = (v: string) => v.split('.').map((n) => parseInt(n, 10) || 0);

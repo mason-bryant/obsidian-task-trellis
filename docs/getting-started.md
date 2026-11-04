@@ -50,6 +50,8 @@ The example board writes its sample tasks to a note of their own, **Task Trellis
 - **Create board…** opens the new board dialog, with its templates.
 - **Add suggested color rules…** opens this board’s settings at **Card color rules**, in the **Appearance** tab, with three rules added: **Overdue** in red stripes, **Due today** in orange and **High priority** in purple dots. Nothing is saved until you save the settings; change or remove the rules first if you like, or discard them.
 
+**See all release notes on GitHub**, at the end of the window, opens your browser at the notes for every release, including older ones.
+
 When an update adds features worth trying, the first board you open afterwards shows the same window once, with just what the update added. Check **Don’t show this again** there, or turn off **Show what’s new after updates** in **Settings → Task Trellis**, to stop it opening by itself. A new install doesn’t show it, and the toolbar button always works.
 
 ## Make it yours

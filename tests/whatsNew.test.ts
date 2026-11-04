@@ -66,6 +66,8 @@ describe('what’s new window', () => {
     expect([...ui.body.querySelectorAll('li')].map((li) => li.querySelector('button')?.textContent)).toEqual(['Create board…', 'Add suggested color rules…', undefined]);
     expect(ui.body.querySelector('.tt-whats-new-description')!.textContent).toMatch(/New in 1\.4\.0\.$/);
     expect(ui.box).toBeNull();
+    const notes = ui.body.querySelector<HTMLAnchorElement>('a.tt-whats-new-notes')!;
+    expect([notes.textContent, notes.href, notes.target]).toEqual(['See all release notes on GitHub', 'https://github.com/mason-bryant/obsidian-task-trellis/releases', '_blank']);
     ui.button('Add suggested color rules…').click();
     expect(ui.close).toHaveBeenCalledOnce();
     expect(ui.tryFeature).toHaveBeenCalledWith('color-rules');
@@ -79,6 +81,7 @@ describe('what’s new window', () => {
     expect(ui.body.querySelector('p')!.textContent).toBe('Task Trellis 1.4.0 adds:');
     expect([...ui.body.querySelectorAll('li strong')].map((s) => s.textContent)).toEqual(['Board templates', 'Patterns and opacity for color rules']);
     expect(ui.body.textContent).toContain('The What’s new button on a board’s toolbar shows this at any time.');
+    expect(ui.body.querySelector('a.tt-whats-new-notes')!.textContent).toBe('See all release notes on GitHub');
     const box = ui.box!;
     expect(box.closest('label')!.textContent).toBe('Don’t show this again');
     expect(box.checked).toBe(false);
