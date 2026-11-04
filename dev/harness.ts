@@ -369,7 +369,7 @@ function pickLabels(selected: string[], saveSelection: (ids: string[]) => Promis
 function whatsNew(features: Feature[], update?: WhatsNewOptions['update']): void {
   nameDialog((body, header, close) => renderWhatsNew(body, header, {
     features, update,
-    tryFeature: (kind) => { if (kind === 'create-board') sidebarHost.onCreateBoard(); else openSettings('colors', true); },
+    tryFeature: (kind) => { if (kind === 'create-board') sidebarHost.onCreateBoard(); else openSettings(undefined, true); },
   }, previewIcon, close));
 }
 if (new URLSearchParams(location.search).has('whats-new')) {
@@ -501,6 +501,7 @@ function openSettings(initialSection: Section = 'general', suggestRules = false)
   };
   const form = renderBoardSettings(body, draft, original, {
     initialSection,
+    showColorRules: suggestRules,
     destinationAdvice: (draft) => destinationAdvice(parseBoardConfig(original.name, { slug: original.slug, ...draftToFrontmatter(draft, original).frontmatter }).config,
       { kind: 'note', note: 'Daily/Today.md', heading: '' }, {
         dailyAvailable: true, excluded: (path) => path.startsWith('Task Trellis/'),

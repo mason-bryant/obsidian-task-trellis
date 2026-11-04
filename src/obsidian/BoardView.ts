@@ -183,7 +183,7 @@ export class BoardView extends FileView {
     if (kind === 'create-board') { this.plugin.promptNewBoard(); return; }
     if (!this.file) return;
     // The suggested rules join the draft, for the user to look over and save or discard.
-    const settings = new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, 'colors', () => this.refocus('settings'));
+    const settings = new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, undefined, () => this.refocus('settings'));
     settings.addSuggestedColorRules();
     settings.open();
   }
