@@ -23,15 +23,15 @@ describe('board settings tabs', () => {
   it('start with Appearance, then Quick filters, and open on the first when told nothing else', () => {
     const ui = open();
     const tabs = [...ui.root.querySelectorAll('[role=tab]')].map((tab) => tab.textContent);
-    expect(tabs).toEqual(['Appearance', 'Quick filters', 'General', 'Setup', 'New tasks']);
+    expect(tabs).toEqual(['Appearance', 'Quick filters', 'Setup', 'New tasks', 'General']);
     expect(ui.selected()).toBe('Appearance');
     expect(ui.form.section()).toBe('appearance');
   });
 
   it('go from the last tab to the first with the arrow keys, and report the tab showing', () => {
-    const ui = open('destination');
-    expect(ui.form.section()).toBe('destination');
-    ui.root.querySelector('#tt-tab-destination')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    const ui = open('general');
+    expect(ui.form.section()).toBe('general');
+    ui.root.querySelector('#tt-tab-general')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     expect(ui.selected()).toBe('Appearance');
     ui.root.querySelector('#tt-tab-appearance')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     expect(ui.selected()).toBe('Quick filters');

@@ -45,9 +45,9 @@ export type SettingsForm = {
 export const SETTINGS_TABS = [
   { id: 'appearance', title: 'Appearance', glyph: 'palette' },
   { id: 'quick', title: 'Quick filters', glyph: 'filter' },
-  { id: 'general', title: 'General', glyph: 'sliders-horizontal' },
   { id: 'setup', title: 'Setup', glyph: 'columns-3' },
   { id: 'destination', title: 'New tasks', glyph: 'file-plus-2' },
+  { id: 'general', title: 'General', glyph: 'sliders-horizontal' },
 ] as const;
 export type Section = typeof SETTINGS_TABS[number]['id'];
 /** Where settings can open: a tab, or a part of a long one, which they scroll to and focus. */
