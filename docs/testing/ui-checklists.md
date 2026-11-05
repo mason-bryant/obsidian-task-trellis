@@ -72,6 +72,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Reach the last card above the floating toolbar, with short and long lists.
 - Pointer and keyboard resizing, resetting, and a failed save.
 - Editors with the keyboard open on native iOS when available. Record browser and simulator coverage separately from devices.
+- On a wide board, open a subtask composer on the last card showing above a cell's pinned Add task box, in an ordinary cell and in a No due date column: its text box and buttons sit above that box, and typing doesn't move the board again.
 - Open a task and a nested subtask composer near the end of a list with an overlay keyboard. Check the input remains visible with real scroll limits, viewport resize and pan, paging and one chosen column, and after redraw. Close or move focus out and check the board regains its height. A mocked `scrollTop` that accepts unlimited values cannot validate this case.
 - Tests: [columnSwipe](../../tests/columnSwipe.test.ts), [narrowBoard](../../tests/narrowBoard.test.ts), [columnResize](../../tests/columnResize.test.ts), [touchCardDrag](../../tests/touchCardDrag.test.ts) and [quickFilterMenu](../../tests/quickFilterMenu.test.ts). They set the one-column layout by hand, so the breakpoint itself needs a browser.
 

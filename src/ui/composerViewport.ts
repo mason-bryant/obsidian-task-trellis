@@ -17,7 +17,10 @@ export function watchComposerViewport(box: HTMLElement, input: HTMLTextAreaEleme
     const listRect = list.getBoundingClientRect();
     const header = list.querySelector('.tt-col-header')?.getBoundingClientRect().height ?? 0;
     const top = Math.max(listRect.top + header, viewport.offsetTop) + 8;
-    const end = Math.min(listRect.bottom, bottom) - 8;
+    // A subtask's box also has to clear its cell's Add task, pinned over the cards at the cell's bottom.
+    const pinned = box.closest('.tt-cell')?.querySelector<HTMLElement>(':scope > .tt-add');
+    const pinnedTop = pinned && !pinned.contains(box) && win.getComputedStyle(pinned).position === 'sticky' ? pinned.getBoundingClientRect().top : Infinity;
+    const end = Math.min(listRect.bottom, bottom, pinnedTop) - 8;
     const rect = box.getBoundingClientRect();
     // Prefer all actions and text together. In a cramped pane, keep the text entry visible.
     const target = rect.height <= end - top ? rect : input.getBoundingClientRect();

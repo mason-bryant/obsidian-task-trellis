@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildBoard, taskId, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
@@ -136,6 +136,79 @@ it('keeps an opened composer above the phone keyboard as it opens, and below the
     disposeBoardSelection(root);
     Reflect.deleteProperty(window, 'visualViewport');
   }
+});
+
+describe('a subtask composer near a cell’s pinned Add task box', () => {
+  const rect = (top: number, height: number) => () => ({ top, bottom: top + height, left: 0, right: 300, width: 300, height, x: 0, y: top, toJSON: () => ({}) });
+  const setUp = (css: string) => {
+    const viewport = Object.assign(new EventTarget(), { offsetTop: 0, height: 700 });
+    Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.append(style);
+    draw();
+    const list = root.querySelector<HTMLElement>('.tt-scroll')!;
+    list.getBoundingClientRect = rect(100, 600);
+    root.querySelector<HTMLElement>('.tt-col-header')!.getBoundingClientRect = rect(100, 40);
+    // An earlier test can leave a composer open; start with none.
+    root.querySelectorAll<HTMLButtonElement>('.tt-add-cancel').forEach((cancel) => cancel.click());
+    return { list, cell: card(paint).closest<HTMLElement>('.tt-cell')! };
+  };
+  const pinnedOf = (cell: HTMLElement) => cell.querySelector<HTMLElement>(':scope > .tt-add')!;
+  const openSubtask = async (list: HTMLElement) => {
+    card(paint).querySelector<HTMLButtonElement>('.tt-add-subtask')!.click();
+    const box = card(paint).querySelector<HTMLElement>('.tt-add-box')!;
+    // Clear of the board's bottom edge, but under the Add task box. It follows the board's scrolling.
+    box.getBoundingClientRect = () => rect(560 - list.scrollTop, 120)();
+    await Promise.resolve();
+    const input = box.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
+    expect(document.activeElement).toBe(input);
+    input.dispatchEvent(new Event('input'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return box;
+  };
+  afterEach(() => {
+    disposeBoardSelection(root);
+    Reflect.deleteProperty(window, 'visualViewport');
+    document.head.querySelectorAll('style').forEach((style) => style.remove());
+  });
+
+  it('scrolls it clear of the box', async () => {
+    const { list, cell } = setUp('.tt-cell > .tt-add { position: sticky; }');
+    pinnedOf(cell).getBoundingClientRect = rect(640, 50);
+    const box = await openSubtask(list);
+    expect(box.getBoundingClientRect().bottom).toBe(632);
+    expect(list.scrollTop).toBe(48);
+  });
+
+  it('leaves it where it is when the box sits below it in the list', async () => {
+    const { list, cell } = setUp('.tt-cell > .tt-add { position: sticky; }');
+    pinnedOf(cell).getBoundingClientRect = rect(690, 50);
+    await openSubtask(list);
+    expect(list.scrollTop).toBe(0);
+  });
+
+  it('ignores an Add task box that isn’t pinned, as above the list on a phone', async () => {
+    const { list, cell } = setUp('.tt-cell > .tt-add { position: static; }');
+    pinnedOf(cell).getBoundingClientRect = rect(640, 50);
+    await openSubtask(list);
+    expect(list.scrollTop).toBe(0);
+  });
+
+  it('doesn’t make Add task’s own composer try to clear itself', async () => {
+    const { list, cell } = setUp('.tt-cell > .tt-add { position: sticky; }');
+    const pinned = pinnedOf(cell);
+    pinned.querySelector<HTMLButtonElement>('.tt-add-button')!.click();
+    pinned.getBoundingClientRect = rect(500, 120);
+    const box = pinned.querySelector<HTMLElement>('.tt-add-box')!;
+    box.getBoundingClientRect = () => rect(500 - list.scrollTop, 120)();
+    await Promise.resolve();
+    const input = box.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
+    expect(document.activeElement).toBe(input);
+    input.dispatchEvent(new Event('input'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(list.scrollTop).toBe(0);
+  });
 });
 
 it('leaves the board still while typing in a sticky Add task box near its bottom edge', async () => {
