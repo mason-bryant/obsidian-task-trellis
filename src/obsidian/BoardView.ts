@@ -237,6 +237,18 @@ export class BoardView extends FileView {
     this.plugin.notePopups.open(this.app.vault.getFileByPath(task.path), { line: task.line }, navigate);
   }
 
+  /** Arrange's Show completed subtasks. Saved in the board note, as Hide completed subtasks in the settings is; the board redraws once the note has changed. */
+  private async setShowCompletedSubtasks(show: boolean): Promise<void> {
+    const file = this.file;
+    if (!file) return;
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[FM.hideCompletedSubtasks] = !show; });
+    } catch (error) {
+      console.error('[Task Trellis] saving completed subtasks failed', error);
+      this.alert(`Task Trellis: could not ${show ? 'show' : 'hide'} completed subtasks. Check that the board note can be edited, then try again.`);
+    }
+  }
+
   /** Filter keys no note in the vault has; only checked when the board is empty. */
   private missingFilterKeys(): string[] {
     return this.board ? missingRequiredPropertyKeys(this.board.config, this.app.vault.getMarkdownFiles()
@@ -313,6 +325,7 @@ export class BoardView extends FileView {
         void this.plugin.setSubtasksCollapsed(this.board.config.slug, keys, collapsed);
         this.render();
       },
+      onShowCompletedSubtasks: (show) => void this.setShowCompletedSubtasks(show),
       onSortByDueDate: () => void this.sortByDueDate(),
       onBulkAction: (tasks, kind) => new Promise((resolve) => {
         if (!this.board) { resolve(null); return; }
@@ -324,6 +337,7 @@ export class BoardView extends FileView {
         const menu = new Menu();
         if (choices.includes('collapse')) menu.addItem((item) => item.setTitle('Collapse all subtasks').setIcon('fold-vertical').onClick(() => choose('collapse')));
         if (choices.includes('expand')) menu.addItem((item) => item.setTitle('Expand all subtasks').setIcon('unfold-vertical').onClick(() => choose('expand')));
+        if (choices.includes('completed')) menu.addItem((item) => item.setTitle('Show completed subtasks').setIcon('list-checks').setChecked(!this.board?.config.hideCompletedSubtasks).onClick(() => choose('completed')));
         if (choices.includes('sort')) {
           if (choices.length > 1) menu.addSeparator();
           menu.addItem((item) => item.setTitle('Sort by due date').setIcon('arrow-down-wide-narrow').onClick(() => choose('sort')));

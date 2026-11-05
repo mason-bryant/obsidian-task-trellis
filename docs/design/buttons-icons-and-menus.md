@@ -18,7 +18,7 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 | Copy / remove a quick filter | Copy and trash icons, named for the filter. Removing a filter changes the settings draft. |
 | Reorder | A grip on the right edge, separate from edit and remove, in every reorderable list: board columns and quick filters in settings, and cards on touch screens |
 | More card actions | ⋯ opens Move to…, whose choices say what else the move changes, such as the due date it sets |
-| Arrange the board | One Arrange button on the toolbar opens a menu: Collapse all subtasks and Expand all subtasks when the board has subtasks, then, after a separator, Sort by due date. Hiding completed subtasks is a setting under Appearance, not a toolbar button. |
+| Arrange the board | One Arrange button on the toolbar opens a menu: Collapse all subtasks, Expand all subtasks and Show completed subtasks when the board has subtasks, then, after a separator, Sort by due date. Show completed subtasks has a checkmark while they show. It's the opposite of Hide completed subtasks under Appearance, and changes the same setting, so the two always agree. |
 
 A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks or Show subtasks.
 
