@@ -2,7 +2,7 @@
 
 # Choose which tasks appear
 
-The Filters tab works like the filter editor in Obsidian's Bases. It's one group of filters, and the dropdown at its top says how they combine:
+**Filters**, in **Settings → Setup**, works like the filter editor in Obsidian's Bases. It's one group of filters, and the dropdown at its top says how they combine:
 
 - **All the following are true:** a task must match every filter in the group.
 - **Any of the following are true:** a task must match at least one.
@@ -75,6 +75,25 @@ A property filter names one property, written as in `filter-properties`. A list 
 
 The extra `include-folders` value is for older versions of Task Trellis, which don't know `filter`: on a device that hasn't updated yet, the board shows no tasks, instead of tasks its filter should hide. Update Task Trellis on every device that opens the board. Saving settings simplifies what says nothing extra, such as a group of one filter, and goes back to the plain lists, without `filter`, once the filters fit them again.
 
+## Search the board
+
+Type in **Search cards…**, beside the board's name, to show only the cards that contain every word you type, in any order. Case and accents don't matter, so `cafe` finds Café. The search looks at what a card shows:
+
+- the task's text, including links and tags;
+- the name of the note it's in;
+- its labels on this board, by name, or by color for a label without one.
+
+A subtask is searched by its own text. A matching subtask brings its card into view, just as **Match subtasks** does for a quick filter. Words the card doesn't contain must all be in one of its subtasks. For example, `kitchen trim` finds a card in your Kitchen note through its **Paint the trim** subtask.
+
+The search narrows the board on top of its filters and any quick filters that are on. The card count shows how many cards match. If none do, the board says so and offers **Clear search**.
+
+- **Searching:** the board updates as you type.
+- **Cmd/Ctrl+F** in a board jumps to the search box.
+- **Enter** moves to the first matching card.
+- **Escape**, or the × in the box, clears it.
+
+The search lasts while the board stays open in its tab. It isn't saved, and it starts empty when you open the board again.
+
 ## Quick filters
 
 Quick filters are buttons at the top of the board that narrow it further while they're pressed. They never widen the board: a task must pass the board's filters and every quick filter that is on. Each board remembers which of its quick filters are on.
@@ -125,3 +144,27 @@ quick-filters:
 ```
 
 `id` keeps a filter's on/off state when it's renamed. Set `quick-filters: []` for a board with none.
+
+## Color cards
+
+Color rules tint the cards they match, such as every card from a client's folder or every high-priority task. Manage them in **Settings → Appearance → Card color rules**: **Add color rule**, name it, choose its color, then choose what it matches. A rule matches on the same things as a quick filter: **Priority**, **Labels**, **Due**, and filters for tags, note folders and note properties, in groups. A rule with nothing chosen colors every card.
+
+Choose a color the same way as for a label: pick one of the label palette's colors, mix your own with the **Hue**, **Saturation** and **Lightness** sliders, or enter an HTML color code such as `#1558BC`. All three stay in step, so you can start from a palette color and adjust it. **Opacity** sets how strongly matching cards are tinted. It starts automatic, 14%, or 24% in dark themes, which keeps card text easy to read; move the slider to choose your own, and **Use automatic opacity** goes back. **Pattern** draws the tint solid, or as **Stripes**, **Dots**, a **Grid** or **Checks**, which tell rules apart without relying on color alone. A pattern's lines, dots or squares take the rule's opacity and the space between them a lighter tint, so a pattern never makes card text harder to read than the solid tint. **Preview** shows a card in the rule's tint and pattern, and warns when its text may be hard to read in the current theme.
+
+A card takes the color of the first rule it matches, so put the most specific rules first: drag the grip beside a rule, or focus it and use the up/down arrow keys. Use the copy button to clone a rule and the trash button to remove one. Colors never change which cards show. Subtasks inside a card share its color, and overdue cards keep their red edge. Screen readers hear the rule's name with the card.
+
+They're stored in the board note:
+
+```yaml
+color-rules:
+  - name: Acme
+    color: '#1558bc'
+    include-folders: [Clients/Acme]
+  - name: Urgent
+    color: '#ae2e24'
+    opacity: 35
+    pattern: stripes
+    priority: [highest, high]
+```
+
+`opacity` is a percent from 0 to 100; without it, the rule uses the automatic opacity. `pattern` is `solid`, `stripes`, `dots`, `grid` or `checks`; without it, the tint is solid. A board without `color-rules` colors no cards.

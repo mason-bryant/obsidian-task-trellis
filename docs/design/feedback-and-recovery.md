@@ -5,7 +5,7 @@
 ## Rules
 
 - Respond as soon as work starts. Longer operations, such as previewing or applying board-tag changes, show an inline spinner and a busy label. Disable actions that would repeat or conflict with the work, expose the busy state to assistive technology, and clear it on success and on failure.
-- Skip success notices when the changed screen already shows the result. A task added from somewhere its board may not be in view says where it went: the sidebar says Task added to ‹board›, and an Add task to ‹board›: ‹column› command shows a notice naming the board and column, and where an undated task shows instead.
+- Skip success notices when the changed screen already shows the result. A task added from somewhere its board may not be in view says where it went: the sidebar says Task added to ‹board›, and an Add task to ‹board›: ‹column› command shows a notice naming the board and column.
 - When an action fails, say so on screen, and to screen readers; the console is never the only sign. Keep what the user entered, and where they were, whenever a retry is possible. How the message reads is in [wording](wording.md).
 - Tell a failed write apart from a failed follow-up. If the settings were saved but the board couldn't be opened, say that, so the user doesn't save again.
 
@@ -15,7 +15,7 @@
 - Writes check the task's snapshot before changing a note, including duplicate task lines and edits from sync. When a bulk edit partly succeeds, the result reports which tasks were updated and which were skipped.
 - Undo restores only writes that succeeded, and never overwrites newer edits: a note that changed after the action is skipped as a whole. There's no history to step back through; the board offers its latest action.
 - Renaming a board's tags is a bigger operation, with a preview of the affected notes and a recovery copy. Keep both, rather than treating it like a title edit.
-- Removing a column in board settings doesn't rewrite its tasks, so adding it back undoes it. Before saving, the Columns tab says how many open cards the column shows and which column they'll show in, and keeps that note current as other columns are renamed.
+- Removing a column in board settings doesn't rewrite its tasks, so adding it back undoes it. Before saving, Columns in the Setup tab says how many open cards the column shows and which column they'll show in, and keeps that note current as other columns are renamed.
 - Duplicating a board writes one new note, with its settings, so a failure leaves nothing behind and keeps the name to try again. It never edits a task, and its dialog says so. The new board opening is the confirmation; there's a notice only when the settings stay open in front of it.
 - Closing board settings with unsaved changes asks before discarding them, with keeping them as the default.
 - Deleting a board moves only its note to the trash, and its warning says that no tasks are deleted. The trash is how it's undone: restoring the note restores the board. A failure keeps the warning open and says nothing was changed.
@@ -33,4 +33,4 @@ None recorded.
 - Board rename: progress and errors in [renderBoardNameEditor.ts](../../src/ui/renderBoardNameEditor.ts), shown by [RenameBoardModal.ts](../../src/obsidian/RenameBoardModal.ts). Snapshots, applying and restoring in [BoardTagRename.ts](../../src/obsidian/BoardTagRename.ts), with the restore dialog in [RestoreBoardRenameModal.ts](../../src/obsidian/RestoreBoardRenameModal.ts).
 - Drafts: the inline composer keeps its draft in [renderBoard.ts](../../src/ui/renderBoard.ts). When saving text from the Tasks editor, the New task prompt or Details… fails, [recoverDraft.ts](../../src/obsidian/recoverDraft.ts) reopens it. The source-note popup keeps its own ([NotePopup.ts](../../src/obsidian/NotePopup.ts)).
 - Previous scheme: [labelSchemes.ts](../../src/core/labelSchemes.ts).
-- Notes on removed columns: `removedColumnNotes` in [boardDraft.ts](../../src/core/boardDraft.ts), which places cards with `columnOf` from [board.ts](../../src/core/board.ts), shown in the Columns tab of [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).
+- Notes on removed columns: `removedColumnNotes` in [boardDraft.ts](../../src/core/boardDraft.ts), which places cards with `columnOf` from [board.ts](../../src/core/board.ts), shown in Columns in the Setup tab of [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).

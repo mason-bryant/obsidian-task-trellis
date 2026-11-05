@@ -57,7 +57,7 @@ The commands answer in JSON. They see each board as you do, refuse to overwrite 
 
 Choose from eleven label color schemes or create your own colors. Switch back with **Previous scheme** if you prefer the old palette. Resize columns on desktop and tablet, use compact spacing when you want more on screen, and collapse subtasks to keep the board easy to scan.
 
-Narrow the board in one click with **quick filters** in the toolbar. Every board starts with **High priority**, **Overdue** and its first label, and you can add your own for priorities, labels, due dates, tags, folders or note properties. Turn on several at once to focus further, keep the ones you use less in a menu, and each board remembers which ones you left on.
+Find a card by typing in **Search cards…**, or press Cmd/Ctrl+F in a board: it matches the card's text, note name and labels, and a matching subtask brings its card along. Narrow the board in one click with **quick filters** in the toolbar. Every board starts with **High priority**, **Overdue** and its first label, and you can add your own for priorities, labels, due dates, tags, folders or note properties. Turn on several at once to focus further, keep the ones you use less in a menu, and each board remembers which ones you left on. **Color rules** tint the cards they match, such as everything in a client's folder, using the same choices as quick filters, in any color and opacity, solid or in a pattern such as stripes.
 
 In **Appearance**, choose the label shape, whether completed subtasks move to the end of their list or are hidden, whether overdue cards get a red edge, and whether notes open in a pop-up or a tab. Big boards stay quick: a long cell shows 25 cards at a time, with **more** for the rest.
 
@@ -68,9 +68,9 @@ Theme-aware styling, keyboard controls for cards, subtasks and settings, screen-
 ## Quick start
 
 1. **Install and enable** Task Trellis from **Settings → Community plugins → Browse** in Obsidian. The [installation guide](docs/getting-started.md) also covers installing a release by hand.
-2. Run **Task Trellis: Create board** from the command palette and give it a name.
+2. Run **Task Trellis: Create board** from the command palette, give it a name, and choose what it starts from: a plain **Kanban** board, a **Weekly planner**, a **Project**, an **Eisenhower matrix**, or an **Example board** full of sample tasks to try things out.
 3. The **New tasks** settings open automatically. Choose **A specific note**, such as `Tasks/Inbox.md`, outside the boards folder. Or choose today’s daily note if Daily notes is enabled.
-4. In **Filters**, choose which tasks belong here. Leave filters empty to show tasks across your vault. The destination note must satisfy your filters.
+4. Under **Filters** in the **Setup** tab, choose which tasks belong here. Leave filters empty to show tasks across your vault. The destination note must satisfy your filters.
 5. Save with the **green checkmark**, then select **+ Add task** at the top of a column on your phone. Use the tag icon to assign colored labels.
 
 The **Tasks** plugin is optional; it adds a task editor and recurring tasks. [Set up the ready-made iOS shortcut](docs/ios-shortcuts.md) for faster capture.
@@ -81,7 +81,9 @@ The **Tasks** plugin is optional; it adds a task editor and recurring tasks. [Se
 |---|---|
 | Customize columns and due-date groups | [Board settings](docs/boards.md) |
 | Show the right tasks on each board | [Filters](docs/filters.md) |
+| Search a board for a card | [Search the board](docs/filters.md#search-the-board) |
 | Add one-click quick filters to the toolbar | [Quick filters](docs/filters.md#quick-filters) |
+| Color cards by folder, label, priority or property | [Color cards](docs/filters.md#color-cards) |
 | Add tasks, move cards or manage subtasks | [Tasks and cards](docs/tasks.md) |
 | Update several tasks at once | [Bulk triage](docs/tasks.md#bulk-triage) |
 | Create and assign colored labels | [Labels](docs/labels.md) |

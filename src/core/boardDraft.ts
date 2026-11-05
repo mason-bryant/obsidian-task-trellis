@@ -3,6 +3,8 @@ import { FM, parseBoardConfig, type BoardConfig, type DueNowUnit } from './board
 import type { FilterGroup, FilterMatch, FilterNode } from './filters.ts';
 import { filterFrontmatter } from './filterTree.ts';
 import { quickFilterFrontmatter, type QuickDue, type QuickPriority } from './quickFilters.ts';
+import { colorRuleFrontmatter, type CardPattern } from './colorRules.ts';
+import { normalizeLabelColor } from './labels.ts';
 import { slugify, type ParsedTask } from './taskLine.ts';
 
 /** A column being edited; `originalId` ties it to the column it was, so a rename can retag its tasks. */
@@ -13,19 +15,26 @@ export type DraftRule = { kind: 'tags' | 'folders'; values: string[] } | ({ kind
 export type DraftGroup = { kind: 'group'; match: FilterMatch; items: DraftNode[] };
 export type DraftNode = DraftRule | DraftGroup;
 
-/** The rules as edited, for the board or one quick filter. */
+/** The rules as edited, for the board, a quick filter or a color rule. */
 export type DraftFilterSet = { filter: DraftGroup };
 
-export type DraftQuickFilter = DraftFilterSet & {
-  id: string;
-  name: string;
-  show: boolean;
+/** A quick filter's or color rule's criteria as edited. */
+export type DraftCriteria = DraftFilterSet & {
   priorities: QuickPriority[];
   labels: string[];
   noLabels: boolean;
-  matchSubtasks: boolean;
   due: QuickDue[];
 };
+
+export type DraftQuickFilter = DraftCriteria & {
+  id: string;
+  name: string;
+  show: boolean;
+  matchSubtasks: boolean;
+};
+
+/** `color` is as typed, checked when saved. */
+export type DraftColorRule = DraftCriteria & { name: string; color: string; opacity?: number; pattern?: CardPattern };
 
 /** The board settings form's state: what the user typed, before validation. */
 export type BoardDraft = DraftFilterSet & {
@@ -54,6 +63,7 @@ export type BoardDraft = DraftFilterSet & {
   quickFiltersMenu: boolean;
   quickFiltersVisible: string;
   quickFiltersVisibleMobile: string;
+  colorRules: DraftColorRule[];
   newTasks: BoardConfig['newTasks'];
   newTasksNote: string;
   newTasksHeading: string;
@@ -98,6 +108,9 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     quickFilters: config.quickFilters.map((f) => ({
       id: f.id, name: f.name, show: f.show, priorities: [...f.priorities], labels: [...f.labels], noLabels: f.noLabels, matchSubtasks: f.matchSubtasks, due: [...f.due], filter: filterDraft(f.filter),
     })),
+    colorRules: config.colorRules.map((r) => ({
+      name: r.name, color: r.color, opacity: r.opacity, pattern: r.pattern, priorities: [...r.priorities], labels: [...r.labels], noLabels: r.noLabels, due: [...r.due], filter: filterDraft(r.filter),
+    })),
     newTasks: config.newTasks,
     newTasksNote: config.newTasksNote,
     newTasksHeading: config.newTasksHeading,
@@ -131,6 +144,15 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
       { id: q.id, name, show: q.show, priorities: q.priorities, labels: q.labels, noLabels: q.noLabels, matchSubtasks: q.matchSubtasks, due: q.due },
       filterFrontmatter(filterFromDraft(q.filter, `Quick filter ${i + 1}`, errors)));
   });
+  const colorRules = draft.colorRules.map((r, i) => {
+    const name = r.name.trim();
+    if (!name) errors.push(`Color rule ${i + 1} needs a name.`);
+    const color = normalizeLabelColor(r.color);
+    if (!color) errors.push(`Color rule ${i + 1} needs a hex color such as #AABBCC or #ABC.`);
+    return colorRuleFrontmatter(
+      { name, color: color ?? r.color.trim(), opacity: r.opacity, pattern: r.pattern, priorities: r.priorities, labels: r.labels, noLabels: r.noLabels, due: r.due },
+      filterFrontmatter(filterFromDraft(r.filter, `Color rule ${i + 1}`, errors)));
+  });
 
   if (draft.newTasks === 'note' && !draft.newTasksNote.trim()) errors.push('Choose the note new tasks go to.');
 
@@ -158,6 +180,8 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.quickFiltersMenu]: draft.quickFiltersMenu,
     [FM.quickFiltersVisible]: optionalCountField("Filters to keep visible", draft.quickFiltersVisible, errors),
     [FM.quickFiltersVisibleMobile]: optionalCountField("Filters to keep visible in single-column view", draft.quickFiltersVisibleMobile, errors),
+    // Left out, or removed with the last rule, so boards without colors don't gain the property.
+    [FM.colorRules]: colorRules.length ? colorRules : undefined,
     [FM.showCompletedDays]: intField('Show completed', draft.showCompletedDays, 0, 3650, errors),
     [FM.compact]: draft.compact,
     [FM.showColumnSelector]: draft.showColumnSelector,

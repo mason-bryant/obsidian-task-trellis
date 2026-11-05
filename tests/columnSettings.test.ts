@@ -13,7 +13,7 @@ function editor() {
   const draft = draftFromConfig(original);
   const root = document.createElement('div'); document.body.replaceChildren(root);
   const host: SettingsFormHost = {
-    initialSection: 'columns', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+    initialSection: 'setup', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
     attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
   };
   renderBoardSettings(root, draft, original, host);
@@ -56,7 +56,7 @@ it('says where a removed column’s open tasks will show, and keeps it current w
   const tagged = [{ ...parseTaskLine(raw)!, id: taskId('a.md', 0), path: 'a.md', line: 0, raw }];
   const root = document.createElement('div'); document.body.replaceChildren(root);
   renderBoardSettings(root, draftFromConfig(original), original, {
-    initialSection: 'columns', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+    initialSection: 'setup', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
     attachFolderSuggest: vi.fn(), taggedTasks: (id) => (id === 'this-week' ? tagged : []), onSave: vi.fn(), onDiscard: vi.fn(),
   });
   const notes = () => [...root.querySelectorAll('.tt-column-removal')].map((p) => p.textContent);

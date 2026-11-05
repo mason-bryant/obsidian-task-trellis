@@ -6,11 +6,12 @@ import type { BoardTask } from '../core/board.ts';
 import { parseBoardConfig, type BoardConfig } from '../core/boardConfig.ts';
 import { draftChanged, draftFromConfig, draftToFrontmatter, type BoardDraft } from '../core/boardDraft.ts';
 import { propertyValueStrings } from '../core/filters.ts';
-import { renderBoardSettings, type SettingsForm, type Section } from '../ui/renderBoardSettings.ts';
+import { renderBoardSettings, type SettingsForm, type SettingsTarget } from '../ui/renderBoardSettings.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { noteTags } from './noteTags.ts';
 import { notice } from './notice.ts';
 import { shortcutURL } from '../core/shortcut.ts';
+import { suggestedColorRules } from '../core/whatsNew.ts';
 import { DeleteBoardModal } from './DeleteBoardModal.ts';
 import { DiscardChangesModal } from './DiscardChangesModal.ts';
 import { DuplicateBoardModal } from './DuplicateBoardModal.ts';
@@ -35,11 +36,17 @@ export class BoardSettingsModal extends Modal {
     private plugin: TaskTrellisPlugin,
     private file: TFile,
     private config: BoardConfig,
-    private initialSection: Section = 'general',
+    private initialSection: SettingsTarget = plugin.settings.boardSettingsTab,
     private onClosed?: () => void,
   ) {
     super(app);
     this.draft = draftFromConfig(this.config);
+  }
+
+  /** Adds starter color rules to the draft and opens at them, for the user to look over and save or discard. Call before opening. */
+  addSuggestedColorRules(): void {
+    this.draft.colorRules.push(...suggestedColorRules(this.draft.colorRules));
+    this.initialSection = 'color-rules';
   }
 
   /**
@@ -172,6 +179,11 @@ export class BoardSettingsModal extends Modal {
 
   onClose(): void {
     this.chrome?.destroy(); this.chrome = null;
+    const tab = this.form?.section();
+    if (tab && tab !== this.plugin.settings.boardSettingsTab) {
+      this.plugin.settings.boardSettingsTab = tab;
+      void this.plugin.saveSettings();
+    }
     this.form?.destroy();
     this.form = null;
     this.contentEl.empty();

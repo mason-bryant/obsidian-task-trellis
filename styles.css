@@ -185,6 +185,35 @@
   box-shadow: var(--shadow-s);
 }
 .tt-board--no-overdue-bar .tt-card.is-overdue { border-left: 1px solid var(--background-modifier-border); }
+/*
+ * A color rule's tint, over the card's own background so its text keeps its contrast. The color
+ * picker's sample card and pattern choices share it, so they can't differ. A rule's own opacity sets
+ * the tint inline. The automatic tints are named in colorPicker.ts's help text too.
+ */
+.tt-card.tt-card--colored, .tt-color-sample { --tt-card-tint: .14; }
+.theme-dark :is(.tt-card.tt-card--colored, .tt-color-sample) { --tt-card-tint: .24; }
+.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile {
+  --tt-card-line: rgba(var(--tt-card-rgb), var(--tt-card-tint));
+  --tt-card-wash: rgba(var(--tt-card-rgb), calc(var(--tt-card-tint) * .4));
+  background-image: linear-gradient(var(--tt-card-line), var(--tt-card-line));
+}
+/* A pattern's marks take the full tint and the space between a lighter one, so the darkest part of a
+   patterned card is no darker than a solid one: the picker's contrast warning holds for both. */
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--stripes {
+  background-image: repeating-linear-gradient(-45deg, var(--tt-card-line) 0 2px, var(--tt-card-wash) 2.5px 8px, var(--tt-card-line) 8.5px);
+}
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--dots {
+  background-image: radial-gradient(circle, var(--tt-card-line) 0 2.5px, var(--tt-card-wash) 3px);
+  background-size: 10px 10px;
+}
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--grid {
+  background-image: conic-gradient(from 90deg at 2px 2px, var(--tt-card-wash) 90deg, var(--tt-card-line) 0);
+  background-size: 12px 12px;
+}
+:is(.tt-card.tt-card--colored, .tt-color-sample, .tt-color-pattern-tile).tt-tint--checks {
+  background-image: repeating-conic-gradient(var(--tt-card-line) 0 25%, var(--tt-card-wash) 0 50%);
+  background-size: 12px 12px;
+}
 
 .tt-card.is-dragging {
   opacity: 0.4;
@@ -458,6 +487,14 @@ button.tt-board-rename:hover { color: var(--interactive-accent); background: tra
 button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 4px; }
 .tt-board-name-field { display: flex; flex-direction: column; gap: 8px; }
 .tt-board-name-field input { width: 100%; }
+/* New board's templates look like the label editor's color scheme choices: a name over what it gives you. */
+.tt-board-template-field { margin-top: 16px; }
+.tt-board-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 8px; }
+button.tt-board-template { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; height: auto; min-height: 64px; gap: 4px; padding: 10px 12px; white-space: normal; text-align: start; }
+button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.tt-board-template-name { font-weight: 600; }
+.tt-board-template-description { color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: normal; line-height: 1.4; }
+.tt-board-template-examples[hidden] { display: none; }
 .tt-board-total, .tt-filter-count { font-size: var(--font-ui-smaller); color: var(--text-muted); }
 .tt-filter-count { border-left: 1px solid var(--background-modifier-border); padding-left: 10px; }
 .tt-toolbar-button, .tt-button {
@@ -468,6 +505,22 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 }
 .tt-toolbar-button[aria-pressed='true'], .tt-quick-filter-menu.is-active { color: var(--text-accent); border-color: var(--interactive-accent); }
 .tt-arrange-menu { min-width: 32px; flex: none; }
+/* Search box: Obsidian's input[type=search] style outranks one class, so the input takes two. */
+.tt-board-search { position: relative; display: flex; align-items: center; flex: 0 1 220px; min-width: 140px; margin-inline-start: auto; }
+.tt-board-search > .tt-icon { position: absolute; inset-inline-start: 9px; color: var(--text-muted); pointer-events: none; }
+.tt-board-search > input.tt-board-search-input {
+  box-sizing: border-box; width: 100%; height: auto; min-height: 32px; margin: 0; padding: 4px 32px;
+  border: 1px solid var(--background-modifier-border); border-radius: 7px;
+  background: var(--background-primary); color: var(--text-normal); font-size: var(--font-ui-small);
+}
+.tt-board-search > input.tt-board-search-input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+.tt-board-search > button.tt-board-search-clear {
+  position: absolute; inset-inline-end: 2px; display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px;
+  background: transparent; box-shadow: none; color: var(--text-muted); cursor: pointer;
+}
+.tt-board-search > button.tt-board-search-clear:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.tt-board-search > button.tt-board-search-clear[hidden] { display: none; }
 .tt-quick-filter-colors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .tt-quick-filter-colors[hidden] { display: none; }
 .tt-filter-context-note, .tt-filter-match-note { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
@@ -497,6 +550,8 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
   transition: box-shadow 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 .tt-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.08); transform: translateY(-1px); }
+/* A card scrolled to, by focus or by the search's Enter, stops below the sticky column header. */
+.tt-card { scroll-margin-top: 64px; }
 .tt-card-text { line-height: 1.45; font-weight: 500; }
 .tt-card-meta { padding-left: 0; margin-top: 10px; gap: 6px 8px; }
 .tt-source { max-width: 45%; overflow: hidden; text-overflow: ellipsis; font-size: var(--font-ui-smaller); }
@@ -566,10 +621,24 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-button.tt-button--danger { background: var(--background-modifier-error, #e93147); border-color: transparent; color: var(--text-on-accent, #fff); }
 .tt-button.tt-button--danger:hover { background: var(--background-modifier-error-hover, #d32640); }
 .tt-button.tt-button--danger:disabled { opacity: .5; cursor: default; }
-.tt-settings-board-actions, .tt-settings-danger { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
+.tt-settings-board-actions, .tt-settings-danger, .tt-settings-part { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--background-modifier-border); }
+.tt-settings-body > :is(.tt-settings-board-actions, .tt-settings-danger, .tt-settings-part):first-child { margin-top: 0; padding-top: 0; border-top: 0; scroll-margin-top: 18px; }
 .tt-settings-board-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The buttons at the end of a warning: the safe choice, then the destructive one. */
 .tt-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+/* What’s new: each feature's name over a line about it, then its button. An update adds Don’t show this again. */
+.tt-whats-new-list { display: flex; flex-direction: column; gap: 16px; margin: 0 0 16px; padding: 0; list-style: none; }
+.tt-whats-new-list > li { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.tt-whats-new-list .tt-button { margin-top: 4px; }
+@media (pointer: coarse) { .tt-whats-new-list .tt-button { min-height: 44px; } }
+.is-mobile .tt-whats-new-list .tt-button { min-height: 44px; }
+.tt-whats-new-description { color: var(--text-muted); }
+.tt-whats-new-notes { display: inline-block; color: var(--text-accent); }
+@media (pointer: coarse) { .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; } }
+.is-mobile .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; }
+.tt-whats-new-notes + .tt-help { margin-top: 12px; }
+.tt-whats-new-hide { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; }
+.tt-whats-new-hide input { margin: 0; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
 .tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }
@@ -659,6 +728,9 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-quick-choices > legend { margin-bottom: 4px; padding: 0; }
 .tt-quick-choices .tt-check-field { margin: 4px 0; }
 .tt-quick-swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+/* A color rule's palette, laid out like the label editor's. */
+.tt-settings .tt-label-colors, .tt-settings .tt-color-picker, .tt-settings .tt-color-patterns { max-width: 360px; }
+.tt-settings .tt-label-colors > .tt-label-color { height: 32px; min-height: 32px; padding: 0; box-shadow: none; border: 2px solid transparent; border-radius: 6px; cursor: pointer; }
 
 /* Subtask visibility is an explicit action, independent of card density. */
 .tt-subtask-controls {
@@ -700,9 +772,17 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 @media (pointer: coarse) {
   .tt-icon-button, .tt-chip .tt-icon-button { width: 44px; height: 44px; }
   .tt-settings-tab, .tt-board-tools .tt-column-picker { min-height: 44px; }
+  .tt-settings .tt-label-colors > .tt-label-color { height: 44px; }
+  .tt-settings .tt-color-slider-track > input[type='range'] { height: 44px; }
+  .tt-board-search > input.tt-board-search-input { min-height: 44px; padding-inline-end: 44px; font-size: max(16px, var(--font-ui-small)); }
+  .tt-board-search > button.tt-board-search-clear { inset-inline-end: 0; width: 44px; height: 44px; }
 }
 .is-mobile :is(.tt-icon-button, .tt-chip .tt-icon-button) { width: 44px; height: 44px; }
 .is-mobile :is(.tt-settings-tab, .tt-board-tools .tt-column-picker) { min-height: 44px; }
+.is-mobile .tt-settings .tt-label-colors > .tt-label-color { height: 44px; }
+.is-mobile .tt-settings .tt-color-slider-track > input[type='range'] { height: 44px; }
+.is-mobile .tt-board-search > input.tt-board-search-input { min-height: 44px; padding-inline-end: 44px; font-size: max(16px, var(--font-ui-small)); }
+.is-mobile .tt-board-search > button.tt-board-search-clear { inset-inline-end: 0; width: 44px; height: 44px; }
 
 .tt-subtask-controls > .tt-add-subtask { opacity: 1; }
 
@@ -862,6 +942,34 @@ button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-acce
 .tt-label-picker .tt-label-color { height: 44px; padding: 0; box-shadow: none; border: 2px solid transparent; }
 .tt-label-color[aria-pressed='true'] { outline: 2px solid var(--text-normal); outline-offset: 2px; }
 .tt-label-preview { flex: none; min-height: 52px; }
+/* The shared color picker: the palette, then sliders over tracks that show what moving each one does. */
+.tt-color-picker { display: flex; flex-direction: column; gap: 12px; }
+.tt-color-picker [hidden], .tt-color-preview [hidden] { display: none; }
+.tt-color-sliders { display: flex; flex-direction: column; }
+.tt-color-slider { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) 3em; align-items: center; gap: 12px; font-size: var(--font-ui-small); }
+.tt-color-slider-value { color: var(--text-muted); text-align: end; font-variant-numeric: tabular-nums; }
+.tt-color-slider-track { position: relative; display: flex; align-items: center; min-width: 0; }
+.tt-color-slider-track::before { content: ''; position: absolute; inset-inline: 0; top: 50%; height: 12px; margin-top: -6px; border-radius: 6px; background: var(--tt-color-track); box-shadow: inset 0 0 0 1px var(--background-modifier-border); }
+/* Opacity fades into a checkerboard, the usual sign for see-through. */
+.tt-color-slider-track.tt-color-slider-track--opacity::before { background: var(--tt-color-track), repeating-conic-gradient(var(--background-modifier-border) 0 25%, var(--background-primary) 0 50%) 0 0 / 12px 12px; }
+/* Obsidian draws the thumb; the track behind it is the gradient above. */
+.tt-color-slider-track > input[type='range'] { position: relative; width: 100%; height: 32px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.tt-label-picker .tt-color-slider-track > input[type='range'] { height: 44px; }
+.tt-color-picker > .tt-color-reset { align-self: flex-start; }
+/* On phones, each slider takes the full width under its name and value, for finer control. */
+@media (max-width: 480px) {
+  .tt-color-slider { grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; }
+  .tt-color-slider > .tt-color-slider-track { grid-column: 1 / -1; grid-row: 2; }
+}
+/* Pattern choices look like the label editor's color scheme choices: a name over a preview. */
+.tt-color-patterns { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+button.tt-color-pattern { display: flex; flex-direction: column; align-items: stretch; height: auto; min-height: 64px; gap: 8px; padding: 10px; white-space: normal; }
+button.tt-color-pattern[aria-pressed='true'] { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.tt-color-pattern-tile { --tt-card-tint: .6; display: block; height: 20px; border-radius: 3px; background-color: var(--background-primary); box-shadow: inset 0 0 0 1px var(--background-modifier-border); }
+.tt-color-preview { display: flex; flex-direction: column; gap: 6px; }
+.tt-color-sample { box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; max-width: 360px; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; background-color: var(--background-primary); box-shadow: var(--shadow-s); color: var(--text-normal); font-weight: 500; }
+.tt-color-sample-details { color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: normal; }
+.tt-color-preview > .tt-color-warning { color: var(--text-warning, var(--text-error)); }
 .tt-label-help { color: var(--text-muted); font-size: .9em; margin: 0; }
 .tt-label-error { color: var(--text-error); margin: 0; }
 .tt-label-error[hidden] { display: none; }
@@ -993,6 +1101,7 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 @container trellis (max-width: 600px) {
   .tt-quick-filter-group--desktop { display: none; }
   .tt-quick-filter-group--mobile { display: contents; }
+  .tt-board-search { flex: 1 1 100%; }
 }
 .menu-item-title .tt-quick-filter-colors { margin-inline-end: 6px; vertical-align: middle; }
 

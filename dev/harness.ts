@@ -3,7 +3,10 @@ import { renderBulkEditor } from '../src/ui/renderBulkEditor.ts';
 import './browserDOM.ts';
 import { uiElement } from '../src/ui/dom.ts';
 import { promptText } from './promptText.ts';
-import { renderBoardNameEditor, renderDuplicateBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
+import { renderBoardNameEditor, renderDuplicateBoardEditor, renderNewBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
+import { EXAMPLE_PROPERTY, EXAMPLES_FOLDER, exampleNote, templateFrontmatter } from '../src/core/boardTemplates.ts';
+import { FEATURES, suggestedColorRules, unseenFeatures, type Feature } from '../src/core/whatsNew.ts';
+import { renderWhatsNew, type WhatsNewOptions } from '../src/ui/renderWhatsNew.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
@@ -19,11 +22,11 @@ import { draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/b
 import { propertyValueStrings } from '../src/core/filters.ts';
 import { backlogCell, planNewTaskAtTop, buildNewTaskLine, finishNewTaskLine, insertUnderHeading } from '../src/core/newTask.ts';
 import { renderBoardList, type BoardListHost } from '../src/ui/renderBoardList.ts';
-import { renderBoardSettings, type Section } from '../src/ui/renderBoardSettings.ts';
+import { renderBoardSettings, SETTINGS_TABS, type Section, type SettingsTarget } from '../src/ui/renderBoardSettings.ts';
 import { addDays, todayISO } from '../src/core/dates.ts';
 import { indentWidth, insertSubtask } from '../src/core/subtasks.ts';
 import { reorderSubtaskBlocks } from '../src/core/reorderSubtasks.ts';
-import { parseTaskLine, setClosedFallback, setPlacement } from '../src/core/taskLine.ts';
+import { parseTaskLine, setClosedFallback, setPlacement, slugify } from '../src/core/taskLine.ts';
 import { clearBulkSelection, isDragging, renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 
 const today = todayISO();
@@ -97,6 +100,8 @@ let { config, warnings } = parseBoardConfig('House', {
 // A load board keeps the defaults, like the native one.
 if (load) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done' }));
 let collapsed: Record<string, boolean> = {};
+/** The board's search box text, as the plugin keeps it per open board. */
+let search = '';
 
 // Stands in for Obsidian's list parsing: a list item's parent is the nearest less-indented item above it.
 function tasks(): BoardTask[] {
@@ -145,6 +150,7 @@ const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
   icon: previewIcon,
   onSettings: (section) => openSettings(section),
+  onWhatsNew: () => whatsNew(FEATURES),
   onRename: () => nameDialog((body, header, close) =>
     renderBoardNameEditor(body, header, config.name, previewIcon, async (name) => { config.name = name; render(); }, close)),
   onBulkAction: (selected, kind) => new Promise((resolve) => {
@@ -188,11 +194,15 @@ const host: RenderHost = {
   onArrangeMenu: (_anchor, choices, choose, onClose) => {
     const dialog = uiElement(document, 'dialog');
     dialog.setAttribute('aria-label', 'Arrange');
-    const titles = { collapse: 'Collapse all subtasks', expand: 'Expand all subtasks', sort: 'Sort by due date' } as const;
+    const titles = { collapse: 'Collapse all subtasks', expand: 'Expand all subtasks', completed: 'Show completed subtasks', sort: 'Sort by due date' } as const;
     for (const choice of choices) {
       const item = uiElement(document, 'button');
       item.className = 'move-item';
       item.textContent = titles[choice];
+      if (choice === 'completed') {
+        item.setAttribute('role', 'menuitemcheckbox');
+        item.setAttribute('aria-checked', String(!config.hideCompletedSubtasks));
+      }
       item.onclick = () => { dialog.close(); choose(choice); };
       dialog.append(item);
     }
@@ -214,6 +224,11 @@ const host: RenderHost = {
   },
   onSetQuickFilters: (ids) => {
     collapsed = setActiveQuickFilterIds(collapsed, ids);
+    render();
+  },
+  onSearch: (query) => { search = query; render(); },
+  onShowCompletedSubtasks: (show) => {
+    config = { ...config, hideCompletedSubtasks: !show };
     render();
   },
   onSortByDueDate: () => {
@@ -358,12 +373,38 @@ function pickLabels(selected: string[], saveSelection: (ids: string[]) => Promis
   dialog.showModal();
 }
 
+// What's new, as the toolbar opens it. `update` is how an update opens it by itself, which ?whats-new shows.
+function whatsNew(features: Feature[], update?: WhatsNewOptions['update']): void {
+  nameDialog((body, header, close) => renderWhatsNew(body, header, {
+    features, update,
+    tryFeature: (kind) => { if (kind === 'create-board') sidebarHost.onCreateBoard(); else openSettings('color-rules'); },
+  }, previewIcon, close));
+}
+if (new URLSearchParams(location.search).has('whats-new')) {
+  whatsNew(unseenFeatures('1.3.0', FEATURES[0]!.version), {
+    version: FEATURES[0]!.version, hidden: false,
+    setHidden: (hidden) => { (window as unknown as { whatsNewHidden: boolean }).whatsNewHidden = hidden; },
+  });
+}
+
 // ?sidebar shows the boards sidebar beside the board. Only House has tasks here; the other board is for switching.
 const sidebar = new URLSearchParams(location.search).has('sidebar');
 let openBoardPath = 'Task Trellis/House.md';
 const sidebarHost: BoardListHost = {
   icon: previewIcon,
-  onCreateBoard: () => undefined,
+  // Makes the board here instead of in a vault: the example board's tasks join the harness's notes.
+  onCreateBoard: () => nameDialog((body, header, close) => renderNewBoardEditor(body, header,
+    { examplesPath: (name) => `${EXAMPLES_FOLDER}/${name || 'Example board'}.md` }, previewIcon, async (name, template) => {
+      const slug = slugify(name);
+      const examples = template === 'example' ? `${EXAMPLES_FOLDER}/${name}.md` : '';
+      if (examples) {
+        const note = exampleNote(slug, name, today);
+        files[examples] = note.split('\n');
+        frontmatter[examples] = { [EXAMPLE_PROPERTY]: slug };
+      }
+      ({ config, warnings } = parseBoardConfig(name, templateFrontmatter(template, slug, examples)));
+      render();
+    }, close)),
   onOpenBoard: (path) => { openBoardPath = path; render(); },
   // Whole cells, as QuickAdd.addToBacklog builds them, including cards a quick filter hides.
   onAddTask: (_path, text, detailed, labels) =>
@@ -394,7 +435,7 @@ function offerUndo(before: string, label: string): void {
 }
 
 function model() {
-  return buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags, activeQuickFilterIds(collapsed));
+  return buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags, activeQuickFilterIds(collapsed), search);
 }
 
 function render(): void {
@@ -418,7 +459,10 @@ function render(): void {
 }
 
 
-function openSettings(initialSection: Section = 'general'): void {
+/** The tab showing when the settings last closed, as the plugin settings remember it. */
+let lastSettingsTab: Section = SETTINGS_TABS[0].id;
+
+function openSettings(initialSection: SettingsTarget = lastSettingsTab): void {
   const dialog = document.getElementById('settings') as HTMLDialogElement;
   const body = dialog.querySelector<HTMLElement>('.modal-content')!;
   const chrome = prepareEditorModal(dialog);
@@ -433,6 +477,8 @@ function openSettings(initialSection: Section = 'general'): void {
   // Mirrors the native modal: explicit save, with cancel/escape discarding the draft.
   const original = config;
   const draft = draftFromConfig(original);
+  // As What's new's Add suggested color rules… does.
+  if (initialSection === 'color-rules') draft.colorRules.push(...suggestedColorRules(draft.colorRules));
   let discard = false;
   const tryClose = (save = false) => {
     if (!discard && save) {
@@ -452,6 +498,7 @@ function openSettings(initialSection: Section = 'general'): void {
       }
     }
     if (save) saves++;
+    lastSettingsTab = form.section();
     form.destroy(); chrome.destroy();
     dialog.close();
     render();
@@ -509,9 +556,14 @@ let saves = 0;
 let suggestId = 0;
 
 document.getElementById('open-settings')!.addEventListener('click', () => openSettings());
-document.getElementById('theme')!.addEventListener('change', (event) => {
-  document.documentElement.dataset.theme = (event.target as HTMLSelectElement).value;
-});
+/** Obsidian marks its theme with a class on the body, which the dark card tint keys off. */
+function setTheme(theme: string): void {
+  document.documentElement.dataset.theme = theme;
+  document.body.classList.toggle('theme-dark', theme === 'dark');
+  document.body.classList.toggle('theme-light', theme !== 'dark');
+}
+setTheme(document.documentElement.dataset.theme ?? 'dark');
+document.getElementById('theme')!.addEventListener('change', (event) => setTheme((event.target as HTMLSelectElement).value));
 document.getElementById('show-source')!.addEventListener('change', (event) => {
   document.getElementById('source')!.hidden = !(event.target as HTMLInputElement).checked;
 });
