@@ -5,6 +5,8 @@ import { uiElement } from '../src/ui/dom.ts';
 import { promptText } from './promptText.ts';
 import { renderBoardNameEditor, renderDuplicateBoardEditor, renderNewBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
 import { EXAMPLE_PROPERTY, EXAMPLES_FOLDER, exampleNote, templateFrontmatter } from '../src/core/boardTemplates.ts';
+import { FEATURES, suggestedColorRules, unseenFeatures, type Feature } from '../src/core/whatsNew.ts';
+import { renderWhatsNew, type WhatsNewOptions } from '../src/ui/renderWhatsNew.ts';
 import { applyLabelScheme } from '../src/core/labelSchemes.ts';
 import { destinationAdvice } from '../src/core/setup.ts';
 import { prepareEditorModal } from '../src/ui/editorHeader.ts';
@@ -148,6 +150,7 @@ const host: RenderHost = {
   renderText: (el, task) => (el.textContent = task.text),
   icon: previewIcon,
   onSettings: (section) => openSettings(section),
+  onWhatsNew: () => whatsNew(FEATURES),
   onRename: () => nameDialog((body, header, close) =>
     renderBoardNameEditor(body, header, config.name, previewIcon, async (name) => { config.name = name; render(); }, close)),
   onBulkAction: (selected, kind) => new Promise((resolve) => {
@@ -362,6 +365,20 @@ function pickLabels(selected: string[], saveSelection: (ids: string[]) => Promis
   dialog.showModal();
 }
 
+// What's new, as the toolbar opens it. `update` is how an update opens it by itself, which ?whats-new shows.
+function whatsNew(features: Feature[], update?: WhatsNewOptions['update']): void {
+  nameDialog((body, header, close) => renderWhatsNew(body, header, {
+    features, update,
+    tryFeature: (kind) => { if (kind === 'create-board') sidebarHost.onCreateBoard(); else openSettings(undefined, true); },
+  }, previewIcon, close));
+}
+if (new URLSearchParams(location.search).has('whats-new')) {
+  whatsNew(unseenFeatures('1.3.0', FEATURES[0]!.version), {
+    version: FEATURES[0]!.version, hidden: false,
+    setHidden: (hidden) => { (window as unknown as { whatsNewHidden: boolean }).whatsNewHidden = hidden; },
+  });
+}
+
 // ?sidebar shows the boards sidebar beside the board. Only House has tasks here; the other board is for switching.
 const sidebar = new URLSearchParams(location.search).has('sidebar');
 let openBoardPath = 'Task Trellis/House.md';
@@ -434,7 +451,7 @@ function render(): void {
 }
 
 
-function openSettings(initialSection: Section = 'general'): void {
+function openSettings(initialSection: Section = 'general', suggestRules = false): void {
   const dialog = document.getElementById('settings') as HTMLDialogElement;
   const body = dialog.querySelector<HTMLElement>('.modal-content')!;
   const chrome = prepareEditorModal(dialog);
@@ -449,6 +466,7 @@ function openSettings(initialSection: Section = 'general'): void {
   // Mirrors the native modal: explicit save, with cancel/escape discarding the draft.
   const original = config;
   const draft = draftFromConfig(original);
+  if (suggestRules) draft.colorRules.push(...suggestedColorRules(draft.colorRules));
   let discard = false;
   const tryClose = (save = false) => {
     if (!discard && save) {
@@ -483,6 +501,7 @@ function openSettings(initialSection: Section = 'general'): void {
   };
   const form = renderBoardSettings(body, draft, original, {
     initialSection,
+    showColorRules: suggestRules,
     destinationAdvice: (draft) => destinationAdvice(parseBoardConfig(original.name, { slug: original.slug, ...draftToFrontmatter(draft, original).frontmatter }).config,
       { kind: 'note', note: 'Daily/Today.md', heading: '' }, {
         dailyAvailable: true, excluded: (path) => path.startsWith('Task Trellis/'),

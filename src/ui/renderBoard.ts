@@ -53,6 +53,8 @@ export type RenderHost = {
   /** Offers a card's "Move to…" choices, applying the one picked like a drop; calls onClose when dismissed. Without it cards have no ⋯ button. */
   onMoveMenu?(task: BoardTask, choices: MoveChoices, evt: MouseEvent, onClose?: (moved: boolean) => void): void;
   onSettings?(section?: Section): void;
+  /** Opens What’s new. Without it the toolbar has no What’s new button. */
+  onWhatsNew?(): void;
   onRename?(): void;
   onColumnWidthsChange?(widths: Record<string, number>): Promise<void> | void;
   onLabels?(task: BoardTask): void;
@@ -368,6 +370,10 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     select.disabled = selection.busy;
     select.onclick = () => { selection.active = !selection.active; selection.clear(); redraw(); };
     tools.append(select);
+  }
+  if (host.onWhatsNew) {
+    const whatsNew = el('button', 'tt-toolbar-button'); whatsNew.type = 'button'; whatsNew.dataset.boardFocus = 'whats-new';
+    whatsNew.append(hostIcon(host, 'sparkles'), el('span', '', 'What’s new')); whatsNew.onclick = () => host.onWhatsNew?.(); tools.append(whatsNew);
   }
   if (host.onSettings) {
     const settings = el('button', 'tt-toolbar-button'); settings.type = 'button'; settings.dataset.boardFocus = 'settings';

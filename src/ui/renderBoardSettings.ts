@@ -14,6 +14,8 @@ import type { ParsedTask } from '../core/taskLine.ts';
 export type SettingsFormHost = {
   header?: HTMLElement;
   initialSection?: Section;
+  /** Opens at Card color rules, in the Appearance tab, in place of `initialSection`. */
+  showColorRules?: boolean;
   createTextInput?(): HTMLInputElement;
   createDropdown?(): HTMLSelectElement;
   destinationAdvice?(draft: BoardDraft): string[];
@@ -35,11 +37,12 @@ export type SettingsFormHost = {
   onDeleteBoard?(): void;
 };
 export type SettingsForm = { showErrors(errors: string[]): void; setSaving(saving: boolean): void; destroy(): void };
-export type Section = 'general' | 'columns' | 'filters' | 'quick' | 'colors' | 'appearance' | 'destination';
+export type Section = 'general' | 'columns' | 'filters' | 'quick' | 'appearance' | 'destination';
 
 /** Shared by the Obsidian modal and harness. Drafts are written only by an explicit save. */
 export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, original: BoardConfig, host: SettingsFormHost): SettingsForm {
-  let section: Section = host.initialSection ?? 'general';
+  let section: Section = host.showColorRules ? 'appearance' : host.initialSection ?? 'general';
+  let showColorRules = !!host.showColorRules;
   let errors: string[] = [];
   let validation = false;
   let saving = false;
@@ -82,6 +85,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   };
   const heading = (parent: HTMLElement, title: string, help: string) => {
     parent.append(el('h3', 'tt-section-title', title), el('p', 'tt-help', help));
+  };
+  /** Starts a part of a long tab, after a divider. What follows stays in the panel, which dragging a row scrolls. */
+  const part = (parent: HTMLElement, cls: string, title: string, help: string) => {
+    const start = el('div', `tt-settings-part ${cls}`); heading(start, title, help); parent.append(start);
   };
   const redraw = (focus?: string) => { focusNext = focus ?? null; draw(); };
 
@@ -435,7 +442,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   }
 
   function colorRuleEditor(body: HTMLElement): void {
-    heading(body, 'Color your cards', 'Cards that match a rule are tinted with its color. A card takes the color of the first rule it matches, so drag rules to put them in order.');
+    part(body, 'tt-settings-color-rules', 'Card color rules', 'Cards that match a rule are tinted with its color. A card takes the color of the first rule it matches, so drag rules to put them in order.');
     ruleList(body, draft.colorRules, {
       key: 'color', noun: 'Color rule', icon: 'paintbrush', add: 'Add color rule', empty: 'No color rules.',
       matchesAll: 'With nothing chosen, the rule colors every card.',
@@ -456,7 +463,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     const selection = focused?.selectionStart;
     dispose(); clearForRedraw(root); root.classList.add('tt-settings');
     const nav = el('div', 'tt-settings-tabs'); nav.setAttribute('role', 'tablist'); nav.setAttribute('aria-label', 'Board settings sections');
-    const sections: [Section, string, string][] = [['general', 'General', 'sliders-horizontal'], ['columns', 'Columns', 'columns-3'], ['filters', 'Filters', 'list-filter'], ['quick', 'Quick filters', 'filter'], ['colors', 'Colors', 'paintbrush'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
+    const sections: [Section, string, string][] = [['general', 'General', 'sliders-horizontal'], ['columns', 'Columns', 'columns-3'], ['filters', 'Filters', 'list-filter'], ['quick', 'Quick filters', 'filter'], ['appearance', 'Appearance', 'palette'], ['destination', 'New tasks', 'file-plus-2']];
     for (const [id, title, glyph] of sections) {
       const tab = button(title, 'tt-settings-tab'); tab.prepend(icon(glyph));
       tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(section === id)); tab.setAttribute('aria-controls', 'tt-settings-panel');
@@ -550,8 +557,6 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(el('p', 'tt-scope-note', 'Tags match the task or its page, including nested tags. Folders include their descendants. Properties belong to the source note. Press Enter or choose a suggestion to add a value. Plugin-wide excluded folders and the boards folder are unavailable even when included here. Subtasks stay inside a visible parent without being filtered independently; when their parent is absent, they must pass these filters to appear as cards.'));
     } else if (section === 'quick') {
       quickFilterEditor(body);
-    } else if (section === 'colors') {
-      colorRuleEditor(body);
     } else if (section === 'appearance') {
       heading(body, 'Choose how cards look', 'Saved in the board note, so they follow the board to other devices.');
       body.append(field('Label shape', select('Label shape', [['circle', 'Circles'], ['pill', 'Pills'], ['square', 'Squares']], draft.labelShape, (v) => { draft.labelShape = v as BoardConfig['labelShape']; })));
@@ -565,6 +570,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(check('Hide overdue bars', !draft.overdueBar, (v) => { draft.overdueBar = !v; }));
       body.append(field('Open notes and links in', select('Open notes and links in', [['popup', 'Pop-up editor'], ['tab', 'A tab']], draft.openLinks, (v) => { draft.openLinks = v === 'tab' ? 'tab' : 'popup'; }),
         'A card’s note and the links in its text. The pop-up editor edits the note without leaving the board. Cmd/Ctrl-click always opens a new tab.'));
+      colorRuleEditor(body);
     } else {
       heading(body, 'Give new tasks a home', 'Tasks added on this board go to this note and section.');
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));
@@ -595,6 +601,14 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     root.append(nav, body, footer);
     if (saving) root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input, select, button').forEach((control) => control.disabled = true);
     body.scrollTop = scroll;
+    if (showColorRules) {
+      showColorRules = false;
+      // Once the dialog is on screen, and after Obsidian focuses its first button.
+      root.ownerDocument.defaultView?.setTimeout(() => {
+        root.querySelector('.tt-settings-color-rules')?.scrollIntoView({ block: 'start' });
+        root.querySelector<HTMLElement>('.tt-color-rule-editor .tt-quick-filter-toggle')?.focus({ preventScroll: true });
+      }, 0);
+    }
     if (restoreKey) {
       const target = [...root.querySelectorAll<HTMLElement>('[data-focus]')].find((node) => node.dataset.focus === restoreKey);
       target?.focus({ preventScroll: true });
@@ -616,7 +630,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       const colorsInvalid = draft.colorRules.filter((r) => !r.name.trim() || !normalizeLabelColor(r.color) || unfinished(r.filter));
       if (unfinished(draft.filter)) section = 'filters';
       else if (quickInvalid.length) { section = 'quick'; for (const q of quickInvalid) expanded.add(q); }
-      else if (colorsInvalid.length) { section = 'colors'; for (const r of colorsInvalid) expanded.add(r); }
+      else if (colorsInvalid.length) { section = 'appearance'; for (const r of colorsInvalid) expanded.add(r); }
       draw();
       const invalid = root.querySelector<HTMLElement>('[aria-invalid="true"]');
       if (invalid) { invalid.focus(); invalid.scrollIntoView({ block: 'nearest' }); }

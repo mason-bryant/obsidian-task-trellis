@@ -22,13 +22,13 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 
 A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks or Show subtasks.
 
-The board toolbar always ends with Settings, after Select or Done selecting. Keep that order in the DOM, keyboard navigation and wrapped layouts, even when other controls are hidden.
+The board toolbar always ends with Settings, after Select or Done selecting and What's new. Keep that order in the DOM, keyboard navigation and wrapped layouts, even when other controls are hidden.
 
 ### Toggles and menus
 
 Show a toggle's state with `aria-pressed` or a checkbox, not only a color. A menu's trigger exposes whether the menu is open, and gets focus back when the menu closes. After a redraw, find the current trigger again rather than focusing an element that was removed.
 
-Every checkbox in Appearance means **hide when checked, show when unchecked**, and its label begins with Hide. Keep stored preferences compatible when inverting a control’s wording. Non-visibility settings, such as card spacing and subtask ordering, use dropdowns instead of checkboxes.
+Every checkbox for Appearance's own settings means **hide when checked, show when unchecked**, and its label begins with Hide. Card color rules' checkboxes choose what a rule matches instead; see the [look and feel](look-and-feel.md) Exceptions. Keep stored preferences compatible when inverting a control’s wording. Non-visibility settings, such as card spacing and subtask ordering, use dropdowns instead of checkboxes.
 
 A quick-filter button shows the filter icon, then the color squares of its labels, then its name. The toolbar, the menu and the settings preview draw those squares the same way. In the menu, a checkmark means the filter is on; being in the menu doesn't turn a filter off. The menu's trigger counts the active filters inside it.
 

@@ -21,6 +21,7 @@ import { BOARD_NOTE_TEXT, duplicateBoardFrontmatter, FM, parseBoardConfig, type 
 import { BOARD_TEMPLATES, EXAMPLES_FOLDER, exampleNote, templateFrontmatter, type BoardTemplateId } from './src/core/boardTemplates.ts';
 import { todayISO } from './src/core/dates.ts';
 import { NewBoardModal } from './src/obsidian/NewBoardModal.ts';
+import { unseenFeatures } from './src/core/whatsNew.ts';
 import { changedFrontmatter, draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
@@ -78,7 +79,10 @@ export default class TaskTrellisPlugin extends Plugin {
       if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
       this.markIndexed();
     });
-    this.settings = normalizeSettings(await this.loadData());
+    const saved: unknown = await this.loadData();
+    this.settings = normalizeSettings(saved);
+    // A new install has nothing to catch up on: What’s new starts from this version.
+    if (saved === null || saved === undefined) this.settings.whatsNewSeen = this.manifest.version;
     if (this.stopped) return;
     this.index = new TaskIndex(this.app, (path) => this.isExcludedFromIndex(path));
     this.writer = new TaskWriter(this.app);
@@ -144,7 +148,23 @@ export default class TaskTrellisPlugin extends Plugin {
           const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
           if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', 12000);
         } catch { new Notice('Task Trellis: a board rename recovery record could not be read. Check the Task Trellis recovery folder.'); }
+        // After an update, the first board shown says what the update added.
+        this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => { if (leaf?.view instanceof BoardView) this.showWhatsNew(leaf.view); }));
+        const active = this.app.workspace.getActiveViewOfType(BoardView);
+        if (active) this.showWhatsNew(active);
       }
+    });
+  }
+
+  /** Once per update with new features, unless Don’t show this again was checked. */
+  private showWhatsNew(view: BoardView): void {
+    const features = unseenFeatures(this.settings.whatsNewSeen, this.manifest.version);
+    if (this.stopped || this.settings.whatsNewHidden || !features.length) return;
+    this.settings.whatsNewSeen = this.manifest.version;
+    void this.saveSettings();
+    view.openWhatsNew(features, {
+      version: this.manifest.version, hidden: this.settings.whatsNewHidden,
+      setHidden: (hidden) => { this.settings.whatsNewHidden = hidden; void this.saveSettings(); },
     });
   }
 

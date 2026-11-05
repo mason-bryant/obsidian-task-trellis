@@ -136,7 +136,7 @@ describe('color rule settings', () => {
     const original = config(fm), draft = draftFromConfig(original);
     const root = document.createElement('div'); document.body.replaceChildren(root);
     const host: SettingsFormHost = {
-      initialSection: 'colors', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+      initialSection: 'appearance', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
       attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
     };
     const form = renderBoardSettings(root, draft, original, host);
@@ -152,12 +152,36 @@ describe('color rule settings', () => {
     return { root, draft, original, form, control, button, swatch, type, tick, saved };
   }
 
-  it('has a Colors tab that starts empty and leaves boards without rules unchanged', () => {
+  it('ends the Appearance tab with Card color rules, empty to start, and leaves boards without rules unchanged', () => {
     const ui = editor();
-    expect(ui.control('Board settings sections').querySelector('[aria-selected="true"]')!.textContent).toBe('Colors');
+    expect(ui.control('Board settings sections').querySelector('[aria-selected="true"]')!.textContent).toBe('Appearance');
+    const panel = ui.root.querySelector('.tt-settings-body')!;
+    const section = panel.querySelector('.tt-settings-color-rules')!;
+    expect(section.querySelector('.tt-section-title')!.textContent).toBe('Card color rules');
+    expect(section.compareDocumentPosition(panel.querySelector('[aria-label="Open notes and links in"]')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    // Dragging a rule scrolls the panel, so rules have to be directly in it.
+    ui.button('Add color rule').click();
+    expect(ui.root.querySelector('.tt-color-rule-editor')!.parentElement).toBe(ui.root.querySelector('.tt-settings-body'));
+    ui.root.querySelector<HTMLButtonElement>('.tt-color-rule-editor [aria-label="Remove color rule 1"]')!.click();
     expect(ui.root.querySelector('.tt-filter-empty')!.textContent).toBe('No color rules.');
     expect(draftChanged(ui.draft, ui.original)).toBe(false);
     expect('color-rules' in ui.saved().frontmatter && ui.saved().frontmatter['color-rules'] !== undefined).toBe(false);
+  });
+
+  it('can open straight at Card color rules, in the Appearance tab', () => {
+    vi.useFakeTimers();
+    const scrolled = vi.fn(function (this: Element) { return this.className; });
+    Element.prototype.scrollIntoView = scrolled;
+    const original = config({ 'color-rules': [kitchen] });
+    const root = document.createElement('div'); document.body.replaceChildren(root);
+    renderBoardSettings(root, draftFromConfig(original), original, {
+      showColorRules: true, icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+      attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
+    });
+    expect(root.querySelector('#tt-tab-appearance')!.getAttribute('aria-selected')).toBe('true');
+    vi.runAllTimers(); vi.useRealTimers();
+    expect(scrolled.mock.results.map((r) => r.value as string)).toEqual(['tt-settings-part tt-settings-color-rules']);
+    expect(document.activeElement).toBe(root.querySelector('.tt-color-rule-editor .tt-quick-filter-toggle'));
   });
 
   it('adds a rule with a palette color, criteria and its own folder filter', () => {
@@ -263,12 +287,12 @@ describe('color rule settings', () => {
     expect(ui.saved().errors).toEqual([]);
   });
 
-  it('opens the Colors tab for a rule’s unfinished filter', () => {
+  it('opens the Appearance tab for a rule’s unfinished filter', () => {
     const ui = editor({ 'color-rules': [kitchen] });
     ui.control<HTMLButtonElement>('Board settings sections').querySelector<HTMLButtonElement>('#tt-tab-general')!.click();
     ui.draft.colorRules[0]!.filter.items.push({ kind: 'property', key: '', condition: 'exists', values: [] });
     ui.form.showErrors(ui.saved().errors);
-    expect(ui.root.querySelector('#tt-tab-colors')!.getAttribute('aria-selected')).toBe('true');
+    expect(ui.root.querySelector('#tt-tab-appearance')!.getAttribute('aria-selected')).toBe('true');
     expect(ui.control('Color rule 1, Filter 2: Property').getAttribute('aria-invalid')).toBe('true');
   });
 

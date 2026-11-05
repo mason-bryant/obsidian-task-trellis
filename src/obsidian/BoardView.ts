@@ -14,6 +14,9 @@ import { parseTaskLine } from '../core/taskLine.ts';
 import { clearBulkSelection, disposeBoardSelection, isDragging, renderBoard, type RenderHost } from '../ui/renderBoard.ts';
 import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
+import { WhatsNewModal } from './WhatsNewModal.ts';
+import { FEATURES, type Feature, type FeatureAction } from '../core/whatsNew.ts';
+import type { WhatsNewOptions } from '../ui/renderWhatsNew.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import { notice } from './notice.ts';
@@ -171,6 +174,20 @@ export class BoardView extends FileView {
     return control;
   }
 
+  /** What’s new, whose buttons try each feature on this board. An update sets `update` when it opens this by itself. */
+  openWhatsNew(features: Feature[], update?: WhatsNewOptions['update']): void {
+    new WhatsNewModal(this.app, { features, update, tryFeature: (kind) => this.tryFeature(kind) }, () => this.refocus('whats-new')).open();
+  }
+
+  private tryFeature(kind: FeatureAction['kind']): void {
+    if (kind === 'create-board') { this.plugin.promptNewBoard(); return; }
+    if (!this.file) return;
+    // The suggested rules join the draft, for the user to look over and save or discard.
+    const settings = new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, undefined, () => this.refocus('settings'));
+    settings.addSuggestedColorRules();
+    settings.open();
+  }
+
   /** After a dialog closes, gives focus back to a board control if nothing has it, as when a redraw replaced the control. */
   private refocus(key: string): void {
     this.containerEl.win.setTimeout(() => {
@@ -257,6 +274,7 @@ export class BoardView extends FileView {
         }
       },
       onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section, () => this.refocus('settings')).open(); },
+      onWhatsNew: () => this.openWhatsNew(FEATURES),
       onRename: () => { if (this.file) new RenameBoardModal(this.app, this.file, this.plugin.boardRenames).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
       undo: this.undoControl(),

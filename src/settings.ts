@@ -16,6 +16,10 @@ export type TaskTrellisSettings = {
   newTaskNote: string;
   /** Empty adds to the end of the note. */
   newTaskHeading: string;
+  /** The version whose features What’s new has shown; later ones show once after an update. */
+  whatsNewSeen: string;
+  /** Don’t show What’s new after updates. */
+  whatsNewHidden: boolean;
 };
 
 export const DEFAULT_SETTINGS: TaskTrellisSettings = {
@@ -26,7 +30,12 @@ export const DEFAULT_SETTINGS: TaskTrellisSettings = {
   newTaskKind: 'daily',
   newTaskNote: '',
   newTaskHeading: '',
+  whatsNewSeen: '',
+  whatsNewHidden: false,
 };
+
+/** Installs from before What’s new remembered anything ran 1.3.0 or earlier. */
+const WHATS_NEW_SEEN_BEFORE = '1.3.0';
 
 export function normalizeSettings(raw: unknown): TaskTrellisSettings {
   const s = (raw && typeof raw === 'object' ? raw : {}) as Partial<TaskTrellisSettings>;
@@ -41,6 +50,8 @@ export function normalizeSettings(raw: unknown): TaskTrellisSettings {
     newTaskKind: s.newTaskKind === 'note' ? 'note' : 'daily',
     newTaskNote: typeof s.newTaskNote === 'string' ? s.newTaskNote : DEFAULT_SETTINGS.newTaskNote,
     newTaskHeading: typeof s.newTaskHeading === 'string' ? s.newTaskHeading : DEFAULT_SETTINGS.newTaskHeading,
+    whatsNewSeen: typeof s.whatsNewSeen === 'string' && s.whatsNewSeen ? s.whatsNewSeen : WHATS_NEW_SEEN_BEFORE,
+    whatsNewHidden: s.whatsNewHidden === true,
   };
 }
 
@@ -94,6 +105,12 @@ export class TaskTrellisSettingTab extends PluginSettingTab {
       {
         name: 'Tasks plugin',
         desc: plugin.writer.tasksApi() ? 'Found. Cards open the Tasks editor; completing a card uses Tasks dates and recurrence.' : 'Not found or disabled. Cards open their source line; completing a card adds a done date.',
+      },
+      {
+        name: 'Show what’s new after updates', desc: 'After an update, the first board you open shows what the update added, once. A button on each board’s toolbar shows it at any time.',
+        render: (setting) => { setting.addToggle((toggle) => toggle.setValue(!settings.whatsNewHidden).onChange(async (value) => {
+          settings.whatsNewHidden = !value; await plugin.saveSettings();
+        })); },
       },
     ];
   }
