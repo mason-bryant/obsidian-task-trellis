@@ -115,23 +115,23 @@ export class QuickAdd {
   /**
    * From a board's Add task to ‹board›: ‹column› command, which a hotkey can run from anywhere: the
    * task editor, then the top of the column's cell without a due date, as if added there on the
-   * board. Says where it went, since the board may not be in view.
+   * board. A board's No due date column holds every undated task, so there the other columns start
+   * it in Due now, as moving a card does. Says where it went, since the board may not be in view.
    */
   async addToColumn(config: BoardConfig, columnId: string, board: string): Promise<void> {
     const label = (id: string) => config.columns.find((c) => c.id === id)?.label ?? id;
-    const fields: NewTaskFields = { due: null, created: await this.createdDate(), placement: { slug: config.slug, column: columnId } };
     const model = this.boardModel(config);
+    const due = config.undatedColumn && columnId !== config.undatedColumn
+      ? model.rows.find((r) => r.kind === 'now')?.dropDate ?? null : null;
+    const fields: NewTaskFields = { due, created: await this.createdDate(), placement: { slug: config.slug, column: columnId } };
     let line: string | null = null;
     const save = (draft: string, said?: string) => this.add(draft, destinationFor(config, this.defaultDestination()), config, model, said);
     try {
       line = await this.compose('', fields);
       if (!line) return;
-      // A board's No due date column, or Done, holds a task by its state rather than its tag.
+      // Done holds a task completed in the editor by its state rather than its tag.
       const parsed = parseTaskLine(line);
-      const shown = parsed ? columnOf(parsed, config) : columnId;
-      const said = shown === columnId || shown === config.doneColumn
-        ? `Task Trellis: added to ${board}: ${label(shown)}.`
-        : `Task Trellis: added to ${board}: ${label(columnId)}. Until it has a due date, it shows in ${label(shown)}.`;
+      const said = `Task Trellis: added to ${board}: ${label(parsed ? columnOf(parsed, config) : columnId)}.`;
       if (!await save(line, said)) recoverDraft(this.app, line, save);
     } catch (error) {
       console.error('[Task Trellis] add failed', error);
