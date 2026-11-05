@@ -81,6 +81,7 @@ const renderInputs = new WeakMap<HTMLElement, { model: BoardModel; host: RenderH
 const bulkStates = new WeakMap<HTMLElement, BulkSelection>();
 const selectionClickCleanup = new WeakMap<HTMLElement, () => void>();
 const composerViewportCleanup = new WeakMap<HTMLElement, () => void>();
+const headerWatches = new WeakMap<HTMLElement, ResizeObserver>();
 const subtaskReorderCleanup = new WeakMap<HTMLElement, () => void>();
 
 function disposeSubtaskReorders(root: HTMLElement): void {
@@ -118,6 +119,8 @@ export function disposeBoardSelection(root: HTMLElement): void {
   disposeSubtaskReorders(root);
   composerViewportCleanup.get(root)?.();
   selectionClickCleanup.get(root)?.();
+  headerWatches.get(root)?.disconnect();
+  headerWatches.delete(root);
   bulkStates.delete(root);
   quickDisclosures.delete(root);
   cellPages.delete(root);
@@ -188,7 +191,8 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   selectionClickCleanup.get(root)?.();
   const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
-  const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column } : null;
+  const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column,
+    undated: scroller.querySelector('.tt-cell--undated')?.scrollTop ?? 0 } : null;
   // A focused card, or one an action just changed, stays drawn even when it moved past its cell's page.
   const active = root.ownerDocument.activeElement;
   const focusedCard = active && root.contains(active) ? active.closest<HTMLElement>('.tt-card')?.dataset.id : undefined;
@@ -519,6 +523,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       ? ['1 / -1']
       : [undatedAt > 0 ? `1 / ${undatedAt + 1}` : '', undatedAt < visibleColumns.length - 1 ? `${undatedAt + 2} / -1` : ''].filter(Boolean);
   if (undatedAt >= 0) {
+    grid.classList.add('tt-grid--undated');
     const undated = cell('none', visibleColumns[undatedAt]!, model, host, paging);
     undated.classList.add('tt-cell--undated');
     undated.style.gridColumn = String(undatedAt + 1);
@@ -594,8 +599,11 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   let swipe: ReturnType<typeof installColumnSwipe> | null = null;
   const pages = visibleColumns.length > 1 ? pager(scrollEl, visibleColumns.length, host, (direction) => swipe?.page(direction)) : null;
   if (pages) root.insertBefore(pages.bar, scrollEl);
+  watchHeaderHeight(root, grid);
   if (scroll) {
     verticalScroller(scrollEl).scrollTop = scroll.top;
+    const undated = scrollEl.querySelector('.tt-cell--undated');
+    if (undated) undated.scrollTop = scroll.undated;
     scrollEl.scrollLeft = scroll.left;
     // One column at a time, come back to the same column even when the columns beside it changed.
     const header = [...scrollEl.querySelectorAll<HTMLElement>('.tt-col-header')].find((h) => h.dataset.column === scroll.column);
@@ -630,7 +638,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       try { if (commit && id && touchTarget) host.onDrop(id, touchTarget); }
       finally { touchTarget = null; host.onDragEnd(); }
     },
-  }, () => verticalScroller(scrollEl), () => swipesColumns(scrollEl) ? columnPositions() : []);
+  }, (x, y) => verticalScrollerOf(root.ownerDocument.elementFromPoint(x, y), scrollEl), () => swipesColumns(scrollEl) ? columnPositions() : []);
 }
 
 function cell(rowId: string, column: BoardColumn, model: BoardModel, host: RenderHost, paging: Paging): HTMLElement {
@@ -850,7 +858,7 @@ export function addBox(
     const scroller = box.closest<HTMLElement>('.tt-scroll');
     if (!root || !scroller || stopViewport) return;
     composerViewportCleanup.get(root)?.();
-    const destroy = watchComposerViewport(box, input, scroller, () => verticalScroller(scroller));
+    const destroy = watchComposerViewport(box, input, scroller, () => verticalScrollerOf(box, scroller));
     stopViewport = () => {
       destroy();
       composerViewportCleanup.delete(root);
@@ -1476,6 +1484,26 @@ function swipesColumns(scroller: HTMLElement): boolean {
 /** Separate native vertical scrolling from horizontal paging on narrow boards. */
 function verticalScroller(scroller: HTMLElement): HTMLElement {
   return swipesColumns(scroller) ? scroller.querySelector<HTMLElement>('.tt-vertical-scroll')! : scroller;
+}
+
+/** What scrolls an element up and down: with several columns showing, a No due date column scrolls on its own. */
+function verticalScrollerOf(element: Element | null, scroller: HTMLElement): HTMLElement {
+  return (!swipesColumns(scroller) && element?.closest<HTMLElement>('.tt-cell--undated')) || verticalScroller(scroller);
+}
+
+/** A No due date column stays just below the column headers, whose height depends on the theme and on titles wrapping. */
+function watchHeaderHeight(root: HTMLElement, grid: HTMLElement): void {
+  headerWatches.get(root)?.disconnect();
+  headerWatches.delete(root);
+  const header = grid.classList.contains('tt-grid--undated') ? grid.querySelector<HTMLElement>('.tt-col-header') : null;
+  if (!header) return;
+  const measure = () => grid.style.setProperty('--tt-header-height', `${header.getBoundingClientRect().height}px`);
+  measure();
+  const view = root.ownerDocument.defaultView;
+  if (!view || !('ResizeObserver' in view)) return;
+  const watch = new view.ResizeObserver(measure);
+  watch.observe(header);
+  headerWatches.set(root, watch);
 }
 
 /** The column header nearest the middle of the board: the column in view when they're shown one at a time. */

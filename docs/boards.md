@@ -56,7 +56,7 @@ These properties are stored in the board note. The settings form handles the usu
 | `done-column` | `Done` if there is one | Column kept in step with the checkbox. Leave empty for none. Listed newest completed first. |
 | `limit-done` | true | Cap the completed cards shown in each row of the Done column. |
 | `done-limit` | 5 | How many completed cards show per row before the rest go behind "more". |
-| `undated-column` | none | Column that holds every open task with no due date, as one list down the board, in place of the No due date row. |
+| `undated-column` | none | Column that holds every open task with no due date, as one list down the board that scrolls on its own, in place of the No due date row. |
 | `limit-undated` | true | Cap the cards shown in the No due date column. |
 | `undated-limit` | 10 | How many show there before the rest go behind "more". |
 | `due-now` | 7 | Size of the Due now window, in `due-now-unit`s. Due now also holds overdue tasks. |
