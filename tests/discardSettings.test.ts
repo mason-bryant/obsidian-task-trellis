@@ -35,6 +35,7 @@ vi.mock('obsidian', async () => {
 });
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { BoardSettingsModal } from '../src/obsidian/BoardSettingsModal.ts';
+import type { SettingsTarget } from '../src/ui/renderBoardSettings.ts';
 import { notices, TFile, Workspace } from './mocks/obsidian.ts';
 import type { App } from 'obsidian';
 
@@ -50,20 +51,28 @@ function setup() {
   } as unknown as App;
   const plugin = {
     index: { all: () => [] }, boards: { boards: () => [] }, isExcludedFromIndex: () => false,
+    settings: { boardSettingsTab: 'general' }, saveSettings: vi.fn(async () => {}),
     quickAdd: { defaultDestination: () => ({ kind: 'note', note: 'Inbox.md', heading: '' }), dailyNotesAvailable: () => false },
     saveBoardSettings: vi.fn(async (..._args: unknown[]) => []),
   };
   const onClosed = vi.fn();
-  const settings = new BoardSettingsModal(app, plugin as never, file as never, parseBoardConfig('House', { slug: 'house' }).config, 'general', onClosed);
-  settings.open();
+  const open = (section?: SettingsTarget) => {
+    const modal = new BoardSettingsModal(app, plugin as never, file as never, parseBoardConfig('House', { slug: 'house' }).config, section, onClosed);
+    modal.open();
+    return modal;
+  };
+  const settings = open();
   const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text)!;
+  const tab = (id: string) => settings.contentEl.querySelector<HTMLButtonElement>(`#tt-tab-${id}`)!.click();
   const edit = () => {
+    tab('setup');
     const due = settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!;
     due.value = '10'; due.dispatchEvent(new Event('input'));
+    tab('general');
   };
   const cancel = () => settings.modalEl.querySelector<HTMLButtonElement>('.tt-editor-cancel')!.click();
   const warning = () => [...document.body.children].find((el) => el !== settings.modalEl && el.textContent?.includes('Discard changes')) as HTMLElement | undefined;
-  return { app, plugin, settings, onClosed, button, edit, cancel, warning };
+  return { app, plugin, settings, open, onClosed, button, tab, edit, cancel, warning };
 }
 
 it('closes at once when nothing has changed', () => {
@@ -91,6 +100,7 @@ it('asks before the X, Escape or a click outside throws away changes, with Keep 
   ui.button('Keep editing').click();
   expect(ui.warning()).toBeUndefined();
   expect(ui.settings.modalEl.isConnected).toBe(true);
+  ui.tab('setup');
   expect(ui.settings.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!.value).toBe('10');
   expect(ui.onClosed).not.toHaveBeenCalled();
 
@@ -125,4 +135,36 @@ it('doesn’t ask after saving, or after deleting the board', async () => {
   await vi.waitFor(() => expect(deleted.settings.modalEl.isConnected).toBe(false));
   expect(deleted.app.fileManager.trashFile).toHaveBeenCalledTimes(1);
   expect(deleted.warning()).toBeUndefined();
+});
+
+it('opens next time on the tab showing when it closed, however it closed', () => {
+  Element.prototype.scrollIntoView = vi.fn();
+  const ui = setup();
+  const selected = (modal: BoardSettingsModal) => modal.contentEl.querySelector('[role=tab][aria-selected=true]')!.id;
+  expect(selected(ui.settings)).toBe('tt-tab-general');
+  ui.tab('quick');
+  expect(ui.plugin.saveSettings).not.toHaveBeenCalled();
+  ui.cancel();
+  expect(ui.plugin.settings.boardSettingsTab).toBe('quick');
+  expect(ui.plugin.saveSettings).toHaveBeenCalledTimes(1);
+
+  // Closing on the same tab has nothing new to save.
+  const again = ui.open();
+  expect(selected(again)).toBe('tt-tab-quick');
+  again.close();
+  expect(ui.plugin.saveSettings).toHaveBeenCalledTimes(1);
+
+  // A button that goes somewhere specific still goes there, and counts as the tab showing.
+  const filters = ui.open('filters');
+  expect(selected(filters)).toBe('tt-tab-setup');
+  filters.close();
+  expect(ui.plugin.settings.boardSettingsTab).toBe('setup');
+
+  const discarded = ui.open('appearance');
+  const due = (() => { discarded.contentEl.querySelector<HTMLButtonElement>('#tt-tab-setup')!.click(); return discarded.contentEl.querySelector<HTMLInputElement>('input[aria-label="Due now window"]')!; })();
+  due.value = '10'; due.dispatchEvent(new Event('input'));
+  discarded.contentEl.querySelector<HTMLButtonElement>('#tt-tab-destination')!.click();
+  discarded.close();
+  ui.button('Discard changes').click();
+  expect(ui.plugin.settings.boardSettingsTab).toBe('destination');
 });

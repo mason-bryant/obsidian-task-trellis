@@ -2,9 +2,11 @@ import { setTaskLabels, taskLabels } from './labels.ts';
 import { diffDays, shortLabel, type ISODate } from './dates.ts';
 import { untaggedColumn, type BoardColumn, type BoardConfig } from './boardConfig.ts';
 import { filterRules, taskMatchesBoard, type Frontmatter } from './filters.ts';
-import { activeQuickFilters, taskMatchesQuickFilter } from './quickFilters.ts';
+import { activeQuickFilters, taskMatchesCriteria, type QuickFilter } from './quickFilters.ts';
+import type { ColorRule } from './colorRules.ts';
 import { filterTaskFamilies, type QuickFilterContext } from './quickFilterHierarchy.ts';
 import { computeRows, rowForDue, type RowDef } from './rows.ts';
+import { searchTerms, searchText } from './search.ts';
 import { planReorder } from './sort.ts';
 import { parseTaskLine, priorityRank, replaceTaskText, setDueDate, setPlacement, setPriority, type Priority, type ParsedTask } from './taskLine.ts';
 
@@ -38,7 +40,11 @@ export type BoardModel = {
   total: number;
   /** Ids of the quick filters applied to the cards. */
   activeQuickFilters: string[];
+  /** The search applied to the cards, trimmed; empty when there's none. */
+  search: string;
   quickContext?: QuickFilterContext;
+  /** taskId → the first color rule the card matches. */
+  colors: Record<string, ColorRule>;
 };
 
 export type DropTarget = { rowId: string; columnId: string; index: number };
@@ -102,6 +108,7 @@ export function buildBoard(
   frontmatterOf: (path: string) => Frontmatter,
   noteTagsOf: (path: string) => string[] = () => [],
   activeQuickFilterIds: string[] = [],
+  search = '',
 ): BoardModel {
   const rows = computeRows(config, today);
   const cells: BoardModel['cells'] = {};
@@ -113,7 +120,7 @@ export function buildBoard(
   // or done date; otherwise it's a card of its own if it passes the board's filters.
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const quick = activeQuickFilters(config, activeQuickFilterIds);
-  const usesNoteTags = [config, ...quick].some((set) => filterRules(set.filter).some((rule) => rule.kind === 'tags'));
+  const usesNoteTags = [config, ...quick, ...config.colorRules].some((set) => filterRules(set.filter).some((rule) => rule.kind === 'tags'));
   const noteTags = new Map<string, string[]>();
   const tagsFor = (path: string) => {
     if (!usesNoteTags) return [];
@@ -153,11 +160,20 @@ export function buildBoard(
     list.sort((a, b) => (config.sortCompletedSubtasks ? Number(a.closed) - Number(b.closed) : 0) || a.line - b.line);
   }
 
+  // Each word of the search narrows like one more quick filter, which a matching subtask satisfies.
+  const terms = searchTerms(search);
+  const narrowing: (QuickFilter | { term: string; matchSubtasks: true })[] = [...quick, ...terms.map((term) => ({ term, matchSubtasks: true as const }))];
+  const haystacks = new Map<string, string>();
+  const haystack = (task: BoardTask) => {
+    if (!haystacks.has(task.id)) haystacks.set(task.id, searchText(task, config, rowOf[task.id] !== undefined));
+    return haystacks.get(task.id)!;
+  };
   let quickContext: QuickFilterContext | undefined;
-  if (quick.length) {
+  if (narrowing.length) {
     const cards = Object.values(cells).flatMap((row) => Object.values(row).flat());
-    const { keep, context } = filterTaskFamilies(cards, subtasks, byId, quick,
-      (task, filter) => taskMatchesQuickFilter(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)),
+    const { keep, context } = filterTaskFamilies(cards, subtasks, byId, narrowing,
+      (task, filter) => 'term' in filter ? haystack(task).includes(filter.term)
+        : taskMatchesCriteria(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)),
       (task) => isShown(task, config, today));
     quickContext = context;
     for (const row of Object.values(cells)) {
@@ -176,6 +192,15 @@ export function buildBoard(
     total = keep.size;
   }
 
+  // Only cards are colored; subtasks inside a card share its color.
+  const colors: Record<string, ColorRule> = {};
+  if (config.colorRules.length) {
+    for (const task of Object.values(cells).flatMap((row) => Object.values(row).flat())) {
+      const rule = config.colorRules.find((r) => taskMatchesCriteria(task, r, config, today, frontmatterOf(task.path), tagsFor(task.path)));
+      if (rule) colors[task.id] = rule;
+    }
+  }
+
   const compare = cardComparator(config.slug);
   const compareDone = doneComparator(compare);
   for (const row of rows) {
@@ -184,7 +209,10 @@ export function buildBoard(
     }
   }
 
-  return { config, today, rows, columns: config.columns, cells, rowOf, subtasks, total, activeQuickFilters: quick.map((f) => f.id), quickContext };
+  return {
+    config, today, rows, columns: config.columns, cells, rowOf, subtasks, total,
+    activeQuickFilters: quick.map((f) => f.id), search: terms.length ? search.trim() : '', quickContext, colors,
+  };
 }
 
 /**

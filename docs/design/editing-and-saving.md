@@ -12,8 +12,9 @@ An editor that saves explicitly has a header with a green check on the left, the
 | Label definition (pencil), color scheme, bulk editor | The check (Save label, Apply color scheme, Apply to ‹n› tasks) commits the draft. | Cancel discards it. |
 | Quick-filter order | Reordering changes the settings draft; saving the settings commits it. | Cancelling the settings discards it. |
 | Label checkboxes | Each checkbox saves as soon as it changes. A failed write restores the checkbox. | Closing the picker keeps what was saved. |
+| Show completed subtasks (Arrange) | Choosing it saves to the board note at once, as Hide completed subtasks. A failed write leaves the board as it was and says so. Choosing it again changes it back, so it has no Undo. | Closing the menu changes nothing. |
 | Inline task and subtask composer, also under the open board in the boards sidebar | The check adds the task. The text, and any labels picked with its Labels button, clear only once it's saved, and the composer stays open for the next task, with focus in its text box. Picking labels changes only the draft. | X or Escape closes it. |
-| New board | Create board makes the board note, then opens the board and its settings. | X closes it. |
+| New board | Create board makes the board note from the chosen template, then opens the board and its New tasks settings. The example board writes its sample tasks' note first, opens without the settings (it already has a destination), and says where the sample tasks are. A failure shows in the dialog, which keeps the name and template. | X closes it. Nothing is made. |
 | Delete board warning (Delete board… in General) | Delete board moves the board note to the trash, then closes the warning and the settings. It never edits a task. | Cancel, X and Escape close it. While the note is being moved, it can't be dismissed. |
 | Board name (click the board's name, or Rename board… in General) | Save board name renames the board. With Also rename board tags on, the check first previews the affected notes, then renames the board and its tags. From the settings, it returns to them, with their draft and the new name. | X closes it. Nothing changes until the rename is applied. |
 | Duplicate board (Duplicate board… in General) | Duplicate board makes a new board note, next to the original, with the original's saved settings and a slug of its own, in one write. Then it closes the settings and opens the new board. With unsaved settings, it says they aren't included, and the settings stay open in front of the new board. It never edits a task. | X closes it. Nothing is made. |
@@ -23,8 +24,9 @@ An editor that saves explicitly has a header with a green check on the left, the
 | Source-note popup | Obsidian's own editor. It saves when it closes or expands into a tab. A failed save keeps it open. | Closing saves; it doesn't discard. |
 | Tasks plugin editor | Another plugin's editor, with its own controls. | |
 | Plugin settings tab | Each change saves as it's made, like Obsidian's own settings. | |
+| What's new (toolbar, or by itself after an update) | Nothing to save from the toolbar. After an update, Don't show this again saves as soon as it changes, like the label checkboxes. A feature's button closes the window and starts what it tries; Add suggested color rules… only adds to the settings draft, and opens them at Card color rules. | The X and Escape close it, returning focus to the What's new button. After an update it shows once either way. |
 
-Board settings is the one editor that asks before discarding: its draft can span six tabs. The other editors hold a name or a few choices, so closing them discards at once.
+Board settings is the one editor that asks before discarding: its draft can span five tabs. The other editors hold a name or a few choices, so closing them discards at once.
 
 Saving board settings writes only the settings you edited. A change made elsewhere while the dialog was open, such as a toolbar toggle or a Properties edit, survives the save.
 

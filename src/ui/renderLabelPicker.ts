@@ -1,6 +1,7 @@
 import { uiElement } from './dom.ts';
 import { applyLabelScheme, LABEL_SCHEMES, type LabelSchemeState, type PreviousScheme } from '../core/labelSchemes.ts';
 import { renderEditorHeader, type EditorHeader } from './editorHeader.ts';
+import { renderColorPicker } from './colorPicker.ts';
 import { LABEL_COLORS, newLabelId, labelDescription, labelTextColor, normalizeLabelColor, type BoardLabel } from '../core/labels.ts';
 
 export type LabelPickerHost = {
@@ -147,30 +148,25 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     nameField.append(name);
     const preview = node('div', 'tt-label-swatch tt-label-preview', label.name || 'Label preview');
     let color = label.color;
-    const swatches = node('div', 'tt-label-colors'); swatches.setAttribute('role', 'group'); swatches.setAttribute('aria-label', 'Color swatches');
     const hexField = node('label', 'tt-label-field', 'HTML color code');
     const hex = node('input'); hex.type = 'text'; hex.value = color.toUpperCase();
     hex.placeholder = '#AABBCC';
     hex.autocomplete = 'off'; hex.spellcheck = false; hexField.append(hex);
+    const colors = renderColorPicker(root.ownerDocument, {
+      color, code: hex,
+      changed: (value) => {
+        const next = normalizeLabelColor(value);
+        hex.setCustomValidity(next ? '' : 'Enter a hex color such as #AABBCC or #ABC.');
+        if (next) { color = next; update(); }
+      },
+    });
     function update(): void {
       preview.textContent = name.value.trim() || 'Label preview';
       preview.style.backgroundColor = color; preview.style.color = labelTextColor(color);
-      for (const b of swatches.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.color === color));
-    }
-    for (const swatch of LABEL_COLORS) {
-      const b = button('', 'tt-label-color'); b.style.backgroundColor = swatch.color;
-      b.setAttribute('aria-label', swatch.name); b.dataset.color = swatch.color;
-      b.onclick = () => { color = swatch.color; hex.value = color.toUpperCase(); hex.setCustomValidity(''); update(); };
-      swatches.append(b);
     }
     name.oninput = update;
-    hex.oninput = () => {
-      const next = normalizeLabelColor(hex.value);
-      hex.setCustomValidity(next ? '' : 'Enter a hex color such as #AABBCC or #ABC.');
-      if (next) { color = next; update(); }
-    };
     header = renderEditorHeader(headerSlot, 'Edit label', (el, name) => host.icon(el, name), () => form.requestSubmit(), () => picker(label.id), 'Save label');
-    form.append(preview, nameField, node('div', 'tt-label-field', 'Color'), swatches, hexField,
+    form.append(preview, nameField, node('div', 'tt-label-field', 'Color'), colors.element, hexField,
       node('p', 'tt-label-help', 'Changes apply to every task using this label on this board.'),
       node('p', 'tt-label-help', intent === 'create' ? 'A permanent tag ID will be assigned when you save.' : `Permanent tag ID: ${label.id}`));
     form.onsubmit = (e) => {

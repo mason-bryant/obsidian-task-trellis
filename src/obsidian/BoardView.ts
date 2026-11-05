@@ -5,7 +5,7 @@ import { parseColumnWidths } from '../core/columnWidths.ts';
 import { FM } from '../core/boardConfig.ts';
 import { taskLabels } from '../core/labels.ts';
 import { boardPalette, LabelPickerModal, pickComposerLabels } from './LabelPickerModal.ts';
-import { Component, FileView, MarkdownRenderer, Menu, parseLinktext, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { Component, FileView, MarkdownRenderer, Menu, parseLinktext, Scope, setIcon, type TFile, type WorkspaceLeaf } from 'obsidian';
 import { buildBoard, planDrop, planPromotion, type BoardModel, type BoardTask, type DropTarget, type MoveChoice } from '../core/board.ts';
 import { planDueDateSort } from '../core/dueSort.ts';
 import { missingRequiredPropertyKeys } from '../core/filters.ts';
@@ -14,6 +14,9 @@ import { parseTaskLine } from '../core/taskLine.ts';
 import { clearBulkSelection, disposeBoardSelection, isDragging, renderBoard, type RenderHost } from '../ui/renderBoard.ts';
 import type { BoardEntry } from './BoardRegistry.ts';
 import { BoardSettingsModal } from './BoardSettingsModal.ts';
+import { WhatsNewModal } from './WhatsNewModal.ts';
+import { FEATURES, type Feature, type FeatureAction } from '../core/whatsNew.ts';
+import type { WhatsNewOptions } from '../ui/renderWhatsNew.ts';
 import { RenameBoardModal } from './RenameBoardModal.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import { notice } from './notice.ts';
@@ -45,6 +48,8 @@ export class BoardView extends FileView {
   private undoControls = new WeakMap<object, NonNullable<RenderHost['undo']>>();
   private highlightIds = new Set<string>();
   private highlightUntil = 0;
+  /** The search box's text. It lasts while this board stays open here, and isn't saved. */
+  private search = '';
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -80,6 +85,14 @@ export class BoardView extends FileView {
       this.renderQueued = false;
     });
     this.contentEl.addClass('task-trellis-view');
+    // Cmd/Ctrl+F searches the board, as it searches a note in the editor.
+    this.scope = new Scope(this.app.scope);
+    this.scope.register(['Mod'], 'f', () => {
+      const field = this.contentEl.querySelector<HTMLInputElement>('.tt-board-search-input');
+      if (!field) return true;
+      field.focus(); field.select();
+      return false;
+    });
     this.addAction('settings', 'Board settings', () => {
       if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config).open();
     });
@@ -121,6 +134,7 @@ export class BoardView extends FileView {
     this.board = null;
     this.model = null;
     this.undoAction = null;
+    this.search = '';
     this.pending.clear();
   }
 
@@ -160,6 +174,20 @@ export class BoardView extends FileView {
     return control;
   }
 
+  /** What’s new, whose buttons try each feature on this board. An update sets `update` when it opens this by itself. */
+  openWhatsNew(features: Feature[], update?: WhatsNewOptions['update']): void {
+    new WhatsNewModal(this.app, { features, update, tryFeature: (kind) => this.tryFeature(kind) }, () => this.refocus('whats-new')).open();
+  }
+
+  private tryFeature(kind: FeatureAction['kind']): void {
+    if (kind === 'create-board') { this.plugin.promptNewBoard(); return; }
+    if (!this.file) return;
+    // The suggested rules join the draft, for the user to look over and save or discard.
+    const settings = new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, undefined, () => this.refocus('settings'));
+    settings.addSuggestedColorRules();
+    settings.open();
+  }
+
   /** After a dialog closes, gives focus back to a board control if nothing has it, as when a redraw replaced the control. */
   private refocus(key: string): void {
     this.containerEl.win.setTimeout(() => {
@@ -187,7 +215,7 @@ export class BoardView extends FileView {
     this.model = buildBoard(tasks, this.board.config, this.today,
       (path) => this.app.metadataCache.getCache(path)?.frontmatter,
       (path) => noteTags(this.app.metadataCache.getCache(path)),
-      this.plugin.activeQuickFilters(this.board.config.slug));
+      this.plugin.activeQuickFilters(this.board.config.slug), this.search);
 
     const info: string[] = [];
     if (!this.plugin.writer.tasksApi()) {
@@ -207,6 +235,18 @@ export class BoardView extends FileView {
     const navigate = () => void this.plugin.writer.openSource(task, newTab);
     if (newTab || this.board?.config.openLinks === 'tab') { navigate(); return; }
     this.plugin.notePopups.open(this.app.vault.getFileByPath(task.path), { line: task.line }, navigate);
+  }
+
+  /** Arrange's Show completed subtasks. Saved in the board note, as Hide completed subtasks in the settings is; the board redraws once the note has changed. */
+  private async setShowCompletedSubtasks(show: boolean): Promise<void> {
+    const file = this.file;
+    if (!file) return;
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[FM.hideCompletedSubtasks] = !show; });
+    } catch (error) {
+      console.error('[Task Trellis] saving completed subtasks failed', error);
+      this.alert(`Task Trellis: could not ${show ? 'show' : 'hide'} completed subtasks. Check that the board note can be edited, then try again.`);
+    }
   }
 
   /** Filter keys no note in the vault has; only checked when the board is empty. */
@@ -246,6 +286,7 @@ export class BoardView extends FileView {
         }
       },
       onSettings: (section) => { if (this.file) new BoardSettingsModal(this.app, this.plugin, this.file, this.plugin.boards.entry(this.file).config, section, () => this.refocus('settings')).open(); },
+      onWhatsNew: () => this.openWhatsNew(FEATURES),
       onRename: () => { if (this.file) new RenameBoardModal(this.app, this.file, this.plugin.boardRenames).open(); },
       highlightIds: Date.now() < this.highlightUntil ? this.highlightIds : undefined,
       undo: this.undoControl(),
@@ -284,6 +325,7 @@ export class BoardView extends FileView {
         void this.plugin.setSubtasksCollapsed(this.board.config.slug, keys, collapsed);
         this.render();
       },
+      onShowCompletedSubtasks: (show) => void this.setShowCompletedSubtasks(show),
       onSortByDueDate: () => void this.sortByDueDate(),
       onBulkAction: (tasks, kind) => new Promise((resolve) => {
         if (!this.board) { resolve(null); return; }
@@ -295,6 +337,7 @@ export class BoardView extends FileView {
         const menu = new Menu();
         if (choices.includes('collapse')) menu.addItem((item) => item.setTitle('Collapse all subtasks').setIcon('fold-vertical').onClick(() => choose('collapse')));
         if (choices.includes('expand')) menu.addItem((item) => item.setTitle('Expand all subtasks').setIcon('unfold-vertical').onClick(() => choose('expand')));
+        if (choices.includes('completed')) menu.addItem((item) => item.setTitle('Show completed subtasks').setIcon('list-checks').setChecked(!this.board?.config.hideCompletedSubtasks).onClick(() => choose('completed')));
         if (choices.includes('sort')) {
           if (choices.length > 1) menu.addSeparator();
           menu.addItem((item) => item.setTitle('Sort by due date').setIcon('arrow-down-wide-narrow').onClick(() => choose('sort')));
@@ -317,6 +360,7 @@ export class BoardView extends FileView {
         void this.plugin.setActiveQuickFilters(this.board.config.slug, ids);
         this.render();
       },
+      onSearch: (query) => { this.search = query; this.renderWhenIdle(); },
       onDrop: (taskId, target) => void this.drop(taskId, target),
       onReorderSubtask: (move) => void this.reorderSubtask(move),
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {

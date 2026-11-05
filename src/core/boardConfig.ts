@@ -1,4 +1,5 @@
 import { parsePreviousScheme, type PreviousScheme } from './labelSchemes.ts';
+import { parseColorRules, type ColorRule } from './colorRules.ts';
 import { parseColumnWidths, type ColumnWidths } from './columnWidths.ts';
 import { parseLabels, starterLabels, type BoardLabel } from './labels.ts';
 import { defaultQuickFilters, parseQuickFilters, quickFilterFrontmatter, type QuickFilter } from './quickFilters.ts';
@@ -24,6 +25,8 @@ export type BoardConfig = FilterSet & {
   quickFiltersMenu: boolean;
   quickFiltersVisible: number | null;
   quickFiltersVisibleMobile: number | null;
+  /** In order: a card takes the color of the first rule it matches. */
+  colorRules: ColorRule[];
   previousLabelScheme: PreviousScheme;
   doneColumn: string | null;
   /** Show at most `doneLimit` cards per Done cell, the rest behind a "more" toggle. */
@@ -93,6 +96,7 @@ export const FM = {
   quickFiltersMenu: 'quick-filters-menu',
   quickFiltersVisible: 'quick-filters-visible',
   quickFiltersVisibleMobile: 'quick-filters-visible-mobile',
+  colorRules: 'color-rules',
   previousLabelScheme: 'previous-label-scheme',
   columns: 'columns',
   columnWidths: 'column-widths',
@@ -239,6 +243,7 @@ export function parseBoardConfig(
       quickFiltersMenu: boolSetting(f[FM.quickFiltersMenu], false),
       quickFiltersVisible: optionalCount(f[FM.quickFiltersVisible]),
       quickFiltersVisibleMobile: optionalCount(f[FM.quickFiltersVisibleMobile]),
+      colorRules: parseColorRules(f[FM.colorRules], warnings),
       previousLabelScheme: parsePreviousScheme(f[FM.previousLabelScheme]),
       doneColumn,
       limitDone: boolSetting(f[FM.limitDone], true),
