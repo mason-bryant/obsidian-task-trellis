@@ -20,7 +20,7 @@ The plugin also runs on mobile. Install it in the vault you use on your phone be
 ## Create a board
 
 1. Run **Task Trellis: Create board** from Obsidian’s command palette, or open the Task Trellis boards sidebar and choose **Create new board**.
-2. Name the board. Its **New tasks** settings open automatically. It starts with **Backlog**, **Doing**, **Waiting** and **Done** columns.
+2. Name the board and choose what it starts from; see [Board templates](#board-templates). Its **New tasks** settings open automatically.
 3. Open the board’s **Settings → Filters** to choose the tasks it should show. With no filters, it shows eligible tasks across your vault, except the boards folder and globally excluded folders.
 4. In **Settings → New tasks**, choose where new tasks should be saved. For a simple setup, choose a specific note such as `Tasks/Inbox.md`. You can also use today’s daily note; that requires Obsidian’s **Daily notes** core plugin.
 5. Choose the **green checkmark** to save, then use **+ Add task** in a column to add your first task.
@@ -28,6 +28,20 @@ The plugin also runs on mobile. Install it in the vault you use on your phone be
 Boards are notes in the **Boards folder**, which defaults to `Task Trellis/`. Keep task notes outside that folder. Opening a board note shows the board; the note name on a task card takes you to that task’s source.
 
 Make sure the destination for new tasks matches the board’s filters. For example, a board restricted to `Projects/` will not display tasks saved to `Tasks/Inbox.md`.
+
+## Board templates
+
+**Start from** in the new board dialog sets up a board for a way of working. Each is an ordinary board, so you can change any of it later in **Settings**.
+
+| Template | Columns | What it sets up |
+| --- | --- | --- |
+| **Kanban** | Backlog, Doing, Waiting, Done | The plain board: due dates as rows, and quick filters for High priority, Overdue and the first label. |
+| **Weekly planner** | Someday, To do, Doing, Done | **Due now** is this week and the next row is next week. Tasks without a due date wait in **Someday**. Today’s tasks are tinted orange and high-priority ones striped red, with quick filters for Due today, Overdue and High priority. Compact cards. |
+| **Project** | Backlog, Ready, In progress, Review, Done | Labels named Feature, Chore, Bug, Blocked, Design and Research. Cards labeled Blocked are striped red. Quick filters for High priority, Overdue, Blocked and Bug, and a two-week Due now. |
+| **Eisenhower matrix** | To do, Doing, Done | High priority means important, and due within two days (or overdue) means urgent. Color rules tint each quadrant: **Do** in solid red, **Schedule** in blue stripes, **Delegate** in yellow dots and **Eliminate** in a gray grid. Quick filters for Important and Urgent; turn both on to see what to do first. |
+| **Example board** | Backlog, Doing, Waiting, Done | A dozen sample tasks, with labels, priorities, subtasks and due dates from overdue to undated, and a color rule or two. |
+
+The example board writes its sample tasks to a note of their own, **Task Trellis examples/‹board name›.md**, and shows only the tasks in that note: the note has a `task-trellis-example` property that the board filters on. Tasks you add on the board go to that note too. Its New tasks settings don’t open, since it already has a destination. Boards that show tasks from every note will show the sample tasks as well, so delete the note, and the board, when you’re done with them.
 
 ## Make it yours
 

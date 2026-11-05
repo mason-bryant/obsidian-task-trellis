@@ -68,7 +68,7 @@ Theme-aware styling, keyboard controls for cards, subtasks and settings, screen-
 ## Quick start
 
 1. **Install and enable** Task Trellis from **Settings → Community plugins → Browse** in Obsidian. The [installation guide](docs/getting-started.md) also covers installing a release by hand.
-2. Run **Task Trellis: Create board** from the command palette and give it a name.
+2. Run **Task Trellis: Create board** from the command palette, give it a name, and choose what it starts from: a plain **Kanban** board, a **Weekly planner**, a **Project**, an **Eisenhower matrix**, or an **Example board** full of sample tasks to try things out.
 3. The **New tasks** settings open automatically. Choose **A specific note**, such as `Tasks/Inbox.md`, outside the boards folder. Or choose today’s daily note if Daily notes is enabled.
 4. In **Filters**, choose which tasks belong here. Leave filters empty to show tasks across your vault. The destination note must satisfy your filters.
 5. Save with the **green checkmark**, then select **+ Add task** at the top of a column on your phone. Use the tag icon to assign colored labels.
