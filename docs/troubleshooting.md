@@ -4,7 +4,7 @@
 
 ## A task is missing from a board
 
-Search for its text in the vault first. Check **Settings → New tasks** for its destination, then **Filters**. Filters combine as their group says: All needs every filter, Any needs one, and None hides a task that matches any. Within a filter, any listed value can match. A task's tags and its note's tags can match tag filters; property filters read the note's properties. Tasks in the boards folder or plugin-wide excluded folders are never indexed. Completed-task age and card limits can also hide cards; use **Show more** when offered. Subtasks normally stay inside a visible parent.
+Search for its text in the vault first. Check **Settings → New tasks** for its destination, then **Settings → Setup → Filters**. Filters combine as their group says: All needs every filter, Any needs one, and None hides a task that matches any. Within a filter, any listed value can match. A task's tags and its note's tags can match tag filters; property filters read the note's properties. Tasks in the boards folder or plugin-wide excluded folders are never indexed. Completed-task age and card limits can also hide cards; use **Show more** when offered. Subtasks normally stay inside a visible parent.
 
 If a board shows no tasks on one device only, and its filter uses groups, update Task Trellis on that device. Versions before groups show no tasks for a filter they can't read, rather than the wrong ones.
 

@@ -19,3 +19,10 @@ it('uses a neutral heading for new installations and preserves existing saved he
   expect(normalizeSettings({ newTaskHeading: '### My existing section' }).newTaskHeading).toBe('### My existing section');
 });
 
+it('remembers the board settings tab, starting at the first and ignoring one that no longer exists', () => {
+  expect(normalizeSettings(undefined).boardSettingsTab).toBe('appearance');
+  expect(normalizeSettings({ boardsFolder: 'Boards' }).boardSettingsTab).toBe('appearance');
+  expect(normalizeSettings({ boardSettingsTab: 'setup' }).boardSettingsTab).toBe('setup');
+  expect(normalizeSettings({ boardSettingsTab: 'colors' }).boardSettingsTab).toBe('appearance');
+  expect(normalizeSettings({ boardSettingsTab: 3 }).boardSettingsTab).toBe('appearance');
+});

@@ -152,13 +152,15 @@ describe('color rule settings', () => {
     return { root, draft, original, form, control, button, swatch, type, tick, saved };
   }
 
-  it('ends the Appearance tab with Card color rules, empty to start, and leaves boards without rules unchanged', () => {
+  it('starts the Appearance tab with Card color rules, empty to start, and leaves boards without rules unchanged', () => {
     const ui = editor();
     expect(ui.control('Board settings sections').querySelector('[aria-selected="true"]')!.textContent).toBe('Appearance');
     const panel = ui.root.querySelector('.tt-settings-body')!;
     const section = panel.querySelector('.tt-settings-color-rules')!;
     expect(section.querySelector('.tt-section-title')!.textContent).toBe('Card color rules');
-    expect(section.compareDocumentPosition(panel.querySelector('[aria-label="Open notes and links in"]')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    // First in the panel, which is what takes its divider away.
+    expect(panel.firstElementChild).toBe(section);
+    expect(section.compareDocumentPosition(panel.querySelector('[aria-label="Label shape"]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Dragging a rule scrolls the panel, so rules have to be directly in it.
     ui.button('Add color rule').click();
     expect(ui.root.querySelector('.tt-color-rule-editor')!.parentElement).toBe(ui.root.querySelector('.tt-settings-body'));
@@ -175,7 +177,7 @@ describe('color rule settings', () => {
     const original = config({ 'color-rules': [kitchen] });
     const root = document.createElement('div'); document.body.replaceChildren(root);
     renderBoardSettings(root, draftFromConfig(original), original, {
-      showColorRules: true, icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+      initialSection: 'color-rules', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
       attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
     });
     expect(root.querySelector('#tt-tab-appearance')!.getAttribute('aria-selected')).toBe('true');

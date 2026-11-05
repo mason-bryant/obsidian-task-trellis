@@ -2,7 +2,7 @@
 
 # Choose which tasks appear
 
-The Filters tab works like the filter editor in Obsidian's Bases. It's one group of filters, and the dropdown at its top says how they combine:
+**Filters**, in **Settings → Setup**, works like the filter editor in Obsidian's Bases. It's one group of filters, and the dropdown at its top says how they combine:
 
 - **All the following are true:** a task must match every filter in the group.
 - **Any of the following are true:** a task must match at least one.
