@@ -512,9 +512,14 @@ let saves = 0;
 let suggestId = 0;
 
 document.getElementById('open-settings')!.addEventListener('click', () => openSettings());
-document.getElementById('theme')!.addEventListener('change', (event) => {
-  document.documentElement.dataset.theme = (event.target as HTMLSelectElement).value;
-});
+/** Obsidian marks its theme with a class on the body, which the dark card tint keys off. */
+function setTheme(theme: string): void {
+  document.documentElement.dataset.theme = theme;
+  document.body.classList.toggle('theme-dark', theme === 'dark');
+  document.body.classList.toggle('theme-light', theme !== 'dark');
+}
+setTheme(document.documentElement.dataset.theme ?? 'dark');
+document.getElementById('theme')!.addEventListener('change', (event) => setTheme((event.target as HTMLSelectElement).value));
 document.getElementById('show-source')!.addEventListener('change', (event) => {
   document.getElementById('source')!.hidden = !(event.target as HTMLInputElement).checked;
 });

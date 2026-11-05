@@ -1,3 +1,5 @@
+import { hexToRgb, luminance } from './colorMath.ts';
+
 /** Stable ids keep assignments intact when a board label is renamed or recolored. */
 export type BoardLabel = { id: string; name: string; color: string };
 
@@ -54,10 +56,7 @@ export function labelDescription(label: BoardLabel): string {
 
 /** Choose text with WCAG contrast of at least 4.5:1 on any opaque hex background. */
 export function labelTextColor(color: string): string {
-  const rgb = [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16) / 255)
-    .map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-  const luminance = rgb[0]! * 0.2126 + rgb[1]! * 0.7152 + rgb[2]! * 0.0722;
-  return luminance > 0.179 ? '#000000' : '#ffffff';
+  return luminance(hexToRgb(color)) > 0.179 ? '#000000' : '#ffffff';
 }
 
 const LABEL_TAG_RE = /(^|\s)#tt\/([\p{L}\p{N}_-]+)\/label\/([a-z0-9_-]+)(?=[^\p{L}\p{N}_/-]|$)/giu;

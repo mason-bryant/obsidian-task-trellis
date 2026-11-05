@@ -3,6 +3,7 @@ import { announce, clearForRedraw } from './announce.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 import { installRowReorder } from './reorderRows.ts';
 import { quickFilterColors } from './quickFilterColors.ts';
+import { renderColorPicker } from './colorPicker.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
 import { LABEL_COLORS, labelDescription, normalizeLabelColor } from '../core/labels.ts';
 import { newQuickFilterId, QUICK_DUES, QUICK_PRIORITIES } from '../core/quickFilters.ts';
@@ -418,25 +419,19 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
     return square;
   }
 
-  /** The label editor's palette and hex code, for a color rule. */
+  /** The shared color picker, for a color rule, with its opacity, pattern and a sample card. */
   function colorField(parent: HTMLElement, rule: DraftColorRule, key: string, label: string, previewChanged: () => void): void {
-    const swatches = el('div', 'tt-label-colors'); swatches.setAttribute('role', 'group'); swatches.setAttribute('aria-label', `${label} color`);
-    const hex = input(rule.color.toUpperCase(), `${label} color code`, (v) => { rule.color = v; update(); });
+    const hex = input(rule.color.toUpperCase(), `${label} color code`, () => undefined);
     hex.dataset.focus = `${key}-color-code`; hex.placeholder = '#AABBCC'; hex.autocomplete = 'off'; hex.spellcheck = false;
-    function update(): void {
-      const color = normalizeLabelColor(rule.color);
-      for (const b of swatches.querySelectorAll<HTMLButtonElement>('button')) b.setAttribute('aria-pressed', String(b.dataset.color === color));
-      hex.setAttribute('aria-invalid', String(validation && !color));
-      previewChanged();
-    }
-    for (const swatch of LABEL_COLORS) {
-      const b = button('', 'tt-label-color'); b.style.backgroundColor = swatch.color;
-      b.setAttribute('aria-label', swatch.name); b.dataset.color = swatch.color; b.dataset.focus = `${key}-color-${swatch.name.toLowerCase()}`;
-      b.onclick = () => { rule.color = swatch.color; hex.value = swatch.color.toUpperCase(); update(); };
-      swatches.append(b);
-    }
-    parent.append(field('Color', swatches), field('HTML color code', hex));
-    update();
+    const markInvalid = () => hex.setAttribute('aria-invalid', String(validation && !normalizeLabelColor(rule.color)));
+    const picker = renderColorPicker(root.ownerDocument, {
+      color: rule.color, code: hex, prefix: label, focusKey: `${key}-color`,
+      changed: (color) => { rule.color = color; markInvalid(); previewChanged(); },
+      opacity: { value: rule.opacity, changed: (opacity) => { rule.opacity = opacity; } },
+      pattern: { value: rule.pattern, changed: (pattern) => { rule.pattern = pattern; } },
+    });
+    markInvalid();
+    parent.append(field('Color', picker.element), field('HTML color code', hex), field('Pattern', picker.patterns!), field('Preview', picker.preview!));
   }
 
   function colorRuleEditor(body: HTMLElement): void {

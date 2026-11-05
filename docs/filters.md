@@ -147,7 +147,9 @@ quick-filters:
 
 ## Color cards
 
-Color rules tint the cards they match, such as every card from a client's folder or every high-priority task. Manage them in **Settings → Colors**: **Add color rule**, name it, pick one of the label palette's colors or enter an HTML color code, then choose what it matches. A rule matches on the same things as a quick filter: **Priority**, **Labels**, **Due**, and filters for tags, note folders and note properties, in groups. A rule with nothing chosen colors every card.
+Color rules tint the cards they match, such as every card from a client's folder or every high-priority task. Manage them in **Settings → Colors**: **Add color rule**, name it, choose its color, then choose what it matches. A rule matches on the same things as a quick filter: **Priority**, **Labels**, **Due**, and filters for tags, note folders and note properties, in groups. A rule with nothing chosen colors every card.
+
+Choose a color the same way as for a label: pick one of the label palette's colors, mix your own with the **Hue**, **Saturation** and **Lightness** sliders, or enter an HTML color code such as `#1558BC`. All three stay in step, so you can start from a palette color and adjust it. **Opacity** sets how strongly matching cards are tinted. It starts automatic, 14%, or 24% in dark themes, which keeps card text easy to read; move the slider to choose your own, and **Use automatic opacity** goes back. **Pattern** draws the tint solid, or as **Stripes**, **Dots**, a **Grid** or **Checks**, which tell rules apart without relying on color alone. A pattern's lines, dots or squares take the rule's opacity and the space between them a lighter tint, so a pattern never makes card text harder to read than the solid tint. **Preview** shows a card in the rule's tint and pattern, and warns when its text may be hard to read in the current theme.
 
 A card takes the color of the first rule it matches, so put the most specific rules first: drag the grip beside a rule, or focus it and use the up/down arrow keys. Use the copy button to clone a rule and the trash button to remove one. Colors never change which cards show. Subtasks inside a card share its color, and overdue cards keep their red edge. Screen readers hear the rule's name with the card.
 
@@ -160,7 +162,9 @@ color-rules:
     include-folders: [Clients/Acme]
   - name: Urgent
     color: '#ae2e24'
+    opacity: 35
+    pattern: stripes
     priority: [highest, high]
 ```
 
-A board without `color-rules` colors no cards.
+`opacity` is a percent from 0 to 100; without it, the rule uses the automatic opacity. `pattern` is `solid`, `stripes`, `dots`, `grid` or `checks`; without it, the tint is solid. A board without `color-rules` colors no cards.

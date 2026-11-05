@@ -52,13 +52,31 @@ describe('label picker', () => {
 
   it('edits a shared definition using its stable id and validates custom colors', async () => {
     edit();
-    const [name, hex] = [...root.querySelectorAll<HTMLInputElement>('input')];
+    const [name, hex] = [...root.querySelectorAll<HTMLInputElement>('input[type="text"]')];
     input(name!, 'Financial planning'); input(hex!, 'invalid'); submit(); await flush();
     expect(host.saveLabel).not.toHaveBeenCalled();
     input(hex!, '#FC0'); submit(); await flush();
     expect(host.saveLabel).toHaveBeenCalledWith({ id: 'green', name: 'Financial planning', color: '#ffcc00' }, 'update');
     expect(root.querySelector('.tt-label-swatch')!.textContent).toBe('Financial planning');
     expect(document.activeElement).toBe(check('green'));
+  });
+
+  it('mixes a custom color with the hue, saturation and lightness sliders', async () => {
+    edit();
+    const slider = (name: string) => root.querySelector<HTMLInputElement>(`input[type="range"][aria-label="${name}"]`)!;
+    const hex = root.querySelector<HTMLInputElement>('input[type="text"][placeholder="#AABBCC"]')!;
+    expect(slider('Hue').getAttribute('aria-valuetext')).toBe('155°, green');
+    slider('Lightness').value = '70'; slider('Lightness').dispatchEvent(new Event('input'));
+    expect(hex.value).toBe('#89DCB9');
+    expect(root.querySelector('.tt-label-color[aria-pressed="true"]')).toBeNull();
+    // Light colors get black text.
+    expect(root.querySelector<HTMLElement>('.tt-label-preview')!.style.color).toBe('rgb(0, 0, 0)');
+    // Typing a code moves the sliders to it.
+    input(hex, '#1558BC');
+    expect(slider('Hue').value).toBe('216');
+    expect(root.querySelector('.tt-label-color[aria-pressed="true"]')!.getAttribute('aria-label')).toBe('Blue');
+    submit(); await flush();
+    expect(host.saveLabel).toHaveBeenCalledWith({ id: 'green', name: '', color: '#1558bc' }, 'update');
   });
 
   it('cancels edits without changing definitions and can create an unnamed label', async () => {
