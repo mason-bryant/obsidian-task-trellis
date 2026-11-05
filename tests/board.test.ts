@@ -204,6 +204,17 @@ describe('buildBoard', () => {
     expect(model.total).toBe(5);
   });
 
+  it('keeps a hand-edited negative order in its column, first in its cell', () => {
+    const tasks = [
+      task('- [ ] numbered 📅 2026-10-22 #tt/house/doing/100', 'house.md', 1),
+      task('- [ ] negative 📅 2026-10-25 #tt/house/doing/-50', 'house.md', 2),
+      task('- [ ] unnumbered 📅 2026-10-21 #tt/house/doing', 'house.md', 3),
+    ];
+    const model = buildBoard(tasks, config(), TODAY, () => undefined);
+    expect(model.cells.now!.doing!.map((t) => t.text)).toEqual(['negative', 'numbered', 'unnumbered']);
+    expect(model.cells.now!.backlog ?? []).toEqual([]);
+  });
+
   it('lists the Done column newest completed first, ignoring sort numbers', () => {
     const done = [
       task('- [x] older ✅ 2026-10-18 #tt/house/done/100', 'house.md', 1),
@@ -246,6 +257,15 @@ describe('planReorder', () => {
     expect([...planReorder([a, b], d, 1, sortOf).values()]).toEqual([150]);
     expect([...planReorder([a, b], d, 2, sortOf).values()]).toEqual([300]);
     expect([...planReorder([a, b], d, 0, sortOf).values()]).toEqual([50]);
+  });
+
+  it('never writes a negative order, even between hand-edited negative ones', () => {
+    const a = s(-50);
+    const b = s(-10);
+    const d = s();
+    const plan = planReorder([a, b], d, 1, sortOf);
+    expect([...plan.entries()].map(([item, rank]) => [item === a ? 'a' : item === b ? 'b' : 'd', rank])).toEqual([['a', 100], ['d', 200], ['b', 300]]);
+    expect([...planReorder([s(100)], a, 0, sortOf).values()]).toEqual([50]);
   });
 
   it('renumbers when there is no gap', () => {

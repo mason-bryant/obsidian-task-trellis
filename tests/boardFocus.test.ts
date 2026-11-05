@@ -138,6 +138,35 @@ it('keeps an opened composer above the phone keyboard as it opens, and below the
   }
 });
 
+it('leaves the board still while typing in a sticky Add task box near its bottom edge', async () => {
+  const viewport = Object.assign(new EventTarget(), { offsetTop: 0, height: 700 });
+  Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
+  try {
+    draw();
+    const list = root.querySelector<HTMLElement>('.tt-scroll')!;
+    const rect = (top: number, height: number) => () => ({ top, bottom: top + height, left: 0, right: 300, width: 300, height, x: 0, y: top, toJSON: () => ({}) });
+    list.getBoundingClientRect = rect(100, 600);
+    root.querySelector<HTMLElement>('.tt-col-header')!.getBoundingClientRect = rect(100, 40);
+    // An earlier test can leave a composer open; start with none.
+    root.querySelectorAll<HTMLButtonElement>('.tt-add-cancel').forEach((cancel) => cancel.click());
+    root.querySelector<HTMLButtonElement>('.tt-add-button')!.click();
+    const box = root.querySelector<HTMLElement>('.tt-add-box')!;
+    // Sticky at the board's bottom, 5px from its edge: scrolling never moves it.
+    box.getBoundingClientRect = rect(575, 120);
+    await Promise.resolve();
+    const input = box.querySelector<HTMLTextAreaElement>('.tt-add-input')!;
+    expect(document.activeElement).toBe(input);
+    for (const text of ['R', 'Re', 'R']) {
+      input.value = text; input.dispatchEvent(new Event('input'));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(list.scrollTop).toBe(0);
+  } finally {
+    disposeBoardSelection(root);
+    Reflect.deleteProperty(window, 'visualViewport');
+  }
+});
+
 it.each([false, true])('reveals a bottom-of-list subtask above an overlay keyboard with bounded scrolling (paging=%s)', async (paging) => {
   const viewport = Object.assign(new EventTarget(), { offsetTop: 0, height: 700 });
   Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });

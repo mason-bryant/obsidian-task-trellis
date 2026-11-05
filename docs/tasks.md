@@ -14,7 +14,7 @@
 
 ## Work with cards
 
-- Each board places a task with one tag, `#tt/<board>/<column>/<n>`, at the end of the line. `<n>` orders cards within a cell. A task can sit in different columns on different boards.
+- Each board places a task with one tag, `#tt/<board>/<column>/<n>`, at the end of the line. `<n>` orders cards within a cell. It should be a positive whole number; a negative one typed by hand puts the card first in its cell, and dragging it there writes a positive one. A task can sit in different columns on different boards.
 - **Arrange → Sort by due date** puts every dated row in order, sooner due dates above later ones, in each column but Done, which stays newest completed first. It moves as few cards as it can: cards already in order stay put, and only the others get a new `<n>`, or lose it if they belong among the unnumbered cards at the end of a cell, which the board already orders by date. Same-date cards keep their order, except at that unnumbered end, where the board puts same-date cards in priority order. Cards hidden by quick filters are sorted too, and other boards aren't touched. It's a one-time sort, and **Undo** puts every card back.
 - Dragging a card to another row sets its due date: Due now → the last day of the window; a week row → the first day of that week (or the day after the window for a partial first week); Later → the first day after the last week row; No due date → removes it.
 - The arrow at a card's bottom right is a shortcut for the most common drag: a Due now card moves to the next row, and a card in any other row moves into Due now. It keeps its column and goes to the end of the cell. Completed cards don't have one.

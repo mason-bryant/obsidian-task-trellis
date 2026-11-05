@@ -23,7 +23,13 @@ export function watchComposerViewport(box: HTMLElement, input: HTMLTextAreaEleme
     const target = rect.height <= end - top ? rect : input.getBoundingClientRect();
     const by = target.bottom > end ? Math.min(target.bottom - end, target.top - top)
       : target.top < top ? target.top - top : 0;
-    if (by) list.scrollTop += by;
+    if (by) {
+      const was = list.scrollTop;
+      list.scrollTop += by;
+      // Desktop's sticky Add task box stays put however far the board scrolls, so each keystroke
+      // would scroll it again. Leave the board where it was.
+      if (Math.abs(box.getBoundingClientRect().top - rect.top) < 0.5) list.scrollTop = was;
+    }
   };
   const update = () => {
     keepVisible();

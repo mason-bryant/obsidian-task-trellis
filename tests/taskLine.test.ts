@@ -63,6 +63,12 @@ describe('parseTaskLine', () => {
     expect(parseTaskLine('- [ ] a #tt/house #tt/house/doing/12x')?.placements).toEqual({});
   });
 
+  it('places a card with a hand-edited negative order in its column', () => {
+    expect(parseTaskLine('- [ ] KYC doc 📅 2026-11-08 #tt/remitly/label/5 #tt/remitly/in-progres/-50')?.placements)
+      .toEqual({ remitly: { column: 'in-progres', sort: -50 } });
+    expect(setPlacement('- [ ] T #tt/house/doing/-50', 'house', 'doing', 100)).toBe('- [ ] T #tt/house/doing/100');
+  });
+
   it('lower-cases board and column names', () => {
     expect(parseTaskLine('- [ ] a #tt/House/Doing/5')?.placements).toEqual({ house: { column: 'doing', sort: 5 } });
   });
