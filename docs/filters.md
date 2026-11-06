@@ -83,7 +83,7 @@ Type in **Search cards…**, beside the board's name, to show only the cards tha
 - the name of the note it's in;
 - its labels on this board, by name, or by color for a label without one.
 
-A subtask is searched by its own text. A matching subtask brings its card into view, just as **Match subtasks** does for a quick filter. Words the card doesn't contain must all be in one of its subtasks. For example, `kitchen trim` finds a card in your Kitchen note through its **Paint the trim** subtask.
+A subtask is searched by its own text, including a completed one, however long ago it was completed. A matching subtask brings its card into view, just as **Match subtasks** does for a quick filter. Words the card doesn't contain must all be in one of its subtasks. For example, `kitchen trim` finds a card in your Kitchen note through its **Paint the trim** subtask.
 
 The search narrows the board on top of its filters and any quick filters that are on. The card count shows how many cards match. If none do, the board says so and offers **Clear search**.
 

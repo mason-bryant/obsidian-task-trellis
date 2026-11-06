@@ -172,9 +172,9 @@ export function buildBoard(
   if (narrowing.length) {
     const cards = Object.values(cells).flatMap((row) => Object.values(row).flat());
     const { keep, context } = filterTaskFamilies(cards, subtasks, byId, narrowing,
+      // Search finds anything a card shows; a quick filter leaves out a subtask completed too long ago.
       (task, filter) => 'term' in filter ? haystack(task).includes(filter.term)
-        : taskMatchesCriteria(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)),
-      (task) => isShown(task, config, today));
+        : (!task.parentId || isShown(task, config, today)) && taskMatchesCriteria(task, filter, config, today, frontmatterOf(task.path), tagsFor(task.path)));
     quickContext = context;
     for (const row of Object.values(cells)) {
       for (const [column, list] of Object.entries(row)) row[column] = list.filter((task) => keep.has(task.id));
