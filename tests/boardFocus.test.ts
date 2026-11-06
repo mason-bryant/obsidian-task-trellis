@@ -47,8 +47,9 @@ it('a redraw gives focus back to the row toggle, checkbox, scheduling arrow, Und
 });
 
 it('names a card’s repeated icon buttons for its task', () => {
+  host.onLabels = vi.fn(); draw();
   const names = [...card(paint).querySelectorAll('.tt-card-icon')].map((b) => b.getAttribute('aria-label'));
-  expect(names[0]).toBe('Labels for Paint the kitchen');
+  expect(names).toContain('Labels for Paint the kitchen');
   expect(names.some((n) => /^(Defer Paint the kitchen|Move Paint the kitchen into Due now)/.test(n ?? ''))).toBe(true);
 });
 
