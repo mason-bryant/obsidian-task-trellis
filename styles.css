@@ -535,7 +535,7 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 .tt-column-picker { min-height: 32px; max-width: 180px; font-size: var(--font-ui-small); }
 .tt-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .tt-icon svg, .tt-card-icon svg, .tt-add-icon svg { width: 16px; height: 16px; stroke-width: 1.8; }
-.tt-grid { gap: 0 12px; padding: 0 16px 24px; }
+.tt-grid { --tt-grid-bottom: 24px; gap: 0 12px; padding: 0 16px var(--tt-grid-bottom); }
 .tt-col-header { background: var(--background-secondary); border-bottom: 0; padding: 12px 4px; gap: 8px; }
 .tt-col-header > .tt-icon { color: var(--text-accent); }
 .tt-col-header--done > .tt-icon { color: var(--text-muted); }
@@ -790,9 +790,10 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
  * Narrow boards, such as on a phone or in a narrow pane: one column fills the board, and a
  * sideways swipe moves exactly one column. Below 600px the grid can't show two 240px columns
  * with room for a scrollbar and a cue that more columns follow, so the columns would be cut off
- * mid-card. Column widths come from .tt-scroll (cqw). Container queries need iOS 16 or later.
+ * mid-card. Column widths come from .tt-scroll (cqw), and a No due date column's height from its
+ * height (cqh). Container queries need iOS 16 or later.
  */
-.tt-scroll { container-type: inline-size; }
+.tt-scroll { container-type: size; }
 .tt-pager, .tt-row-bar--rest > .tt-row-sticky { display: none; }
 /* Keep non-dragging moves available to keyboard users on desktop too. */
 .tt-card-icon.tt-card-more { display: inline-flex; }
@@ -857,13 +858,36 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 /* The floating mobile navigation overlaps the view. Leave real scrollable space
  * after the grid so the last card and its actions can clear it, including on iOS. */
 @media (pointer: coarse) {
-  .tt-grid { padding-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
+  .tt-grid { --tt-grid-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
   /* The size-contained undated column can overflow past the grid itself. Its
    * spacer must follow its cards, rather than only padding the shorter grid. */
   .tt-cell--undated::after { content: ''; flex: none; height: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 }
-.is-mobile .tt-grid { padding-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
+.is-mobile .tt-grid { --tt-grid-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 .is-mobile .tt-cell--undated::after { content: ''; flex: none; height: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
+
+/* With several columns showing, a No due date column runs beside every row, so it stays in view and
+ * scrolls on its own, ending level with the rows. One column at a time, it scrolls like the others. */
+@container trellis not (max-width: 600px) {
+  .tt-grid--undated { box-sizing: border-box; min-height: 100cqh; align-content: start; }
+  .tt-grid--undated > .tt-cell--undated {
+    position: sticky;
+    top: calc(var(--tt-header-height, 0px) + var(--size-4-3));
+    align-self: start;
+    box-sizing: border-box;
+    --tt-undated-height: calc(100cqh - var(--tt-header-height, 0px) - var(--size-4-3) - var(--tt-grid-bottom));
+    height: var(--tt-undated-height);
+    /* Takes no room from the rows it spans: a set height would otherwise stretch them on a short board. */
+    margin-bottom: calc(-1 * var(--tt-undated-height));
+    overflow: hidden auto;
+    overscroll-behavior-y: contain;
+  }
+  /* It ends above Obsidian mobile's floating toolbar, so it needs no room for it inside. */
+  .tt-grid--undated > .tt-cell--undated::after { content: none; }
+  /* Add task sticks at the padding's edge, so without this the cards would show through below it. */
+  .tt-grid--undated > .tt-cell--undated:has(> .tt-add) { padding-bottom: 0; }
+  .is-mobile .tt-grid--undated > .tt-cell--undated:has(> .tt-add) { padding-bottom: 10px; }
+}
 
 /* A dedicated grab area distinguishes moving a card from scrolling its list. */
 .tt-card-drag-handle {

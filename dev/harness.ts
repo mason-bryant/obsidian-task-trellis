@@ -75,6 +75,9 @@ function noteTags(path: string): string[] {
 // native load-test notes: a column tag on each, due dates from 5 days ago to 40 days ahead, and a
 // subtask under every tenth. A fixed seed draws the same board every time.
 const load = Math.max(0, Math.floor(Number(new URLSearchParams(location.search).get('load')) || 0));
+// ?undated makes Backlog a No due date column, or another column with ?undated=Doing. A load board
+// then leaves a third of its tasks undated, so the column has something in it.
+const undatedColumn = new URLSearchParams(location.search).get('undated');
 if (load) {
   for (const path of Object.keys(files)) delete files[path];
   let seed = 1;
@@ -84,7 +87,8 @@ if (load) {
     const path = `Load/Load ${String(Math.ceil(n / 100)).padStart(2, '0')}.md`;
     const column = columns[Math.floor(random() * columns.length)]!;
     const lines = files[path] ??= [];
-    lines.push(`- [ ] Synthetic load task ${n} 📅 ${d(Math.floor(random() * 46) - 5)} #tt/house/${column}/${n * 100}`);
+    const due = `📅 ${d(Math.floor(random() * 46) - 5)} `;
+    lines.push(`- [ ] Synthetic load task ${n} ${undatedColumn !== null && n % 3 === 0 ? '' : due}#tt/house/${column}/${n * 100}`);
     if (n % 10 === 1) lines.push(`\t- [ ] Synthetic subtask of ${n}`);
   }
 }
@@ -99,6 +103,7 @@ let { config, warnings } = parseBoardConfig('House', {
 });
 // A load board keeps the defaults, like the native one.
 if (load) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done' }));
+if (undatedColumn !== null) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done', 'undated-column': undatedColumn || 'Backlog', ...load ? {} : { 'filter-properties': ['context: house'] } }));
 let collapsed: Record<string, boolean> = {};
 /** The board's search box text, as the plugin keeps it per open board. */
 let search = '';

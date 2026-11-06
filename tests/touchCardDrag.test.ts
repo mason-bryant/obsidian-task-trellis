@@ -53,6 +53,26 @@ describe('touch card handle', () => {
     pointer('pointerup', 350, 300);
   });
 
+  it('edge-scrolls a No due date column at its own edges, clear of its top but not of a heading', () => {
+    vertical = document.createElement('div');
+    vertical.getBoundingClientRect = () => ({ top: 160, bottom: 560, left: 0, width: 300, height: 400, right: 300, x: 0, y: 160, toJSON: () => ({}) });
+    scroller.append(vertical);
+    pointer('pointerdown', 350, 230);
+    pointer('pointermove', 350, 400);
+    tick(16);
+    expect(vertical.scrollTop).toBe(0);
+    pointer('pointermove', 350, 550);
+    tick(32);
+    const scrolled = vertical.scrollTop;
+    expect(scrolled).toBeGreaterThan(0);
+    // Still in the pane, close to its top; past the board's own heading zone.
+    pointer('pointermove', 350, 190);
+    tick(48);
+    expect(vertical.scrollTop).toBeLessThan(scrolled);
+    expect(scroller.scrollTop).toBe(0);
+    pointer('pointerup', 350, 300);
+  });
+
   it('moves a grabbed card, updates its drop point, commits and cleans up', () => {
     expect(pointer('pointerdown', 350, 230).defaultPrevented).toBe(true);
     pointer('pointermove', 340, 400);
