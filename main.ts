@@ -7,7 +7,6 @@ import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
 import { around } from 'monkey-around';
 import {
   FuzzySuggestModal,
-  Notice,
   Plugin,
   TFile,
   WorkspaceLeaf,
@@ -22,6 +21,7 @@ import { BOARD_TEMPLATES, EXAMPLES_FOLDER, exampleNote, templateFrontmatter, typ
 import { todayISO } from './src/core/dates.ts';
 import { NewBoardModal } from './src/obsidian/NewBoardModal.ts';
 import { unseenFeatures } from './src/core/whatsNew.ts';
+import { notice } from './src/obsidian/notice.ts';
 import { changedFrontmatter, draftToFrontmatter, type BoardDraft } from './src/core/boardDraft.ts';
 import type { TaskEdit } from './src/core/board.ts';
 import { activeQuickFilterIds, setActiveQuickFilterIds, setSubtaskCollapse } from './src/core/collapse.ts';
@@ -90,7 +90,7 @@ export default class TaskTrellisPlugin extends Plugin {
     this.boardRenames = new BoardTagRename(this.app, {
       boardsFolder: () => this.settings.boardsFolder,
       collapsed: () => this.settings.collapsed,
-      saveSettings: () => this.saveSettings(),
+      saveSettings: () => this.saveData(this.settings),
     });
     this.quickAdd = new QuickAdd(this);
     const shortcuts = new ShortcutActions(this);
@@ -116,7 +116,7 @@ export default class TaskTrellisPlugin extends Plugin {
         const file = this.app.workspace.getActiveFile();
         const leaf = this.app.workspace.getMostRecentLeaf();
         if (!file || !leaf || !this.boards.isBoardPath(file.path)) return false;
-        if (!checking) void this.openAsBoard(leaf, file);
+        if (!checking) this.openBoardOrSay(file, leaf);
         return true;
       },
     });
@@ -128,7 +128,7 @@ export default class TaskTrellisPlugin extends Plugin {
           item
             .setTitle('Open as board')
             .setIcon('kanban')
-            .onClick(() => (leaf ? this.openAsBoard(leaf, file) : this.openBoard(file))),
+            .onClick(() => this.openBoardOrSay(file, leaf ?? undefined)),
         );
       }),
     );
@@ -146,8 +146,8 @@ export default class TaskTrellisPlugin extends Plugin {
         await this.ensureBoardList();
         try {
           const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
-          if (pending) new Notice('Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', 12000);
-        } catch { new Notice('Task Trellis: a board rename recovery record could not be read. Check the Task Trellis recovery folder.'); }
+          if (pending) notice(this.app, 'Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', { duration: 12000 });
+        } catch { notice(this.app, 'Task Trellis: a board rename recovery record could not be read, so nothing was restored. Check the Task Trellis recovery folder.', { alert: true }); }
         // After an update, the first board shown says what the update added.
         this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => { if (leaf?.view instanceof BoardView) this.showWhatsNew(leaf.view); }));
         const active = this.app.workspace.getActiveViewOfType(BoardView);
@@ -164,12 +164,34 @@ export default class TaskTrellisPlugin extends Plugin {
     void this.saveSettings();
     view.openWhatsNew(features, {
       version: this.manifest.version, hidden: this.settings.whatsNewHidden,
-      setHidden: (hidden) => { this.settings.whatsNewHidden = hidden; void this.saveSettings(); },
+      setHidden: async (hidden) => {
+        const was = this.settings.whatsNewHidden;
+        this.settings.whatsNewHidden = hidden;
+        const saved = await this.saveSettings();
+        if (!saved) this.settings.whatsNewHidden = was;
+        return saved;
+      },
     });
   }
 
-  async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+  /** Says so if saving fails, and whether it worked. */
+  async saveSettings(): Promise<boolean> {
+    try {
+      await this.saveData(this.settings);
+      return true;
+    } catch (error) {
+      console.error('[Task Trellis] saving the plugin settings failed', error);
+      notice(this.app, 'Task Trellis: could not save the plugin settings, so your last change may be lost when Obsidian closes. Check that the vault can be written, then try again.', { alert: true });
+      return false;
+    }
+  }
+
+  /** For a command or menu, where nothing else would say that opening the board failed. */
+  private openBoardOrSay(file: TFile, leaf?: WorkspaceLeaf): void {
+    void (leaf ? this.openAsBoard(leaf, file) : this.openBoard(file)).catch((error: unknown) => {
+      console.error('[Task Trellis] opening a board failed', error);
+      notice(this.app, `Task Trellis: could not open the ${file.basename} board. Check that its note still exists, then try again.`, { alert: true });
+    });
   }
 
   /** Boards folder or excluded folders changed. Waits for typing in the settings to pause before re-reading the vault. */
@@ -252,6 +274,7 @@ export default class TaskTrellisPlugin extends Plugin {
     if (errors.length > 0) return errors;
     const frontmatter = changedFrontmatter(draft, config);
     const retagUndo = renames.size ? await this.retagColumns(config.slug, renames) : null;
+    if (retagUndo === 'failed') return ['Some tasks could not be retagged. The board configuration was not changed. Check the affected notes and try again.'];
     try {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
         if (fm[FM.columnWidths] !== undefined) {
@@ -270,7 +293,7 @@ export default class TaskTrellisPlugin extends Plugin {
     return [];
   }
 
-  private async retagColumns(slug: string, renames: Map<string, string>): Promise<UndoAction | null> {
+  private async retagColumns(slug: string, renames: Map<string, string>): Promise<UndoAction | 'failed' | null> {
     const tasks = this.index.all().filter((t) => renames.has(t.placements[slug]?.column ?? ''));
     const edits = new Map<string, TaskEdit>();
     for (const task of tasks) {
@@ -280,7 +303,7 @@ export default class TaskTrellisPlugin extends Plugin {
     const result = await this.writer.applyEdits(tasks, edits, slug);
     if (result.skippedIds.length) {
       await result.action?.undo();
-      throw new Error('Some tasks could not be retagged. The board configuration was not changed. Check the affected notes and try again.');
+      return 'failed';
     }
     return result.action;
   }
@@ -367,7 +390,7 @@ export default class TaskTrellisPlugin extends Plugin {
       this.promptNewBoard();
       return;
     }
-    new BoardPicker(this.app, boards.map((b) => b.file), (file) => void this.openBoard(file)).open();
+    new BoardPicker(this.app, boards.map((b) => b.file), (file) => this.openBoardOrSay(file)).open();
   }
 
   promptNewBoard(): void {
@@ -418,10 +441,10 @@ export default class TaskTrellisPlugin extends Plugin {
       await this.openBoard(file);
     } catch (error) {
       console.error('[Task Trellis] opening the new board failed', error);
-      new Notice(`Task Trellis: created ${path}, but the board could not be opened. Open it from the boards sidebar.`);
+      notice(this.app, `Task Trellis: created ${path}, but the board could not be opened. Open it from the boards sidebar.`, { alert: true });
       return;
     }
-    if (examples) new Notice(`Task Trellis: the example board’s sample tasks are in ${examples}. Delete the note and the board when you’re done with them.`);
+    if (examples) notice(this.app, `Task Trellis: the example board’s sample tasks are in ${examples}. Delete the note and the board when you’re done with them.`);
     else new BoardSettingsModal(this.app, this, file, parseBoardConfig(name, templateFrontmatter(templateId, slug)).config, 'destination').open();
   }
 

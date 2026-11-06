@@ -29,7 +29,9 @@ it.each(['partial', 'board-write', 'success'])('column rename handles %s without
     expect(await plugin.saveBoardSettings(board as never, config, draft)).toEqual([]);
     expect(content).toContain('#tt/house/in-progress/10'); expect(writeBoard).toHaveBeenCalledOnce();
   } else {
-    await expect(plugin.saveBoardSettings(board as never, config, draft)).rejects.toThrow();
+    // Partly retagged tasks are put back, and the form says why; a failed write is the form's general error.
+    if (mode === 'partial') expect(await plugin.saveBoardSettings(board as never, config, draft)).toEqual(['Some tasks could not be retagged. The board configuration was not changed. Check the affected notes and try again.']);
+    else await expect(plugin.saveBoardSettings(board as never, config, draft)).rejects.toThrow();
     expect(content).toBe(raw + '\n');
     if (mode === 'partial') expect(writeBoard).not.toHaveBeenCalled();
   }

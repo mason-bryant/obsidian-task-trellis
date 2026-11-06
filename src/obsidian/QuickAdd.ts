@@ -144,7 +144,7 @@ export class QuickAdd {
       if (!await save(line)) recoverDraft(this.app, line, save);
     } catch (error) {
       console.error('[Task Trellis] add failed', error);
-      notice(this.plugin.app, 'Task Trellis: could not save the task. Your draft has been kept.', { alert: true });
+      notice(this.plugin.app, line ? 'Task Trellis: could not save the task. Your draft has been kept; check the destination, then try again.' : 'Task Trellis: could not open the task editor, so nothing was added. Try again.', { alert: true });
       if (line) recoverDraft(this.app, line, save);
     }
   }
@@ -180,7 +180,7 @@ export class QuickAdd {
       if (line && !await this.add(line, this.defaultDestination(), null)) recoverDraft(this.app, line, (draft) => this.add(draft, this.defaultDestination(), null));
     } catch (error) {
       console.error('[Task Trellis] add failed', error);
-      notice(this.plugin.app, 'Task Trellis: could not save the task. Your draft has been kept.', { alert: true });
+      notice(this.plugin.app, line ? 'Task Trellis: could not save the task. Your draft has been kept; check the destination, then try again.' : 'Task Trellis: could not open the task editor, so nothing was added. Try again.', { alert: true });
       if (line) recoverDraft(this.app, line, (draft) => this.add(draft, this.defaultDestination(), null));
     }
   }
@@ -327,7 +327,7 @@ export class QuickAdd {
     if (dest.kind === 'daily') {
       const daily = this.dailyNotes();
       if (!daily) {
-        notice(this.plugin.app, 'Task Trellis: turn on the core Daily notes plugin, or choose a specific note for new tasks.', { alert: true });
+        notice(this.plugin.app, 'Task Trellis: the task wasn’t added, because the core Daily notes plugin is off. Turn it on, or choose a specific note for new tasks.', { alert: true });
         return null;
       }
       let createdPath: string | null = null;
@@ -335,7 +335,7 @@ export class QuickAdd {
       try {
         const file = await daily.getDailyNote();
         if (!file) {
-          notice(this.plugin.app, 'Task Trellis: couldn’t open today’s daily note. Check the Daily notes settings.', { alert: true });
+          notice(this.plugin.app, 'Task Trellis: the task wasn’t added, because today’s daily note couldn’t be opened. Check the Daily notes settings.', { alert: true });
           return null;
         }
         return { file, created: createdPath === file.path };
@@ -345,7 +345,7 @@ export class QuickAdd {
     }
 
     if (!dest.note.trim()) {
-      notice(this.plugin.app, 'Task Trellis: choose the note new tasks go to, in the plugin or board settings.', { alert: true });
+      notice(this.plugin.app, 'Task Trellis: the task wasn’t added, because no note is chosen for new tasks. Choose one in the plugin or board settings.', { alert: true });
       return null;
     }
     const path = normalizePath(dest.note.endsWith('.md') ? dest.note : `${dest.note}.md`);

@@ -93,6 +93,18 @@ it('says a new filter warning from the settings dialog, but not one already show
   expect(form.querySelector('.tt-filter-warnings')!.getAttribute('role')).toBeNull();
 });
 
+it('says a new board warning once, and not again on a redraw', async () => {
+  const warned = (warnings: string[]) => renderBoard(root, buildBoard([paint], config, today, () => undefined), host, { warnings, info: [] });
+  warned(['Slug “house” is also used by Garden.']);
+  await later();
+  expect(region(root).textContent).toBe('Slug “house” is also used by Garden.');
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(region(root).textContent).toBe('');
+  warned(['Slug “house” is also used by Garden.']);
+  await later();
+  expect(region(root).textContent).toBe('');
+});
+
 it('says a notice from the active board, as an alert for an error, and adds nothing without one', async () => {
   notice(activeBoard(root) as unknown as App, 'Task Trellis: could not move the task. Check that its note can be edited, then try again.', { alert: true });
   await later();

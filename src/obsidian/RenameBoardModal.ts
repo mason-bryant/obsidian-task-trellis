@@ -1,4 +1,5 @@
-import { Modal, Notice, setIcon, type App, type TFile } from 'obsidian';
+import { Modal, setIcon, type App, type TFile } from 'obsidian';
+import { notice } from './notice.ts';
 import { BoardTagRename, type RenamePlan } from './BoardTagRename.ts';
 import { boardNameError } from '../core/boardName.ts';
 import { parseBoardConfig } from '../core/boardConfig.ts';
@@ -55,7 +56,7 @@ export class RenameBoardModal extends Modal {
           if (!plan) throw new Error('Preview the changes first.');
           const path = await migration.apply(plan);
           this.onRenamed?.(plan.newSlug);
-          new Notice(`Task Trellis: board and tags renamed. Recovery copy: ${path}`, 10000);
+          notice(this.app, `Task Trellis: board and tags renamed. Recovery copy: ${path}`, { duration: 10000 });
         },
       } : undefined);
   }

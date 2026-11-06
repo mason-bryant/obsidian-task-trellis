@@ -26,7 +26,7 @@ export function recoverDraft(app: App, value: string, save: (value: string) => P
     }, (error: unknown) => {
       header.setBusy(false);
       console.error('[Task Trellis] retry failed', error);
-      notice(app, 'Task Trellis: could not save. Your draft is still available.', { alert: true, region: modal.contentEl });
+      notice(app, 'Task Trellis: could not save the task. Your draft is still here; check the destination, then try again.', { alert: true, region: modal.contentEl });
     });
   }, () => modal.close(), 'Retry saving');
   modal.onClose = () => chrome.destroy();

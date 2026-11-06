@@ -87,6 +87,16 @@ it('Task not saved can’t be dismissed during a retry, keeps the draft when it 
   modal.modalEl.remove();
 });
 
+it('a restore dialog that can’t read its records still has an X, and says what happened', async () => {
+  const service = { history: async () => { throw new Error('Check the Task Trellis recovery folder.'); } } as unknown as BoardTagRename;
+  const modal = new RestoreBoardRenameModal({} as App, service);
+  document.body.append(modal.contentEl);
+  modal.open();
+  await vi.waitFor(() => expect(modal.modalEl.querySelector('.tt-editor-cancel')).not.toBeNull());
+  expect(modal.contentEl.textContent).toContain('Could not read the recovery records, so nothing was restored.');
+  modal.contentEl.remove();
+});
+
 it('a restore being written ignores close until it finishes', async () => {
   let restored!: () => void;
   const record = { oldSlug: 'house', newSlug: 'home', created: '2026-10-28', status: 'applied', changes: [{ path: 'Tasks.md' }] };
@@ -94,7 +104,7 @@ it('a restore being written ignores close until it finishes', async () => {
     history: async () => [{ path: 'Task Trellis recovery/1.json', record }],
     restore: vi.fn(() => new Promise<void>((resolve) => { restored = resolve; })),
   } as unknown as BoardTagRename;
-  const modal = new RestoreBoardRenameModal({} as App, service);
+  const modal = new RestoreBoardRenameModal({ workspace: { getActiveViewOfType: () => null } } as unknown as App, service);
   modal.open();
   await vi.waitFor(() => expect(modal.modalEl.querySelector('.tt-editor-save')).not.toBeNull());
   modal.modalEl.querySelector<HTMLButtonElement>('.tt-editor-save')!.click();

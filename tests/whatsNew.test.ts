@@ -47,10 +47,10 @@ describe('what’s new', () => {
 });
 
 describe('what’s new window', () => {
-  function window(update?: { hidden: boolean }, setting: { checked?: boolean; available?: boolean; worked?: boolean } = {}) {
+  function window(update?: { hidden: boolean }, setting: { checked?: boolean; available?: boolean; worked?: boolean; hiddenSaves?: boolean } = {}) {
     const body = document.createElement('div'), header = document.createElement('div');
     document.body.replaceChildren(header, body);
-    const setHidden = vi.fn(), tryFeature = vi.fn(), close = vi.fn();
+    const setHidden = vi.fn(async (_hidden: boolean) => setting.hiddenSaves ?? true), tryFeature = vi.fn(), close = vi.fn();
     const save = vi.fn(async (_checked: boolean) => setting.worked ?? true);
     renderWhatsNew(body, header, {
       features: update ? unseenFeatures('1.3.0', '1.4.0') : FEATURES, tryFeature,
@@ -113,6 +113,13 @@ describe('what’s new window', () => {
     expect(window(update, { checked: true }).scrollBox.checked).toBe(true);
   });
 
+  it('puts Don’t show this again back when saving it fails', async () => {
+    const ui = window({ hidden: false }, { hiddenSaves: false });
+    ui.box!.click();
+    expect(ui.setHidden).toHaveBeenCalledWith(true);
+    await vi.waitFor(() => expect(ui.box!.checked).toBe(false));
+  });
+
   it('puts the checkbox back when saving fails', async () => {
     const off = window(undefined, { worked: false });
     off.scrollBox.click();
@@ -157,12 +164,12 @@ describe('what’s new on the board', () => {
 describe('what’s new in the plugin', () => {
   function plugin(settings: Record<string, unknown>) {
     const p = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
-    Object.assign(p, { app: {}, manifest: { id: 'task-trellis', version: '1.4.0' }, settings: normalizeSettings(settings), stopped: false, saveSettings: vi.fn(async () => undefined) });
+    Object.assign(p, { app: {}, manifest: { id: 'task-trellis', version: '1.4.0' }, settings: normalizeSettings(settings), stopped: false, saveSettings: vi.fn(async () => true) });
     const openWhatsNew = vi.fn<(features: Feature[], update: NonNullable<WhatsNewOptions['update']>) => void>();
     return { p, openWhatsNew, show: () => (p as unknown as { showWhatsNew(view: unknown): void }).showWhatsNew({ openWhatsNew }) };
   }
 
-  it('shows once per update on the board in view, and never once Don’t show this again is checked', () => {
+  it('shows once per update on the board in view, and never once Don’t show this again is checked', async () => {
     const { p, show, openWhatsNew } = plugin({ whatsNewSeen: '1.3.0' });
     show(); show();
     expect(openWhatsNew).toHaveBeenCalledOnce();
@@ -170,9 +177,13 @@ describe('what’s new in the plugin', () => {
     const [features, update] = openWhatsNew.mock.calls[0]!;
     expect(features.map((f) => f.version)).toEqual(['1.4.0', '1.4.0', '1.4.0']);
     expect([update.version, update.hidden]).toEqual(['1.4.0', false]);
-    update.setHidden(true);
+    await update.setHidden(true);
     expect(p.settings.whatsNewHidden).toBe(true);
     expect(p.saveSettings).toHaveBeenCalledTimes(2);
+    // A save that fails puts it back, so it matches what's saved.
+    vi.mocked(p.saveSettings).mockResolvedValueOnce(false);
+    expect(await update.setHidden(false)).toBe(false);
+    expect(p.settings.whatsNewHidden).toBe(true);
 
     const hidden = plugin({ whatsNewSeen: '1.3.0', whatsNewHidden: true });
     hidden.show();

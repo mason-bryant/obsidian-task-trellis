@@ -97,7 +97,8 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Force a failed destination, a failed write, a stale snapshot and a partly successful bulk edit, with synthetic tasks or a disposable vault.
 - No lost input, false success, spinner left running, duplicate submission or card preview left in the wrong place.
 - Edit a note before using Undo, and check that the edit survives.
-- A successful save followed by failed navigation, and a retry after a failure.
+- A successful save followed by failed navigation, and a retry after a failure. Task not saved can't be dismissed during a retry, and a successful retry from a column's command or the boards sidebar says where the task went.
+- A card's source link when its note has gone, and a failed save of the plugin's own settings: each says so, and Don't show this again goes back.
 - Tests: [saveReliability](../../tests/saveReliability.test.ts), [TaskWriter](../../tests/TaskWriter.test.ts), [BoardView](../../tests/BoardView.test.ts), [boardTagRename](../../tests/boardTagRename.test.ts) (the rename service), [boardRename](../../tests/boardRename.test.ts) (the board name editor), [NotePopup](../../tests/NotePopup.test.ts) and [ShortcutActions](../../tests/ShortcutActions.test.ts) (saved, then the board fails to open).
 
 ## Accessibility

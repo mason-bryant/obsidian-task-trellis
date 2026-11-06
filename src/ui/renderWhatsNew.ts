@@ -13,8 +13,8 @@ export type WhatsNewOptions = {
     version: string;
     /** Whether Don’t show this again starts checked. */
     hidden: boolean;
-    /** Saves Don’t show this again as soon as it changes. */
-    setHidden(hidden: boolean): void;
+    /** Saves Don’t show this again as soon as it changes, and resolves to whether that worked. */
+    setHidden(hidden: boolean): Promise<boolean>;
   };
 };
 
@@ -64,7 +64,10 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
   if (update) {
     const hide = node('label', 'tt-whats-new-hide');
     const box = node('input'); box.type = 'checkbox'; box.checked = update.hidden;
-    box.addEventListener('change', () => update.setHidden(box.checked));
+    box.addEventListener('change', () => {
+      const hidden = box.checked;
+      void update.setHidden(hidden).then((saved) => { if (!saved) box.checked = !hidden; });
+    });
     hide.append(box, node('span', '', 'Don’t show this again'));
     body.append(node('p', 'tt-help', 'The What’s new button on a board’s toolbar shows this at any time.'), hide);
   }

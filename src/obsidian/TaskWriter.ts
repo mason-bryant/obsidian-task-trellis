@@ -128,7 +128,7 @@ export class TaskWriter {
     const missed = await this.rewrite(task.path, [task], (t) => (written = this.toggleLine(t.raw, t.path)), changes);
     const undo = this.undoFor(changes);
     if (undo) onUndo?.(undo);
-    if (missed > 0) notice(this.app, 'Task Trellis: that task changed since the board loaded. Try again.', { alert: true });
+    if (missed > 0) notice(this.app, 'Task Trellis: that task changed since the board loaded, so nothing was saved. Try again.', { alert: true });
     return missed > 0 ? null : written;
   }
 
@@ -220,7 +220,10 @@ export class TaskWriter {
    */
   async openSource(task: BoardTask, newTab = false): Promise<void> {
     const file = this.app.vault.getFileByPath(task.path);
-    if (!file) return;
+    if (!file) {
+      notice(this.app, `Task Trellis: could not find ${task.path}, so it wasn’t opened. The note may have been moved or deleted.`, { alert: true });
+      return;
+    }
     const { workspace } = this.app;
     const existing = newTab ? null : this.leafShowing(task.path);
     if (!existing) {

@@ -267,7 +267,7 @@ export class BoardView extends FileView {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[FM.hideCompletedSubtasks] = !show; });
     } catch (error) {
       console.error('[Task Trellis] saving completed subtasks failed', error);
-      this.alert(`Task Trellis: could not ${show ? 'show' : 'hide'} completed subtasks. Check that the board note can be edited, then try again.`);
+      this.alert(`Task Trellis: could not ${show ? 'show' : 'hide'} completed subtasks, so nothing changed. Check that the board note can be edited, then try again.`);
     }
   }
 
@@ -303,7 +303,7 @@ export class BoardView extends FileView {
             else delete fm[FM.columnWidths];
           });
         } catch (error) {
-          this.alert('Task Trellis: could not save column widths. The previous widths have been restored.');
+          this.alert('Task Trellis: could not save column widths. The previous widths have been restored; check that the board note can be edited, then try again.');
           throw error;
         }
       },
@@ -388,7 +388,7 @@ export class BoardView extends FileView {
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action, ids: [task.id] };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
-      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); this.alert(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task. Check that its note can be edited, then try again.`); }),
+      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); this.alert(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task, so nothing changed. Check that its note can be edited, then try again.`); }),
       onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); this.alert('Task Trellis: could not open the task editor, so nothing was changed. Check that the Tasks plugin is enabled, or open the task from its note link.'); }) : this.openSource(task, false),
       onOpenSource: (task, newTab) => this.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
@@ -587,7 +587,7 @@ export class BoardView extends FileView {
         await this.plugin.index.refresh([move.parent.path]);
       } catch (error) {
         console.error('[Task Trellis] subtask reorder failed', error);
-        this.alert('Task Trellis: could not reorder the subtasks. Check that the note can be edited, then try again.');
+        this.alert('Task Trellis: could not reorder the subtasks, so nothing changed. Check that the note can be edited, then try again.');
       }
       this.renderWhenIdle();
     });
@@ -631,7 +631,7 @@ export class BoardView extends FileView {
       this.renderWhenIdle();
     } catch (err) {
       console.error('[Task Trellis] write failed', err);
-      this.alert('Task Trellis: could not move the task. Check that its note can be edited, then try again.');
+      this.alert('Task Trellis: could not move the task, so it’s back where it was. Check that its note can be edited, then try again.');
       for (const id of edits.keys()) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
       this.renderWhenIdle();
     }

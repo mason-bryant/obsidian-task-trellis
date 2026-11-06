@@ -1,4 +1,5 @@
-import { MarkdownView, Modal, Notice, Scope, setIcon, type App, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { MarkdownView, Modal, Scope, setIcon, type App, type TFile, type WorkspaceLeaf } from 'obsidian';
+import { notice } from './notice.ts';
 import { isComposing } from '../ui/dom.ts';
 import { claimPopupEditor, createPopupLeaf, guardPopupClose } from './popupEditor.ts';
 
@@ -132,9 +133,9 @@ export class NotePopup extends Modal {
         this.status!.textContent = savedSuccessfully
           ? 'Your note was saved, but the tab could not open. Try again, or close this editor.'
           : 'Could not save. Your text is still here. Close or open in a tab again to retry.';
-        new Notice(savedSuccessfully
-          ? 'Task Trellis: could not open the note in a tab. Your editor is still open.'
-          : 'Task Trellis: could not save the note. Your editor is still open.');
+        notice(this.app, savedSuccessfully
+          ? 'Task Trellis: your note was saved, but the tab could not open. Your editor is still open, so try again or close it.'
+          : 'Task Trellis: could not save the note. Your text is still in the editor; close it, or open it in a tab, to try again.', { alert: true, region: this.contentEl });
       }
     } finally {
       this.saving = false;

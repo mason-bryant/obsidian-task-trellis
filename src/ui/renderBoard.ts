@@ -91,7 +91,7 @@ function disposeSubtaskReorders(root: HTMLElement): void {
 }
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 /** What each board last said in its live region, so a redraw doesn't say it again. */
-const spoken = new WeakMap<HTMLElement, { undo?: RenderHost['undo']; count?: string; result?: string; search?: string }>();
+const spoken = new WeakMap<HTMLElement, { undo?: RenderHost['undo']; count?: string; result?: string; search?: string; warnings?: string[] }>();
 const quickDisclosures = new WeakMap<HTMLElement, { scope: string; collapsed: Set<string>; all: Set<string> }>();
 /** Wait this long after typing stops before searching, so a big board doesn't redraw for every letter. */
 export const SEARCH_DELAY_MS = 150;
@@ -467,6 +467,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     if (host.undo !== said.undo && !selection.active) announce(root, host.undo.label);
   }
   said.undo = host.undo;
+  // A warning's note isn't a live region, so say a new one.
+  for (const text of notes.warnings) if (!said.warnings?.includes(text)) announce(root, text);
+  said.warnings = notes.warnings;
   if (search && model.search !== said.search && model.search) {
     announce(root, model.total ? `${model.total} ${model.total === 1 ? 'card matches' : 'cards match'} “${model.search}”.` : `No tasks match “${model.search}”.`);
   }
