@@ -46,6 +46,16 @@ it('a redraw gives focus back to the row toggle, checkbox, scheduling arrow, Und
   }
 });
 
+it('a redraw gives focus back to a card’s source link, and to the card from a control with no key of its own', () => {
+  key(`source:${paint.id}`).focus(); draw();
+  expect(focusedKey()).toBe(`source:${paint.id}`);
+  card(paint).querySelector<HTMLButtonElement>('.tt-add-subtask')!.focus(); draw();
+  expect(document.activeElement).toBe(card(paint));
+  const link = document.createElement('a'); link.href = '#'; card(paint).querySelector('.tt-card-text')!.append(link);
+  link.focus(); draw();
+  expect(document.activeElement).toBe(card(paint));
+});
+
 it('focus falls back to the task\'s card when its control goes away, and Undo hands it to the restored card', () => {
   key(`move:${roofer.id}`).focus();
   tasks = [paint, walls, task('- [x] Call roofer 📅 2027-03-01 ✅ 2026-10-28', 2)]; draw();

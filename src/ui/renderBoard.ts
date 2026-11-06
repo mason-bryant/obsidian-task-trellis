@@ -205,6 +205,9 @@ export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHo
       const fallbacks = [focusKey, ...focusTask ? [`card:${focusTask}`, `subtask:${focusTask}`] : [],
         ...[...host.highlightIds ?? []].flatMap((id) => [`card:${id}`, `select-card:${id}`]), ...focusKey === 'undo' ? ['select'] : []];
       focusBoardControl(root, ...fallbacks);
+    } else if (focusTask && !focused?.closest('.tt-add-box')) {
+      // A control with no key of its own, such as a link in a card's text. An open box finds its own focus.
+      focusBoardControl(root, `card:${focusTask}`, `subtask:${focusTask}`, `select-card:${focusTask}`);
     }
   } finally {
     redrawHadFocus = null;
@@ -988,6 +991,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (host.onMoveMenu && !task.closed) actions.append(moveMenuButton(task, model, host));
   if (subtasks.length === 0 && actions.childElementCount > 0) meta.append(actions);
   const source = el('a', 'tt-source', host.sourceLabel(task));
+  source.dataset.boardFocus = `source:${task.id}`;
   source.href = '#';
   source.title = `Open ${task.path}, line ${task.line + 1}`;
   source.addEventListener('click', (e) => {
