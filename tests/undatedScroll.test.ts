@@ -102,6 +102,26 @@ describe('a No due date column that scrolls on its own', () => {
     expect(board().scrollTop).toBe(0);
   });
 
+  it('scrolls a subtask composer clear of its pinned Add task box', async () => {
+    const viewport = Object.assign(new EventTarget(), { offsetTop: 0, height: 700 });
+    Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
+    const style = document.createElement('style');
+    style.textContent = '.tt-cell > .tt-add { position: sticky; }';
+    document.head.append(style);
+    draw();
+    board().getBoundingClientRect = rect(100, 600);
+    pane().getBoundingClientRect = rect(150, 500);
+    root.querySelectorAll<HTMLButtonElement>('.tt-add-cancel').forEach((cancel) => cancel.click());
+    pane().querySelector<HTMLElement>(':scope > .tt-add')!.getBoundingClientRect = rect(600, 40);
+    pane().querySelector<HTMLButtonElement>('.tt-add-subtask')!.click();
+    const box = pane().querySelector<HTMLElement>('.tt-card .tt-add-box')!;
+    box.getBoundingClientRect = () => rect(530 - pane().scrollTop, 100)();
+    box.querySelector<HTMLTextAreaElement>('.tt-add-input')!.dispatchEvent(new Event('input'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(box.getBoundingClientRect().bottom).toBe(592);
+    expect(board().scrollTop).toBe(0);
+  });
+
   it('scrolls itself while a card is held near its edge, and the board anywhere else', () => {
     let tick: FrameRequestCallback = () => undefined;
     const frames = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { tick = callback; return 1; });
