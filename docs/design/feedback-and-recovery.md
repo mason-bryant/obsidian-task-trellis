@@ -12,7 +12,7 @@
 ### Previews, writes and Undo
 
 - Notes are the source of truth. A card that moves as soon as it's dropped is a preview, not proof that the write worked. Previews of skipped and failed writes are removed, and successful ones are reconciled with the index. A local action doesn't rebuild the whole vault's index.
-- Writes check the task's snapshot before changing a note, including duplicate task lines and edits from sync. When a bulk edit partly succeeds, the result reports which tasks were updated and which were skipped.
+- Writes check the task's snapshot before changing a note, including duplicate task lines and edits from sync. When a bulk edit partly succeeds, the result says how many were updated, and names the tasks that were skipped, up to three and then how many more.
 - Undo restores only writes that succeeded, and never overwrites newer edits: a note that changed after the action is skipped as a whole. There's no history to step back through; the board offers its latest action.
 - Renaming a board's tags is a bigger operation, with a preview of the affected notes and a recovery copy. Keep both, rather than treating it like a title edit.
 - Removing a column in board settings doesn't rewrite its tasks, so adding it back undoes it. Before saving, Columns in the Setup tab says how many open cards the column shows and which column they'll show in, and keeps that note current as other columns are renamed.

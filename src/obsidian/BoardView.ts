@@ -28,6 +28,12 @@ export const VIEW_TYPE_BOARD = 'task-trellis-board';
 
 const STALENESS_CHECK_MS = 2_000;
 
+/** Up to three tasks by name, then how many more, for a status that says which tasks it means. */
+function namedTasks(tasks: BoardTask[]): string {
+  const shown = tasks.slice(0, 3).map((task) => `“${task.text.length > 40 ? `${task.text.slice(0, 39)}…` : task.text}”`);
+  return tasks.length > 3 ? `${shown.join(', ')} and ${tasks.length - 3} more` : shown.join(', ');
+}
+
 /** A board note shown as a board. The note's front matter is the board's configuration. */
 export class BoardView extends FileView {
   allowNoFile = false;
@@ -502,7 +508,7 @@ export class BoardView extends FileView {
       // Label changes leave subtask cards alone: subtasks don't have labels.
       const unlabeled = snapshots.filter((task) => !edits.has(task.id));
       const message = [`${result.appliedIds.length} updated`,
-        ...skipped.size ? [`${skipped.size} skipped because ${skipped.size === 1 ? 'it' : 'they'} changed or could not be saved. Clear and reselect to retry`] : [],
+        ...skipped.size ? [`${skipped.size} skipped because ${skipped.size === 1 ? 'it' : 'they'} changed or could not be saved (${namedTasks(snapshots.filter((task) => skipped.has(task.id)))}). Clear and reselect to retry`] : [],
         ...unlabeled.length ? [`${unlabeled.length === 1 ? '1 subtask' : `${unlabeled.length} subtasks`} left unchanged, because subtasks don’t have labels`] : []].join('; ') + '.';
       this.render();
       return { tasks: [...(result.writtenTasks ?? []), ...tasks.filter((task) => skipped.has(task.id)), ...unlabeled], message };

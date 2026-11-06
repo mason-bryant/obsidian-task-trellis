@@ -168,6 +168,22 @@ it('bulk edits skip a changed selected line instead of modifying its replacement
   expect(f.content.split('\n')[1]).toContain('#tt/house/label/red');
 });
 
+it('names the tasks a bulk edit skipped, up to three and then how many more', async () => {
+  const lines = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', `A task with a name much longer than the status line has room for`];
+  const f = fixture(lines.map((name) => `- [ ] ${name}`).join('\n') + '\n'); await f.ready();
+  vi.spyOn(f.index, 'currentSnapshot').mockImplementation((task) => task);
+  const tasks = f.index.all();
+  type Tasks = typeof tasks;
+  const view = f.view as unknown as { applyBulk(tasks: Tasks, action: import('../src/core/bulkTriage.ts').BulkAction, slug: string): Promise<{ message: string }> };
+  const run = async (skip: Tasks) => {
+    vi.spyOn(f.plugin.writer, 'applyEdits').mockResolvedValueOnce({ appliedIds: [], skippedIds: skip.map((t) => t.id), failedPaths: [] } as never);
+    return (await view.applyBulk(tasks, { kind: 'priority', priority: 'high' }, 'house')).message;
+  };
+  expect(await run(tasks.slice(0, 1))).toBe('0 updated; 1 skipped because it changed or could not be saved (“Alpha”). Clear and reselect to retry.');
+  expect(await run(tasks.slice(0, 4))).toContain('4 skipped because they changed or could not be saved (“Alpha”, “Beta”, “Gamma” and 1 more).');
+  expect(await run(tasks.slice(5))).toContain('(“A task with a name much longer than the…”)');
+});
+
 describe('sorting by due date when it can’t move everything', () => {
   const original = '- [ ] Late 📅 2026-10-30 #tt/house/backlog/100\n- [ ] Early 📅 2026-10-27 #tt/house/backlog/200\n- [ ] Middle 📅 2026-10-28 #tt/house/backlog/300\n';
   const setup = async () => {
