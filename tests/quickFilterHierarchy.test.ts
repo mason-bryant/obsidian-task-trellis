@@ -182,7 +182,7 @@ describe('quick-filter context UI', () => {
     f.button('Select').click();
     expect(f.button('Select Paint kitchen').disabled).toBe(true);
     expect(f.root.querySelector('.tt-filter-match-summary')?.textContent).toContain('Call contractor');
-    f.button('Select all 1 matching tasks').click();
+    f.button('Select all 1 matching task').click();
     expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
     f.button('Clear').click(); f.button('Select Doing column').click();
     expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('0 selected');
@@ -209,7 +209,7 @@ describe('quick-filter context UI', () => {
     const f = ui(model([p, c], [overdue], { 'include-tags': ['work'] }));
     f.button('Select').click();
     expect(f.root.querySelector<HTMLButtonElement>(`[data-id="${c.id}"] .tt-select-card`)!.disabled).toBe(false);
-    f.button('Select all 1 matching tasks').click();
+    f.button('Select all 1 matching task').click();
     expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
   });
 

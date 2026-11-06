@@ -140,12 +140,12 @@ describe('board settings draft', () => {
     draft.weekHorizon = '-1';
     draft.filter.items.push({ kind: 'property', key: '', condition: 'matches', values: ['x'] }, { kind: 'property', key: 'status', condition: 'matches', values: [] });
     expect(draftToFrontmatter(draft, original).errors).toEqual([
-      'Two columns are both named "backlog".',
-      'Column "!!!" needs a name with letters or numbers.',
+      'Two columns are both named “backlog”.',
+      'Column “!!!” needs a name with letters or numbers.',
       'Filter 3: Enter a property name or remove this filter.',
       'Filter 4: Add at least one value to match.',
       'Due now window must be a whole number from 0 to 365.',
-      'Week rows must be a whole number from 0 to 52.',
+      'Future week rows must be a whole number from 0 to 52.',
     ]);
   });
 

@@ -246,7 +246,7 @@ export class BoardView extends FileView {
     if (this.model.total === 0) {
       const missing = this.missingFilterKeys();
       if (missing.length > 0) {
-        this.board.warnings.push(`No note has a property named ${missing.map((k) => `"${k}"`).join(', ')}, so filter-properties matches nothing.`);
+        this.board.warnings.push(`No note has a property named ${missing.map((k) => `“${k}”`).join(', ')}, so filter-properties matches nothing.`);
       }
     }
     renderBoard(this.contentEl, this.model, this.host(), { warnings: this.board.warnings, info });
@@ -502,7 +502,7 @@ export class BoardView extends FileView {
       // Label changes leave subtask cards alone: subtasks don't have labels.
       const unlabeled = snapshots.filter((task) => !edits.has(task.id));
       const message = [`${result.appliedIds.length} updated`,
-        ...skipped.size ? [`${skipped.size} skipped because they changed or could not be saved. Clear and reselect to retry`] : [],
+        ...skipped.size ? [`${skipped.size} skipped because ${skipped.size === 1 ? 'it' : 'they'} changed or could not be saved. Clear and reselect to retry`] : [],
         ...unlabeled.length ? [`${unlabeled.length === 1 ? '1 subtask' : `${unlabeled.length} subtasks`} left unchanged, because subtasks don’t have labels`] : []].join('; ') + '.';
       this.render();
       return { tasks: [...(result.writtenTasks ?? []), ...tasks.filter((task) => skipped.has(task.id)), ...unlabeled], message };
@@ -587,7 +587,7 @@ export class BoardView extends FileView {
         await this.plugin.index.refresh([move.parent.path]);
       } catch (error) {
         console.error('[Task Trellis] subtask reorder failed', error);
-        this.alert('Task Trellis: could not reorder the subtasks. Refresh the board and check that the note can be edited, then try again.');
+        this.alert('Task Trellis: could not reorder the subtasks. Check that the note can be edited, then try again.');
       }
       this.renderWhenIdle();
     });

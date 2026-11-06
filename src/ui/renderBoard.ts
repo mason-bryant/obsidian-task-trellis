@@ -474,7 +474,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       b.disabled = selection.busy; b.onclick = action; bar.append(b); return b;
     };
     const matching = triageCards(model, display.column);
-    button(`Select all ${matching.length}`, 'select-all', () => { selection.add(matching); redraw(); }).setAttribute('aria-label', `Select all ${matching.length} matching tasks`);
+    button(`Select all ${matching.length}`, 'select-all', () => { selection.add(matching); redraw(); }).setAttribute('aria-label', `Select all ${matching.length} matching ${matching.length === 1 ? 'task' : 'tasks'}`);
     button('Clear', 'select-clear', () => { selection.clear(); redraw(); }).setAttribute('aria-label', 'Clear selection');
     const actions = el('div', 'tt-bulk-actions'); bar.append(actions);
     for (const [kind, label] of [['move', 'Move'], ['due', 'Due date'], ['labels', 'Labels'], ['priority', 'Priority']] as const) {
@@ -1094,7 +1094,7 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   const labels = model.config.labels.filter((label) => taskLabels(task.raw, model.config.slug).includes(label.id));
   if (labels.length) c.prepend(labelMarks(labels, model.config.labelShape));
   const children = model.subtasks[task.id]?.length ?? 0;
-  if (children) c.append(el('span', 'tt-selection-detail', `${children} subtasks`));
+  if (children) c.append(el('span', 'tt-selection-detail', children === 1 ? '1 subtask' : `${children} subtasks`));
   if (model.quickContext?.branches.has(task.id)) appendMatchingSummary(c, task, model);
   c.addEventListener('click', (event) => {
     if ((event.metaKey || event.ctrlKey) && (event.target as Element).closest('a')) return;

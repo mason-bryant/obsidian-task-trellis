@@ -10,7 +10,7 @@ export function destinationAdvice(config: BoardConfig, fallback: NewTaskDestinat
   const destination = destinationFor(config, fallback);
   if (destination.kind === 'daily') return context.dailyAvailable
     ? ['New tasks go to today’s daily note. Its properties and the task’s tags must satisfy this board’s filters.']
-    : ['Daily notes is disabled. Enable it in Obsidian’s core plugins, or choose a specific note below.'];
+    : ['Daily notes is disabled. Enable it in Obsidian’s core plugins, or choose a specific note above.'];
   if (!destination.note.trim()) return ['Choose a note path, such as Tasks/Inbox.md, before adding your first task.'];
   const path = destination.note.endsWith('.md') ? destination.note : `${destination.note}.md`;
   if (context.excluded(path)) return ['This destination is excluded from indexing. Choose a note outside the boards folder and plugin-wide excluded folders.'];

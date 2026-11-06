@@ -8,7 +8,7 @@ export type SubtaskReorder = { parent: BoardTask; siblings: BoardTask[]; taskId:
 /** Move an intact Markdown block between direct sibling tasks. Refuse uncertain list structure. */
 export function reorderSubtaskBlocks(content: string, parent: number, siblings: number[], source: number, before: number | null): { content: string; line: number } {
   const lines = content.split(/\r?\n/), endings = content.match(/\r?\n/g) ?? [];
-  const invalid = () => { throw new Error('The subtask list changed or has an ambiguous structure. Refresh the board and try again.'); };
+  const invalid = () => { throw new Error('The subtask list changed or has an ambiguous structure. Try again once the board has updated.'); };
   if (!Number.isInteger(parent) || !lines[parent] || !parseTaskLine(lines[parent]) || siblings.length < 2 ||
     !siblings.includes(source) || (before !== null && !siblings.includes(before))) return invalid();
   const first = siblings[0]!;

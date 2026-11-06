@@ -50,7 +50,7 @@ export class BoardTagRename {
     const occupied = this.app.vault.getAbstractFileByPath(targetPath);
     if (occupied && occupied !== file) throw new Error('A note or folder with that name already exists.');
     const pending = (await this.history()).find(({ record }) => record.status === 'prepared' || record.status === 'needs-recovery');
-    if (pending) throw new Error(`Finish or restore the earlier rename first using “Restore board rename”: ${pending.path}`);
+    if (pending) throw new Error(`Finish or restore the earlier rename first using Task Trellis: Restore board rename: ${pending.path}`);
     const original = await this.app.vault.read(file);
     const oldSlug = parseBoardConfig(file.basename, frontmatter(original).values).config.slug;
     const newSlug = migrationSlug(name);
@@ -148,7 +148,7 @@ export class BoardTagRename {
         try { await this.saveRecord(path, record); } catch { /* The original prepared journal is already durable. */ }
       }
       throw new Error(backupSaved
-        ? `${record.status === 'restored' ? 'Rename failed and was restored.' : committed ? 'Board tags changed, but cleanup or the filename rename was interrupted.' : 'Rename was interrupted.'} ${record.problem} Recovery copy: ${path}. Use “Restore board rename” to review recovery.`
+        ? `${record.status === 'restored' ? 'Rename failed and was restored.' : committed ? 'Board tags changed, but cleanup or the filename rename was interrupted.' : 'Rename was interrupted.'} ${record.problem} Recovery copy: ${path}. Use Task Trellis: Restore board rename to review recovery.`
         : `No notes changed: could not save the recovery copy. ${record.problem}`);
     } finally { this.busy = false; }
   }

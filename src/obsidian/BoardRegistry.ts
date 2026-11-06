@@ -31,7 +31,7 @@ export class BoardRegistry {
     const { config, warnings, slugMissing } = parseBoardConfig(file.basename, fm);
     const twins = this.boards().filter((b) => b.file !== file && b.config.slug === config.slug);
     if (twins.length > 0) {
-      warnings.push(`Slug "${config.slug}" is also used by ${twins.map((b) => b.file.basename).join(', ')}; the boards share placement tags.`);
+      warnings.push(`Slug “${config.slug}” is also used by ${twins.map((b) => b.file.basename).join(', ')}; the boards share placement tags.`);
     }
     return { file, config, warnings, slugMissing };
   }
