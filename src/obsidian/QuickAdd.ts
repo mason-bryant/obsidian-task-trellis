@@ -78,7 +78,7 @@ export class QuickAdd {
   }
 
   /** From a board cell: the cell's column, the row's drop date, at the top of the cell, with the labels picked in its composer. */
-  async addFromBoard(model: BoardModel, target: { rowId: string; columnId: string }, text: string, detailed: boolean, labels: string[] = []): Promise<boolean> {
+  async addFromBoard(model: BoardModel, target: { rowId: string; columnId: string }, text: string, detailed: boolean, labels: string[] = [], saidOnRetry?: string): Promise<boolean> {
     const { config } = model;
     const fields: NewTaskFields = {
       due: model.rows.find((r) => r.id === target.rowId)?.dropDate ?? null,
@@ -91,7 +91,13 @@ export class QuickAdd {
     };
     const line = detailed ? await this.compose(text, fields) : text.trim() ? buildNewTaskLine(text, fields) : null;
     if (!line) return false;
-    const save = (draft: string) => this.add(draft, destinationFor(config, this.defaultDestination()), config, model);
+    // A retry works from the board as it is then, since the failed try may have renumbered cards.
+    let retrying = false;
+    const save = (draft: string) => {
+      const first = !retrying;
+      retrying = true;
+      return this.add(draft, destinationFor(config, this.defaultDestination()), config, first ? model : this.boardModel(config), first ? undefined : saidOnRetry);
+    };
     try {
       const saved = await save(line);
       if (!saved && detailed) recoverDraft(this.app, line, save);
@@ -109,7 +115,7 @@ export class QuickAdd {
   async addToBacklog(config: BoardConfig, text: string, detailed: boolean, labels: string[] = []): Promise<boolean> {
     const target = backlogCell(config);
     if (!target) return false;
-    return this.addFromBoard(this.boardModel(config), target, text, detailed, labels);
+    return this.addFromBoard(this.boardModel(config), target, text, detailed, labels, `Task Trellis: added to ${config.name}: ${target.place}.`);
   }
 
   /**
@@ -125,14 +131,17 @@ export class QuickAdd {
       ? model.rows.find((r) => r.kind === 'now')?.dropDate ?? null : null;
     const fields: NewTaskFields = { due, created: await this.createdDate(), placement: { slug: config.slug, column: columnId } };
     let line: string | null = null;
-    const save = (draft: string, said?: string) => this.add(draft, destinationFor(config, this.defaultDestination()), config, model, said);
+    // Each try works from the board as it is then, since a failed one may have renumbered cards.
+    const save = (draft: string) => {
+      // Done holds a task completed in the editor by its state rather than its tag.
+      const parsed = parseTaskLine(draft);
+      const said = `Task Trellis: added to ${board}: ${label(parsed ? columnOf(parsed, config) : columnId)}.`;
+      return this.add(draft, destinationFor(config, this.defaultDestination()), config, this.boardModel(config), said);
+    };
     try {
       line = await this.compose('', fields);
       if (!line) return;
-      // Done holds a task completed in the editor by its state rather than its tag.
-      const parsed = parseTaskLine(line);
-      const said = `Task Trellis: added to ${board}: ${label(parsed ? columnOf(parsed, config) : columnId)}.`;
-      if (!await save(line, said)) recoverDraft(this.app, line, save);
+      if (!await save(line)) recoverDraft(this.app, line, save);
     } catch (error) {
       console.error('[Task Trellis] add failed', error);
       notice(this.plugin.app, 'Task Trellis: could not save the task. Your draft has been kept.', { alert: true });

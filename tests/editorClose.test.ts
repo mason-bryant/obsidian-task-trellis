@@ -29,6 +29,7 @@ vi.mock('obsidian', async () => {
 });
 import { RenameBoardModal } from '../src/obsidian/RenameBoardModal.ts';
 import { RestoreBoardRenameModal } from '../src/obsidian/RestoreBoardRenameModal.ts';
+import { recoverDraft } from '../src/obsidian/recoverDraft.ts';
 import type { BoardTagRename } from '../src/obsidian/BoardTagRename.ts';
 import { TFile } from './mocks/obsidian.ts';
 import type { App } from 'obsidian';
@@ -54,6 +55,36 @@ it('a board rename being written ignores close until it finishes, then closes it
   write();
   await vi.waitFor(() => expect(app.fileManager.renameFile).toHaveBeenCalledWith(file, 'Boards/Home.md'));
   await vi.waitFor(() => expect(modal.contentEl.childElementCount).toBe(0));
+});
+
+it('Task not saved can’t be dismissed during a retry, keeps the draft when it fails, and closes itself when it works', async () => {
+  const notices = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  let settle!: { ok: (saved: boolean) => void; fail: (error: Error) => void };
+  const save = vi.fn(() => new Promise<boolean>((ok, fail) => { settle = { ok, fail }; }));
+  const modal = recoverDraft({} as App, '- [ ] Draft', save);
+  const input = modal.contentEl.querySelector<HTMLTextAreaElement>('textarea')!;
+  const retry = () => modal.modalEl.querySelector<HTMLButtonElement>('.tt-editor-save')!.click();
+  const closing = vi.spyOn(modal, 'onClose');
+
+  document.body.append(modal.modalEl);
+  retry();
+  expect(save).toHaveBeenCalledWith('- [ ] Draft');
+  expect(document.activeElement).toBe(input);
+  retry();
+  expect(save).toHaveBeenCalledTimes(1);
+  modal.close();
+  expect(closing).not.toHaveBeenCalled();
+
+  settle.fail(new Error('Read only'));
+  await vi.waitFor(() => expect(modal.modalEl.querySelector('.tt-editor-header')!.getAttribute('aria-busy')).toBe('false'));
+  expect(closing).not.toHaveBeenCalled();
+  expect(input.value).toBe('- [ ] Draft');
+
+  retry();
+  settle.ok(true);
+  await vi.waitFor(() => expect(closing).toHaveBeenCalledOnce());
+  notices.mockRestore();
+  modal.modalEl.remove();
 });
 
 it('a restore being written ignores close until it finishes', async () => {
