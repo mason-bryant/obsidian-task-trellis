@@ -78,6 +78,7 @@ Motion is brief and only decorates what already happened: a card lifting on hove
 - The save check is a fixed green, `#15803d`, or `#4ade80` in dark themes, so it stays legible in both of Obsidian's built-in themes.
 - Card color rules is in the Appearance tab because it changes how cards look, but its Priority, Labels and Due checkboxes choose what a rule matches, like a quick filter's, rather than hiding something.
 - A color rule's opacity can be set high enough that card text loses contrast. The picker warns when it would (see [accessibility](accessibility.md)) but allows it, since how strongly to tint is the user's choice.
+- A few small differences read fine and aren't worth changing: the board name is weight 650 rather than bold, and its hover text uses `--interactive-accent`; narrow settings tabs are 12px to fit; a label editor's help is .9em; a selection card's subtask count uses `--font-ui-small`; Add task, More and the subtask count hover with a stronger text color rather than a fill; and page dots and resize handles use `--interactive-accent`.
 - The shadows of a hovered card, a dragged quick-filter row and the touch drag copy are translucent black, and label color squares and the labels on cards have a faint white inner ring. Both read on any theme, so they don't come from theme variables. Cards at rest use Obsidian's `--shadow-s`.
 
 ## Where it lives

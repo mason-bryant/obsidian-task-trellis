@@ -43,6 +43,8 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
     const invalid = boardNameError(input.value);
     error.hidden = true; input.removeAttribute('aria-invalid');
     if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    // Disabling the check would drop focus to the page.
+    input.focus({ preventScroll: true });
     busy = true; input.readOnly = true; migrate.disabled = true; previewButton.disabled = true; header.setBusy(true);
     const previewing = !!migration && migrate.checked && !reviewed;
     const message = previewing ? 'Previewing tag changes…' : migrate.checked ? 'Applying changes…' : 'Saving board name…';
@@ -74,7 +76,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
     }
     catch (reason) {
       error.textContent = reason instanceof Error ? reason.message : 'Could not rename the board. Please try again.';
-      error.hidden = false; reviewed = false;
+      error.hidden = false; reviewed = false; input.focus();
       if (reason instanceof BoardNameTaken) input.setAttribute('aria-invalid', 'true');
       saveButton.setAttribute('aria-label', migrate.checked ? 'Preview tag changes' : 'Save board name');
     } finally {
@@ -118,6 +120,7 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
     const invalid = boardNameError(input.value);
     error.hidden = true; input.removeAttribute('aria-invalid');
     if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    input.focus({ preventScroll: true });
     busy = true; input.readOnly = true; header.setBusy(true, 'Duplicating board…');
     try {
       await save(input.value.trim());
@@ -190,6 +193,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
     const invalid = boardNameError(input.value);
     error.hidden = true; input.removeAttribute('aria-invalid');
     if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    input.focus({ preventScroll: true });
     busy = true; input.readOnly = true; header.setBusy(true, 'Creating board…');
     try {
       await create(input.value.trim(), chosen.id);

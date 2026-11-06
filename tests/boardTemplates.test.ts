@@ -155,6 +155,7 @@ describe('new board editor', () => {
     expect(create).toHaveBeenCalledWith('Chores', 'eisenhower');
     expect(ui.close).not.toHaveBeenCalled();
     expect(ui.body.querySelector('[role="alert"]')!.textContent).toBe('Task Trellis/Chores.md already exists. Choose another board name.');
+    expect(document.activeElement).toBe(ui.name);
     expect(ui.name.getAttribute('aria-invalid')).toBe('true');
     create.mockImplementation(async () => undefined);
     ui.save.click(); await Promise.resolve(); await Promise.resolve();
