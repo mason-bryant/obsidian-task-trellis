@@ -6,7 +6,7 @@ Write for people installing the update:
 
 - Lead with the useful changes and important fixes, grouped by user task rather than commit.
 - Describe compatibility, any migration or setup needed, and whether existing settings are preserved.
-- State the checks actually completed and material gaps. Separate automated tests, browser previews, simulator checks and native device testing. Link to the detailed test report when useful.
+- State the checks actually completed and material gaps. Separate automated tests, browser previews, simulator checks and native device testing.
 
 Use [0.1.16](0.1.16.md) as a formatting example. Do not copy its test counts or compatibility claims into a new release without checking them.
 

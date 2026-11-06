@@ -40,4 +40,6 @@ Task rules and transformations are in `src/core`, rendering and interaction in `
 
 `npm test` includes deterministic reorder stress, multi-note write/Undo safety, concurrent stale-write protection, destination guidance and color-contrast tests. These use synthetic data, not a personal vault.
 
-`npm run benchmark` measures task parsing and filtered board-model construction for 10,000 and 50,000 synthetic tasks. It prints machine details and seven measured runs after a warm-up. It does not measure DOM rendering, native app startup, disk I/O or sync. See [the test report](testing.md).
+`npm run benchmark` measures task parsing and filtered board-model construction for 10,000 and 50,000 synthetic tasks. It prints machine details and seven measured runs after a warm-up. It does not measure DOM rendering, native app startup, disk I/O or sync.
+
+Cells draw 25 cards at a time because a page's memory grows with the cards it draws. Drawing every card restarted Obsidian on an iPhone at 2,000 tasks, the icons were about half of that memory, and pages of 50 nearly doubled the cards drawn. To measure it, render `dev/harness.html?load=N` in Playwright's WebKit at 402 × 874 and 3× scale, with touch and Obsidian's mobile class, and read the WebContent process's footprint with macOS's `footprint` tool. That shows how memory grows, not the iPhone's limit or Obsidian's own use. A card with hundreds of subtasks still draws all of them, and expanding many cells at once can still draw a lot.
