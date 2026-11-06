@@ -1,4 +1,4 @@
-import { Notice } from 'obsidian';
+import { notice } from './notice.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 import { parseShortcutTask, shortcutColumn } from '../core/shortcut.ts';
 
@@ -24,17 +24,17 @@ export class ShortcutActions {
         const result = await this.plugin.quickAdd.addFromShortcut(board.config, request, column);
         if (this.stopped) return;
         if (result.uncertain) {
-          new Notice(`Task Trellis: ${result.warning ?? 'Check the destination note before retrying.'}`, 10000);
+          notice(this.plugin.app, `Task Trellis: ${result.warning ?? 'Check the destination note before retrying.'}`, { alert: true, duration: 10000 });
           return;
         }
         const message = result.duplicate ? 'This request was already saved in the destination note; no duplicate was added.' : 'Task saved on this device.';
-        new Notice(`Task Trellis: ${message} ${result.warning ?? 'Keep Obsidian open until your sync indicator shows Synced.'}`, 10000);
+        notice(this.plugin.app, `Task Trellis: ${message} ${result.warning ?? 'Keep Obsidian open until your sync indicator shows Synced.'}`, { duration: 10000 });
         if (request.openBoard) {
           try { await this.plugin.openBoard(board.file); }
-          catch { new Notice('Task Trellis: the task is saved, but the board could not be opened.'); }
+          catch { notice(this.plugin.app, 'Task Trellis: the task is saved, but the board could not be opened. Open it from the boards sidebar.', { alert: true }); }
         }
       } catch (error) {
-        new Notice(`Task Trellis: ${error instanceof Error ? error.message : 'Could not save the task.'}`, 10000);
+        notice(this.plugin.app, `Task Trellis: ${error instanceof Error ? error.message : 'Could not save the task.'}`, { alert: true, duration: 10000 });
       }
     });
     return this.queue;

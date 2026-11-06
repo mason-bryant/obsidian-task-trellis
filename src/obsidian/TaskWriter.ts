@@ -39,7 +39,7 @@ export class TaskWriter {
     const { parent, siblings, taskId: sourceId, beforeId } = move;
     const file = this.app.vault.getAbstractFileByPath(parent.path);
     if (!(file instanceof TFile) || siblings.some(t => t.path !== parent.path || t.parentId !== parent.id)) {
-      throw new Error('The parent or note changed. Refresh the board and try again.');
+      throw new Error('The parent or note changed. Try again once the board has updated.');
     }
     const changes: FileChange[] = [];
     let id = sourceId;
@@ -48,7 +48,7 @@ export class TaskWriter {
       const parentLine = locate(lines, parent), positions = siblings.map(t => locate(lines, t));
       const from = siblings.findIndex(t => t.id === sourceId), to = siblings.findIndex(t => t.id === beforeId);
       if (parentLine < 0 || positions.some(i => i < 0) || from < 0 || (beforeId !== null && to < 0)) {
-        throw new Error('A task changed since the board loaded. Refresh the board and try again.');
+        throw new Error('A task changed since the board loaded. Try again once the board has updated.');
       }
       const next = reorderSubtaskBlocks(content, parentLine, positions, positions[from]!, beforeId === null ? null : positions[to]!);
       if (content !== next.content) changes.push({ file, before: content, after: next.content });
@@ -128,7 +128,7 @@ export class TaskWriter {
     const missed = await this.rewrite(task.path, [task], (t) => (written = this.toggleLine(t.raw, t.path)), changes);
     const undo = this.undoFor(changes);
     if (undo) onUndo?.(undo);
-    if (missed > 0) notice(this.app, 'Task Trellis: that task changed since the board loaded. Try again.', { alert: true });
+    if (missed > 0) notice(this.app, 'Task Trellis: that task changed since the board loaded, so nothing was saved. Try again.', { alert: true });
     return missed > 0 ? null : written;
   }
 
@@ -220,7 +220,10 @@ export class TaskWriter {
    */
   async openSource(task: BoardTask, newTab = false): Promise<void> {
     const file = this.app.vault.getFileByPath(task.path);
-    if (!file) return;
+    if (!file) {
+      notice(this.app, `Task Trellis: could not find ${task.path}, so it wasn’t opened. The note may have been moved or deleted.`, { alert: true });
+      return;
+    }
     const { workspace } = this.app;
     const existing = newTab ? null : this.leafShowing(task.path);
     if (!existing) {

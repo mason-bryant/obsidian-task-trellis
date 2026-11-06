@@ -20,3 +20,6 @@ export function copyName(name: string, taken: (name: string) => boolean): string
     if (!taken(next)) return next;
   }
 }
+
+/** A name another note or folder already has, which the name field marks as invalid. */
+export class BoardNameTaken extends Error {}

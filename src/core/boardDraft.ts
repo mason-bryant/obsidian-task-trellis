@@ -127,9 +127,9 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
   if (columns.length === 0) errors.push('Add at least one column.');
   const seen = new Set<string>();
   for (const c of columns) {
-    if (!c.id) errors.push(`Column "${c.label || '(empty)'}" needs a name with letters or numbers.`);
+    if (!c.id) errors.push(`Column “${c.label || '(empty)'}” needs a name with letters or numbers.`);
     else if (c.id === 'label') errors.push('“Label” is reserved for label tags. Choose another column name.');
-    else if (seen.has(c.id)) errors.push(`Two columns are both named "${c.label}".`);
+    else if (seen.has(c.id)) errors.push(`Two columns are both named “${c.label}”.`);
     seen.add(c.id);
   }
 
@@ -169,14 +169,14 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.doneLimit]: intField('Completed cards per row', draft.doneLimit, 1, 100, errors),
     [FM.undatedColumn]: undated ? undated.label : '',
     [FM.limitUndated]: draft.limitUndated,
-    [FM.undatedLimit]: intField('Cards without a due date', draft.undatedLimit, 1, 500, errors),
+    [FM.undatedLimit]: intField('Undated card limit', draft.undatedLimit, 1, 500, errors),
     [FM.undatedScroll]: draft.undatedScroll,
     [FM.dueNow]:
       draft.dueNowUnit === 'weeks'
         ? intField('Due now window', draft.dueNow, 1, 52, errors)
         : intField('Due now window', draft.dueNow, 0, 365, errors),
     [FM.dueNowUnit]: draft.dueNowUnit,
-    [FM.weekHorizon]: intField('Week rows', draft.weekHorizon, 0, 52, errors),
+    [FM.weekHorizon]: intField('Future week rows', draft.weekHorizon, 0, 52, errors),
     [FM.weekStart]: (WEEKDAY_NAMES[draft.weekStart] ?? 'Monday').toLowerCase(),
     ...rules,
     [FM.quickFilters]: quickFilters,
@@ -185,7 +185,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.quickFiltersVisibleMobile]: optionalCountField("Filters to keep visible in single-column view", draft.quickFiltersVisibleMobile, errors),
     // Left out, or removed with the last rule, so boards without colors don't gain the property.
     [FM.colorRules]: colorRules.length ? colorRules : undefined,
-    [FM.showCompletedDays]: intField('Show completed', draft.showCompletedDays, 0, 3650, errors),
+    [FM.showCompletedDays]: intField('Show completed tasks for', draft.showCompletedDays, 0, 3650, errors),
     [FM.compact]: draft.compact,
     [FM.showColumnSelector]: draft.showColumnSelector,
     [FM.sortCompletedSubtasks]: draft.sortCompletedSubtasks,
@@ -315,7 +315,8 @@ export function removedColumnNotes(draft: BoardDraft, original: BoardConfig, tag
       return i === 0 ? `${n} open ${n === 1 ? 'task' : 'tasks'}${undated} will show in ${label(to)}` : `${n}${undated} in ${label(to)}`;
     });
     const name = original.columns.find((c) => c.id === id)?.label ?? id;
-    return [`Removing ${name}: ${parts.join(', and ')}. Their tags aren’t changed, so adding ${name} back returns them.`];
+    const one = [...counts.values()].reduce((sum, n) => sum + n, 0) === 1;
+    return [`Removing ${name}: ${parts.join(', and ')}. ${one ? 'Its tag isn’t' : 'Their tags aren’t'} changed, so adding ${name} back returns ${one ? 'it' : 'them'}.`];
   });
 }
 

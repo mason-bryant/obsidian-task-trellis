@@ -29,6 +29,7 @@ vi.mock('obsidian', async () => {
 });
 import { RenameBoardModal } from '../src/obsidian/RenameBoardModal.ts';
 import { RestoreBoardRenameModal } from '../src/obsidian/RestoreBoardRenameModal.ts';
+import { recoverDraft } from '../src/obsidian/recoverDraft.ts';
 import type { BoardTagRename } from '../src/obsidian/BoardTagRename.ts';
 import { TFile } from './mocks/obsidian.ts';
 import type { App } from 'obsidian';
@@ -56,6 +57,46 @@ it('a board rename being written ignores close until it finishes, then closes it
   await vi.waitFor(() => expect(modal.contentEl.childElementCount).toBe(0));
 });
 
+it('Task not saved can’t be dismissed during a retry, keeps the draft when it fails, and closes itself when it works', async () => {
+  const notices = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  let settle!: { ok: (saved: boolean) => void; fail: (error: Error) => void };
+  const save = vi.fn(() => new Promise<boolean>((ok, fail) => { settle = { ok, fail }; }));
+  const modal = recoverDraft({} as App, '- [ ] Draft', save);
+  const input = modal.contentEl.querySelector<HTMLTextAreaElement>('textarea')!;
+  const retry = () => modal.modalEl.querySelector<HTMLButtonElement>('.tt-editor-save')!.click();
+  const closing = vi.spyOn(modal, 'onClose');
+
+  document.body.append(modal.modalEl);
+  retry();
+  expect(save).toHaveBeenCalledWith('- [ ] Draft');
+  expect(document.activeElement).toBe(input);
+  retry();
+  expect(save).toHaveBeenCalledTimes(1);
+  modal.close();
+  expect(closing).not.toHaveBeenCalled();
+
+  settle.fail(new Error('Read only'));
+  await vi.waitFor(() => expect(modal.modalEl.querySelector('.tt-editor-header')!.getAttribute('aria-busy')).toBe('false'));
+  expect(closing).not.toHaveBeenCalled();
+  expect(input.value).toBe('- [ ] Draft');
+
+  retry();
+  settle.ok(true);
+  await vi.waitFor(() => expect(closing).toHaveBeenCalledOnce());
+  notices.mockRestore();
+  modal.modalEl.remove();
+});
+
+it('a restore dialog that can’t read its records still has an X, and says what happened', async () => {
+  const service = { history: async () => { throw new Error('Check the Task Trellis recovery folder.'); } } as unknown as BoardTagRename;
+  const modal = new RestoreBoardRenameModal({} as App, service);
+  document.body.append(modal.contentEl);
+  modal.open();
+  await vi.waitFor(() => expect(modal.modalEl.querySelector('.tt-editor-cancel')).not.toBeNull());
+  expect(modal.contentEl.textContent).toContain('Could not read the recovery records, so nothing was restored.');
+  modal.contentEl.remove();
+});
+
 it('a restore being written ignores close until it finishes', async () => {
   let restored!: () => void;
   const record = { oldSlug: 'house', newSlug: 'home', created: '2026-10-28', status: 'applied', changes: [{ path: 'Tasks.md' }] };
@@ -63,7 +104,7 @@ it('a restore being written ignores close until it finishes', async () => {
     history: async () => [{ path: 'Task Trellis recovery/1.json', record }],
     restore: vi.fn(() => new Promise<void>((resolve) => { restored = resolve; })),
   } as unknown as BoardTagRename;
-  const modal = new RestoreBoardRenameModal({} as App, service);
+  const modal = new RestoreBoardRenameModal({ workspace: { getActiveViewOfType: () => null } } as unknown as App, service);
   modal.open();
   await vi.waitFor(() => expect(modal.modalEl.querySelector('.tt-editor-save')).not.toBeNull());
   modal.modalEl.querySelector<HTMLButtonElement>('.tt-editor-save')!.click();

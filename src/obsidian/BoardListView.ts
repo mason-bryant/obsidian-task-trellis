@@ -1,4 +1,4 @@
-import { ItemView, Notice, setIcon, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { backlogCell } from '../core/newTask.ts';
 import { renderBoardList, type BoardListHost } from '../ui/renderBoardList.ts';
 import { pickComposerLabels } from './LabelPickerModal.ts';
@@ -54,7 +54,7 @@ export class BoardListView extends ItemView {
     onCreateBoard: () => this.plugin.promptNewBoard(),
     onOpenBoard: (path) => {
       const board = this.board(path);
-      const failed = () => new Notice('Task Trellis: could not open this board. Check that its note still exists, then try again.');
+      const failed = () => notice(this.app, 'Task Trellis: could not open this board. Check that its note still exists, then try again.', { alert: true, region: this.contentEl });
       if (!board) { failed(); return; }
       void this.plugin.openBoard(board.file).catch(failed);
     },

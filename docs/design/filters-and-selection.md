@@ -12,7 +12,7 @@
 - Quick filters keep their ids when they're renamed or reordered, so whether they're on survives.
 - A quick filter is in one of three states: hidden from the board (Show on board off), which is never applied; shown but off; or on. A board can keep only the first few shown filters on the toolbar, in settings order, and put the rest in a menu. That's presentation only: moving an active filter into the menu doesn't turn it off. See [quick filters](../filters.md#quick-filters) for the settings.
 - Label filters use the board's label ids and colors, and No labels is a choice of its own. The same color squares appear in settings, on the toolbar and in menus. Editing a label's color updates them everywhere without changing which tasks have the label.
-- The search box narrows like one more quick filter for each word, with Match subtasks on: every word must be in the card's text, its note's name or its labels' names, or in one subtask's text, the same subtask for every word the card lacks. It's case- and accent-insensitive, applies on top of the board's filters and quick filters, and matching subtasks are shown and marked as for quick filters, with Matches search (or Matches quick filters and search).
+- The search box narrows like one more quick filter for each word, with Match subtasks on: every word must be in the card's text, its note's name or its labels' names, or in one subtask's text, the same subtask for every word the card lacks. That includes any completed subtask a card shows, however long ago it was completed. It's case- and accent-insensitive, applies on top of the board's filters and quick filters, and matching subtasks are shown and marked as for quick filters, with Matches search (or Matches quick filters and search).
 - The search is kept per open board view while the board stays open in it, never saved, and starts empty when the view opens a note. It searches once typing pauses, and at once for Enter, clearing and Escape; nothing searches while an input method is composing. With no matching card, the empty state names the search and offers Clear search, and Turn off quick filters when they're on too.
 - A color rule matches with a quick filter's criteria, Priority, Labels, Due and filter groups, edited with the same controls, and tints the cards it matches. The first matching rule colors a card. Rules never change which cards show, and only cards are colored: subtasks inside a card share its color. Quick filters and color rules are edited in the same kind of list, with the same expanding header, name, Clone, Remove, reorder grip and criteria; quick filters add Show on board and Match subtasks, and color rules the label editor's color picker, with an opacity slider, a pattern and a sample card.
 - Match subtasks is off by default. When it's on, a matching subtask shows inside its parent's card, for context. A parent shown only for context has the subdued, italic context note and is never a bulk target. Results keep the task hierarchy rather than flattening it.
@@ -20,16 +20,16 @@
 ### Bulk selection
 
 - Select starts selecting. In selection mode, an accent selection square takes the place of each card's completion checkbox, so the two never appear together and selecting can't complete a task.
-- Cmd-click or Ctrl-click toggles a card, starting selection if needed. Shift-click selects the cards shown between two cards in the same column. Modifier-clicking a link still follows the link.
+- Cmd-click or Ctrl-click toggles a card, starting selection if needed. Shift-click selects the cards shown between two cards in the same column. Cmd-clicking or Ctrl-clicking a link still follows the link.
 - Select all includes every matching card, past collapsed rows and display limits. The column picker limits it; swiping between columns doesn't. Select column adds that column's matching cards to the selection; Clear starts over.
 - Anything shown as a card can be selected, including a subtask shown as a card of its own because its parent isn't on the board. A bulk edit changes only that task's own line, and label changes leave subtasks alone, because subtasks don't have labels. Subtasks inside a card and context-only parents can't be selected on their own.
-- Selecting ends with a click on empty board space or outside the board, Escape, or Done selecting. It stays on while a bulk editor is open or work is in progress.
+- Selecting ends with a click on empty board space or outside the board, Escape, or Done selecting. A click in the bulk bar keeps it, even between its buttons. It stays on while a bulk editor is open or work is in progress.
 - Changing filters, the search or the column picker clears the selection. After an edit, selected tasks stay selected even if they no longer match, and the status says so alongside the edit's result, for example "2 updated. 2 selected tasks are outside the current view." A selected task that now shows only as a parent for context stays selected too, can still be unticked, and is counted in the status. Undo clears the selection but leaves selection mode on.
 - Bulk actions use the same checks as single edits, and report which tasks changed and which were skipped. They never quietly widen the selection or overwrite edits made since the tasks were selected.
 
 ## Exceptions
 
-None recorded.
+- A search's words can't be split between a subtask shown as a card of its own and a subtask nested under it: the card and its nested subtask have to match separately. It's rare, and it would take a good deal more to handle.
 
 ## Where it lives
 

@@ -26,6 +26,13 @@
   font-size: var(--font-ui-small);
 }
 
+.tt-note--error {
+  border-left: 3px solid var(--text-error);
+  color: var(--text-normal);
+}
+.tt-board-name-field input[aria-invalid='true'] { border-color: var(--text-error); }
+.tt-chips:has(> .tt-input[aria-invalid='true']) { border-color: var(--text-error); }
+
 .tt-note--warning {
   background: rgba(var(--color-yellow-rgb), 0.15);
   color: var(--text-normal);
@@ -150,10 +157,15 @@
   background: var(--background-secondary);
 }
 
-/* Spans every row; size containment keeps a long list from stretching the rows beside it. */
+/* Spans every row, and can be longer than they are. Its box grows with its cards and fills the rows
+ * when it's shorter; the margin cancels its height, so a long list doesn't stretch the rows beside it. */
 .tt-cell--undated {
-  contain: size;
+  position: relative;
+  align-self: start;
+  box-sizing: border-box;
+  min-height: calc(100% - var(--size-4-3));
   margin-top: var(--size-4-3);
+  margin-bottom: -1000000px;
   background: var(--background-secondary);
 }
 
@@ -161,8 +173,14 @@
   background: var(--background-modifier-hover);
 }
 
-.tt-cell--undated > .tt-add {
-  margin-top: 0;
+/* The grid's bottom padding stops at the rows, so this keeps the same room below a longer list:
+ * including, on touch screens, room for the last card to clear Obsidian's floating toolbar. */
+.tt-cell--undated::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  width: 1px;
+  height: var(--tt-grid-bottom, 24px);
 }
 
 .tt-card {
@@ -586,7 +604,7 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 .tt-undo { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 16px 8px; padding: 6px 10px; background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: 8px; font-size: var(--font-ui-small); }
 .tt-card--updated { animation: tt-settle 900ms ease-out; }
 @keyframes tt-settle { from { outline: 2px solid var(--interactive-accent); outline-offset: 2px; } to { outline-color: transparent; outline-offset: 0; } }
-.tt-board :focus-visible, .tt-settings :focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 3px; }
+.tt-board :focus-visible, .tt-settings :focus-visible, .tt-editor-modal :focus-visible, .tt-board-list :focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 3px; }
 @container trellis (max-width: 700px) {
   .tt-scroll-hint:not([hidden]) { display: block; }
   .tt-board-toolbar { align-items: flex-start; }
@@ -637,9 +655,9 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 @media (pointer: coarse) { .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; } }
 .is-mobile .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; }
 .tt-whats-new-notes + .tt-help { margin-top: 12px; }
-.tt-whats-new-hide, .tt-whats-new-setting { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.tt-whats-new-hide, .tt-whats-new-setting { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: var(--font-ui-small); }
 .tt-whats-new-hide { margin-top: 8px; }
-.tt-whats-new-hide input, .tt-whats-new-setting input { margin: 0; flex: none; }
+.tt-whats-new-hide input, .tt-whats-new-setting input { width: 18px; height: 18px; margin: 0; flex: none; }
 .tt-whats-new-setting:has(input:disabled) { opacity: .5; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
@@ -699,6 +717,8 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
   .tt-filter-expression > .tt-input, .tt-filter-group-header > .tt-filter-conjunction, .tt-filter-group-actions > .tt-button { min-height: 44px; }
   .tt-filter-expression .tt-icon-button, .tt-filter-group-header .tt-icon-button { width: 44px; height: 44px; }
 }
+.is-mobile :is(.tt-filter-expression > .tt-input, .tt-filter-group-header > .tt-filter-conjunction, .tt-filter-group-actions > .tt-button) { min-height: 44px; }
+.is-mobile :is(.tt-filter-expression .tt-icon-button, .tt-filter-group-header .tt-icon-button) { width: 44px; height: 44px; }
 .tt-field-error { grid-column: 1 / -1; color: var(--text-error); font-size: var(--font-ui-small); }
 .tt-field-error[hidden] { display: none; }
 .tt-input[aria-invalid='true'] { border-color: var(--text-error); }
@@ -769,6 +789,10 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
     min-width: 44px;
   }
 }
+.is-mobile :is(.tt-subtask-controls .tt-subtask-toggle, .tt-subtask-controls .tt-card-icon, .tt-board-tools .tt-toolbar-button) {
+  min-height: 44px;
+  min-width: 44px;
+}
 
 /* Touch screens: 44px targets in settings and on the column picker too. */
 @media (pointer: coarse) {
@@ -838,7 +862,19 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
   .tt-card-icon.tt-card-more { display: inline-flex; }
   /* A tap leaves :hover on, which would keep the card lifted. */
   .tt-card:hover { transform: none; }
+  /* Small controls keep their look, with a bigger area to tap around them. */
+  .tt-checkbox { position: relative; }
+  .tt-checkbox::before { content: ''; position: absolute; inset: -13px; }
+  .tt-source { min-height: 44px; margin-block: -13.5px; }
+  .tt-check-field { min-height: 44px; margin-block: 8px; }
 }
+.is-mobile :is(.tt-card-icon, .tt-subtask-toggle, .tt-row-toggle, .tt-add-cancel) { min-width: 44px; min-height: 44px; }
+.is-mobile .tt-row-toggle { align-items: center; justify-content: center; margin-left: -12px; }
+.is-mobile :is(.tt-add-button, .tt-more) { min-height: 44px; }
+.is-mobile .tt-checkbox { position: relative; }
+.is-mobile .tt-checkbox::before { content: ''; position: absolute; inset: -13px; }
+.is-mobile .tt-source { min-height: 44px; margin-block: -13.5px; }
+.is-mobile .tt-check-field { min-height: 44px; margin-block: 8px; }
 /* Obsidian's mobile app, also with a trackpad: dragging a card isn't dependable there. */
 .is-mobile .tt-card-icon.tt-card-more { display: inline-flex; }
 .tt-menu-detail { margin-left: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
@@ -862,12 +898,8 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
  * after the grid so the last card and its actions can clear it, including on iOS. */
 @media (pointer: coarse) {
   .tt-grid { --tt-grid-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
-  /* The size-contained undated column can overflow past the grid itself. Its
-   * spacer must follow its cards, rather than only padding the shorter grid. */
-  .tt-cell--undated::after { content: ''; flex: none; height: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 }
 .is-mobile .tt-grid { --tt-grid-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
-.is-mobile .tt-cell--undated::after { content: ''; flex: none; height: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 
 /* The board's No due date column scrolls setting. With several columns showing, the column stays in
  * view and scrolls on its own, ending level with the rows. One column at a time, it scrolls like the others. */
@@ -876,8 +908,7 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
   .tt-grid--undated > .tt-cell--undated {
     position: sticky;
     top: calc(var(--tt-header-height, 0px) + var(--size-4-3));
-    align-self: start;
-    box-sizing: border-box;
+    min-height: 0;
     --tt-undated-height: calc(100cqh - var(--tt-header-height, 0px) - var(--size-4-3) - var(--tt-grid-bottom));
     height: var(--tt-undated-height);
     /* Takes no room from the rows it spans: a set height would otherwise stretch them on a short board. */
@@ -885,8 +916,8 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
     overflow: hidden auto;
     overscroll-behavior-y: contain;
   }
-  /* It ends above Obsidian mobile's floating toolbar, so it needs no room for it inside. */
-  .tt-grid--undated > .tt-cell--undated::after { content: none; }
+  /* It ends above the board's bottom edge, and Obsidian mobile's floating toolbar, so it needs no room below it. */
+  .tt-grid--undated > .tt-cell--undated::before { content: none; }
   /* Add task sticks at the padding's edge, so without this the cards would show through below it. */
   .tt-grid--undated > .tt-cell--undated:has(> .tt-add) { padding-bottom: 0; }
   .is-mobile .tt-grid--undated > .tt-cell--undated:has(> .tt-add) { padding-bottom: 10px; }
@@ -943,6 +974,7 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 @media (pointer: coarse) {
   .tt-board-list button.tt-board-list-item, .tt-board-list-create { min-height: 44px; }
 }
+.is-mobile :is(.tt-board-list button.tt-board-list-item, .tt-board-list-create) { min-height: 44px; }
 
 /* Board-specific labels, in the board's Label shape: circles and squares are 20px stickers, and
    pills keep the original short bars. */
@@ -1031,6 +1063,8 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
 .tt-add-actions > .tt-add-labels-button svg { width: 18px; height: 18px; stroke-width: 1.8; }
 /* Four 44px targets still fit a 240px column, the narrowest a board allows. */
 @media (hover: none) { .tt-add-actions { gap: 4px; } .tt-add-actions > .tt-add-labels-button { min-width: 44px; min-height: 44px; } }
+.is-mobile .tt-add-actions { gap: 4px; }
+.is-mobile .tt-add-actions > .tt-add-labels-button { min-width: 44px; min-height: 44px; }
 .tt-add-labels > .tt-card-labels { margin-bottom: 8px; }
 @media (pointer: coarse) {
   .tt-editor-modal { position: fixed; top: calc(var(--tt-editor-top, 12px) + var(--tt-editor-safe-top)); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: calc(var(--tt-editor-height, 85dvh) - var(--tt-editor-safe-top) - var(--tt-editor-safe-bottom)); }
@@ -1040,9 +1074,14 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
 /* Keep the save glyph legible in both built-in theme families. */
 .theme-dark, [data-theme="dark"] { --tt-save-color: #4ade80; }
 .tt-board :is(button, select, input, .tt-card):focus-visible,
+.tt-editor-modal :is(a, button, select, input, textarea):focus-visible,
+.tt-board-list :is(button, input, textarea):focus-visible,
 .tt-label-picker :is(button, input):focus-visible {
   outline: 2px solid var(--interactive-accent, #7c3aed); outline-offset: 2px;
 }
+/* Instead of the gray ring Obsidian draws around these. */
+.tt-editor-modal :is(a, button, select, input, textarea):focus-visible,
+.tt-board-list :is(button, input, textarea):focus-visible { box-shadow: none; }
 .tt-empty-state .tt-toolbar-button { margin: 4px 8px 4px 0; }
 /* iOS zooms focused fields below 16px, moving modal actions out of place. */
 @media (pointer: coarse) {
@@ -1074,7 +1113,7 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 
 /* Last in the cascade; specificity covers Trellis transitions without !important. */
 @media (prefers-reduced-motion: reduce) {
-  .tt-board.tt-board *, .tt-settings.tt-settings *, .tt-editor-modal.tt-editor-modal * { animation: none; transition: none; }
+  .tt-board.tt-board *, .tt-settings.tt-settings *, .tt-editor-modal.tt-editor-modal *, .tt-board-list.tt-board-list *, .tt-touch-drag-ghost.tt-touch-drag-ghost, .tt-touch-drag-ghost.tt-touch-drag-ghost * { animation: none; transition: none; }
   .tt-board .tt-card:hover { transform: none; }
 }
 
@@ -1118,6 +1157,7 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 @media (pointer: coarse) {
   .tt-bulk-bar button, .tt-select-card, .tt-select-column { min-height: 44px; min-width: 44px; }
 }
+.is-mobile :is(.tt-bulk-bar button, .tt-select-card, .tt-select-column) { min-height: 44px; min-width: 44px; }
 
 .tt-bulk-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
 .tt-board--selecting .tt-arrange-menu { display: none; }

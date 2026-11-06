@@ -1,4 +1,4 @@
-import { boardNameError } from '../core/boardName.ts';
+import { BoardNameTaken, boardNameError } from '../core/boardName.ts';
 import { BOARD_TEMPLATES, type BoardTemplate, type BoardTemplateId } from '../core/boardTemplates.ts';
 import { isComposing, uiElement } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
@@ -15,7 +15,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
   const input = uiElement(doc, 'input'); input.type = 'text'; input.value = name;
   input.setAttribute('aria-label', 'Board name');
   const help = uiElement(doc, 'p'); help.textContent = 'Task tags and label assignments stay unchanged. Shortcuts using the old board name need to be updated.';
-  const error = uiElement(doc, 'p'); error.className = 'tt-note tt-note--warning'; error.setAttribute('role', 'alert'); error.hidden = true;
+  const error = uiElement(doc, 'p'); error.className = 'tt-note tt-note--error'; error.setAttribute('role', 'alert'); error.hidden = true;
   label.append(caption, input); body.replaceChildren(label, help, error);
   const option = uiElement(doc, 'label'); option.className = 'tt-rename-option';
   const migrate = uiElement(doc, 'input'); migrate.type = 'checkbox';
@@ -43,6 +43,8 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
     const invalid = boardNameError(input.value);
     error.hidden = true; input.removeAttribute('aria-invalid');
     if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    // Disabling the check would drop focus to the page.
+    input.focus({ preventScroll: true });
     busy = true; input.readOnly = true; migrate.disabled = true; previewButton.disabled = true; header.setBusy(true);
     const previewing = !!migration && migrate.checked && !reviewed;
     const message = previewing ? 'Previewing tag changes…' : migrate.checked ? 'Applying changes…' : 'Saving board name…';
@@ -55,7 +57,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
       if (migration && migrate.checked && !reviewed) {
         const preview = await migration.preview(input.value.trim());
         const title = uiElement(doc, 'p'); title.textContent = `#tt/${preview.oldSlug}/ → #tt/${preview.newSlug}/`;
-        const summary = uiElement(doc, 'p'); summary.textContent = `${preview.tagCount} task tag changes across ${preview.paths.length} notes (including board settings).`;
+        const summary = uiElement(doc, 'p'); summary.textContent = `${preview.tagCount} task tag ${preview.tagCount === 1 ? 'change' : 'changes'} across ${preview.paths.length} ${preview.paths.length === 1 ? 'note' : 'notes'} (including board settings).`;
         const list = uiElement(doc, 'ul');
         for (const path of preview.paths) { const item = uiElement(doc, 'li'); item.textContent = path; list.append(item); }
         const recovery = uiElement(doc, 'p'); recovery.textContent = 'A recovery copy of these notes will be saved in Task Trellis recovery before applying. Run Task Trellis: Restore board rename from the command palette to restore it. Later edits can require manual recovery.';
@@ -74,7 +76,8 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
     }
     catch (reason) {
       error.textContent = reason instanceof Error ? reason.message : 'Could not rename the board. Please try again.';
-      error.hidden = false; reviewed = false;
+      error.hidden = false; reviewed = false; input.focus();
+      if (reason instanceof BoardNameTaken) input.setAttribute('aria-invalid', 'true');
       saveButton.setAttribute('aria-label', migrate.checked ? 'Preview tag changes' : 'Save board name');
     } finally {
       busy = false; input.readOnly = false; migrate.disabled = false; previewButton.disabled = false; header.setBusy(false);
@@ -105,7 +108,7 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
   const input = uiElement(doc, 'input'); input.type = 'text'; input.value = name;
   input.setAttribute('aria-label', 'New board name');
   label.append(caption, input);
-  const error = paragraph(''); error.className = 'tt-note tt-note--warning'; error.setAttribute('role', 'alert'); error.hidden = true;
+  const error = paragraph(''); error.className = 'tt-note tt-note--error'; error.setAttribute('role', 'alert'); error.hidden = true;
   body.replaceChildren(label,
     paragraph(`The new board gets the ${source.name} board’s saved settings: columns, labels, filters, quick filters, appearance and where new tasks go.`),
     paragraph(`No tasks are copied or changed. The new board shows the same tasks, without their columns or labels from this board: open cards start in ${source.start}.`));
@@ -117,6 +120,7 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
     const invalid = boardNameError(input.value);
     error.hidden = true; input.removeAttribute('aria-invalid');
     if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    input.focus({ preventScroll: true });
     busy = true; input.readOnly = true; header.setBusy(true, 'Duplicating board…');
     try {
       await save(input.value.trim());
@@ -126,6 +130,7 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
       header.setBusy(false);
       error.textContent = reason instanceof Error ? reason.message : 'Could not duplicate the board. Please try again.';
       error.hidden = false; input.focus();
+      if (reason instanceof BoardNameTaken) input.setAttribute('aria-invalid', 'true');
     } finally {
       busy = false; input.readOnly = false;
     }
@@ -156,7 +161,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
   choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'Start from');
   field.append(node('span', '', 'Start from'), choices);
   const examples = node('p', 'tt-help tt-board-template-examples');
-  const error = node('p', 'tt-note tt-note--warning'); error.setAttribute('role', 'alert'); error.hidden = true;
+  const error = node('p', 'tt-note tt-note--error'); error.setAttribute('role', 'alert'); error.hidden = true;
   body.replaceChildren(label, field, examples, error);
 
   let chosen: BoardTemplate = BOARD_TEMPLATES[0]!;
@@ -188,6 +193,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
     const invalid = boardNameError(input.value);
     error.hidden = true; input.removeAttribute('aria-invalid');
     if (invalid) { error.textContent = invalid; error.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+    input.focus({ preventScroll: true });
     busy = true; input.readOnly = true; header.setBusy(true, 'Creating board…');
     try {
       await create(input.value.trim(), chosen.id);
@@ -197,6 +203,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
       header.setBusy(false);
       error.textContent = reason instanceof Error ? reason.message : 'Could not create the board. Please try again.';
       error.hidden = false; input.focus();
+      if (reason instanceof BoardNameTaken) input.setAttribute('aria-invalid', 'true');
     } finally {
       busy = false; input.readOnly = false;
     }

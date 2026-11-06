@@ -13,8 +13,8 @@ export type WhatsNewOptions = {
     version: string;
     /** Whether Don’t show this again starts checked. */
     hidden: boolean;
-    /** Saves Don’t show this again as soon as it changes. */
-    setHidden(hidden: boolean): void;
+    /** Saves Don’t show this again as soon as it changes, and resolves to whether that worked. */
+    setHidden(hidden: boolean): Promise<boolean>;
   };
 };
 
@@ -34,12 +34,16 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
     let saved = state.checked;
     const label = node('label', 'tt-whats-new-setting');
     const box = node('input'); box.type = 'checkbox'; box.checked = saved; box.disabled = !state.available;
+    let saving = false;
     box.addEventListener('change', () => {
+      // One save at a time, without disabling the box, which would drop focus to the page.
+      if (saving) { box.checked = !box.checked; return; }
+      saving = true;
       const checked = box.checked;
-      void state.save(checked).then((worked) => { if (worked) saved = checked; else box.checked = saved; });
+      void state.save(checked).then((worked) => { saving = false; if (worked) saved = checked; else box.checked = saved; });
     });
     label.append(box, node('span', '', setting.label));
-    return state.available ? [label] : [label, node('span', 'tt-whats-new-description', setting.unavailable)];
+    return state.available ? [label] : [label, node('span', 'tt-help', setting.unavailable)];
   };
   renderEditorHeader(headerRoot, 'What’s new', icon, null, close);
   const { update } = options;
@@ -64,7 +68,10 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
   if (update) {
     const hide = node('label', 'tt-whats-new-hide');
     const box = node('input'); box.type = 'checkbox'; box.checked = update.hidden;
-    box.addEventListener('change', () => update.setHidden(box.checked));
+    box.addEventListener('change', () => {
+      const hidden = box.checked;
+      void update.setHidden(hidden).then((saved) => { if (!saved) box.checked = !hidden; });
+    });
     hide.append(box, node('span', '', 'Don’t show this again'));
     body.append(node('p', 'tt-help', 'The What’s new button on a board’s toolbar shows this at any time.'), hide);
   }

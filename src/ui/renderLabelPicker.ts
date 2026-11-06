@@ -20,7 +20,9 @@ export type LabelPickerHost = {
 };
 
 /** Shared picker/editor used by the native Obsidian modal and browser preview. */
-export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assigned: string[], host: LabelPickerHost): void {
+export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assigned: string[], host: LabelPickerHost): { back(): boolean } {
+  /** From a label's editor or the color schemes, back to the list, as their X does. */
+  let goBack: (() => void) | null = null;
   let labels = initial.map((l) => ({ ...l }));
   let selected = [...assigned];
   let previous = { ...host.previousScheme };
@@ -47,6 +49,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     finally { busy = false; host.onBusyChange?.(false); header.setBusy(false); controls.forEach((c, i) => { c.disabled = disabled[i]!; }); root.removeAttribute('aria-busy'); }
   }
   function picker(focusId?: string): void {
+    goBack = null;
     root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
     header = renderEditorHeader(headerSlot, 'Labels', (el, name) => host.icon(el, name), null, () => host.onClose?.());
     const search = node('input', 'tt-label-search'); search.type = 'search'; search.placeholder = 'Search labels…';
@@ -60,7 +63,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     if (host.showSearch) root.append(search);
     root.append(list, create);
     if (host.saveScheme) {
-      const schemes = button('Color scheme', 'tt-label-schemes-button');
+      const schemes = button('Color scheme…', 'tt-label-schemes-button');
       schemes.onclick = () => schemePicker(); root.append(schemes);
     }
     root.append(error);
@@ -96,6 +99,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     if (focusId) (check ?? (host.showSearch ? search : create)).focus();
   }
   function schemePicker(): void {
+    goBack = () => { picker(); root.querySelector<HTMLButtonElement>('.tt-label-schemes-button')?.focus(); };
     root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
     let chosen: string | null = null;
     const options = node('div', 'tt-scheme-options');
@@ -117,7 +121,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
         labels = result.labels; previous = result.previous;
         picker(); root.querySelector<HTMLButtonElement>('.tt-label-schemes-button')?.focus();
       });
-    }, () => { picker(); root.querySelector<HTMLButtonElement>('.tt-label-schemes-button')?.focus(); }, 'Apply color scheme');
+    }, () => goBack?.(), 'Apply color scheme');
     const confirm = headerSlot.querySelector<HTMLButtonElement>('.tt-editor-save')!;
     confirm.disabled = true;
     const choices = [{ id: 'previous', name: 'Previous scheme', colors: labels.map((l) => Object.prototype.hasOwnProperty.call(previous, l.id) ? previous[l.id]! : l.color) }, ...LABEL_SCHEMES];
@@ -141,6 +145,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     options.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
   }
   function editor(label: BoardLabel, intent: 'create' | 'update' = 'update'): void {
+    goBack = () => picker(label.id);
     root.replaceChildren(); if (!host.header) root.append(headerSlot); error.hidden = true;
     const form = node('form', 'tt-label-editor');
     const nameField = node('label', 'tt-label-field', 'Label name');
@@ -165,7 +170,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
       preview.style.backgroundColor = color; preview.style.color = labelTextColor(color);
     }
     name.oninput = update;
-    header = renderEditorHeader(headerSlot, 'Edit label', (el, name) => host.icon(el, name), () => form.requestSubmit(), () => picker(label.id), 'Save label');
+    header = renderEditorHeader(headerSlot, 'Edit label', (el, name) => host.icon(el, name), () => form.requestSubmit(), () => goBack?.(), 'Save label');
     form.append(preview, nameField, node('div', 'tt-label-field', 'Color'), colors.element, hexField,
       node('p', 'tt-label-help', 'Changes apply to every task using this label on this board.'),
       node('p', 'tt-label-help', intent === 'create' ? 'A permanent tag ID will be assigned when you save.' : `Permanent tag ID: ${label.id}`));
@@ -182,4 +187,5 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     root.append(form, error); update(); name.focus();
   }
   picker();
+  return { back: () => { if (!goBack) return false; goBack(); return true; } };
 }

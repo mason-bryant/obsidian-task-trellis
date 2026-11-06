@@ -216,7 +216,7 @@ export function parseBoardConfig(
     const raw = f[FM.doneColumn];
     const id = typeof raw === 'string' ? slugify(raw) : '';
     doneColumn = id && columns.some((c) => c.id === id) ? id : null;
-    if (id && !doneColumn) warnings.push(`done-column "${String(raw)}" is not one of the columns.`);
+    if (id && !doneColumn) warnings.push(`done-column “${String(raw)}” is not one of the columns.`);
   } else {
     doneColumn = columns.some((c) => c.id === 'done') ? 'done' : null;
   }
@@ -224,7 +224,7 @@ export function parseBoardConfig(
   const undatedRaw = f[FM.undatedColumn];
   const undatedId = typeof undatedRaw === 'string' ? slugify(undatedRaw) : '';
   let undatedColumn = undatedId && columns.some((c) => c.id === undatedId) ? undatedId : null;
-  if (undatedId && !undatedColumn) warnings.push(`undated-column "${String(undatedRaw)}" is not one of the columns.`);
+  if (undatedId && !undatedColumn) warnings.push(`undated-column “${String(undatedRaw)}” is not one of the columns.`);
   if (undatedColumn && undatedColumn === doneColumn) {
     warnings.push('undated-column and done-column are the same column; ignoring undated-column.');
     undatedColumn = null;
@@ -281,7 +281,7 @@ function newTasksSetting(raw: unknown, warnings: string[]): BoardConfig['newTask
   if (raw === undefined || raw === null || raw === '') return 'default';
   const v = scalarText(raw).trim().toLowerCase();
   if (v === 'default' || v === 'daily' || v === 'note') return v;
-  warnings.push(`new-tasks "${scalarText(raw)}" should be default, daily or note; using default.`);
+  warnings.push(`new-tasks “${scalarText(raw)}” should be default, daily or note; using default.`);
   return 'default';
 }
 
@@ -301,7 +301,7 @@ function dueNowSetting(f: Record<string, unknown>, warnings: string[]): { dueNow
   let dueNowUnit: DueNowUnit = 'days';
   if (typeof rawUnit === 'string' && /^weeks?$/i.test(rawUnit.trim())) dueNowUnit = 'weeks';
   else if (rawUnit !== undefined && rawUnit !== null && !/^days?$/i.test(scalarText(rawUnit).trim())) {
-    warnings.push(`due-now-unit "${scalarText(rawUnit)}" should be days or weeks; using days.`);
+    warnings.push(`due-now-unit “${scalarText(rawUnit)}” should be days or weeks; using days.`);
   }
   const raw = f[FM.dueNow];
   return {
@@ -319,7 +319,7 @@ function weekStartSetting(raw: unknown, warnings: string[]): number {
   if (raw === undefined || raw === null || raw === '') return 1;
   const i = WEEKDAYS.indexOf(scalarText(raw).trim().toLowerCase());
   if (i >= 0) return i;
-  warnings.push(`week-start "${scalarText(raw)}" is not a weekday; using Monday.`);
+  warnings.push(`week-start “${scalarText(raw)}” is not a weekday; using Monday.`);
   return 1;
 }
 

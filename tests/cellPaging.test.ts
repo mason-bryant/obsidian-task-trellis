@@ -133,6 +133,38 @@ describe('long cells', () => {
     expect(cards('done')).toHaveLength(CELL_PAGE);
   });
 
+  describe('with a limit of their own, like Done', () => {
+    const done = (count: number) => Array.from({ length: count }, (_, i) => task(`- [x] Done ${i + 1} 📅 2026-10-24 ✅ 2026-10-22`, i));
+
+    it('move focus to the first card More reveals', () => {
+      tasks = done(40);
+      draw();
+      press(button('35 more', 'done'));
+      expect((document.activeElement as HTMLElement).dataset.boardFocus).toBe(`card:${tasks[5]!.id}`);
+      press(button('Show fewer', 'done'));
+      expect(document.activeElement).toBe(button('35 more', 'done'));
+    });
+
+    it('keep showing a card an action just changed or that has focus, counting only the cards not shown', () => {
+      tasks = done(40);
+      host.highlightIds = new Set([tasks[8]!.id]);
+      draw();
+      expect(cards('done')).toHaveLength(9);
+      expect(buttons('done').map((b) => b.textContent)).toEqual(['31 more']);
+      host.highlightIds = undefined;
+      draw();
+      expect(cards('done')).toHaveLength(5);
+    });
+
+    it('show no count when the card that stays drawn is the last one', () => {
+      tasks = done(7);
+      host.highlightIds = new Set([tasks[6]!.id]);
+      draw();
+      expect(cards('done')).toHaveLength(7);
+      expect(buttons('done')).toEqual([]);
+    });
+  });
+
   it('still select every matching card past the page', () => {
     tasks = doing(60);
     host.onBulkAction = vi.fn(async () => null);

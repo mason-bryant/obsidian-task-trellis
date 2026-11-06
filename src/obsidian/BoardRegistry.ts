@@ -1,3 +1,4 @@
+import { notice } from './notice.ts';
 import { TFile } from 'obsidian';
 import { parseBoardConfig, type BoardConfig } from '../core/boardConfig.ts';
 import { inFolder } from '../core/filters.ts';
@@ -31,7 +32,7 @@ export class BoardRegistry {
     const { config, warnings, slugMissing } = parseBoardConfig(file.basename, fm);
     const twins = this.boards().filter((b) => b.file !== file && b.config.slug === config.slug);
     if (twins.length > 0) {
-      warnings.push(`Slug "${config.slug}" is also used by ${twins.map((b) => b.file.basename).join(', ')}; the boards share placement tags.`);
+      warnings.push(`Slug “${config.slug}” is also used by ${twins.map((b) => b.file.basename).join(', ')}; the boards share placement tags.`);
     }
     return { file, config, warnings, slugMissing };
   }
@@ -59,7 +60,10 @@ export class BoardRegistry {
       if (wanted.has(`open-board-${slug}`)) continue;
       wanted.set(`open-board-${slug}`, { name: `Open board: ${file.basename}`, run: () => {
         const board = this.bySlug(slug);
-        if (board) void this.plugin.openBoard(board.file);
+        if (board) void this.plugin.openBoard(board.file).catch((error: unknown) => {
+          console.error('[Task Trellis] opening a board failed', error);
+          notice(this.plugin.app, `Task Trellis: could not open the ${board.file.basename} board. Check that its note still exists, then try again.`, { alert: true });
+        });
       } });
       for (const column of config.columns) {
         if (column.id === config.doneColumn) continue;

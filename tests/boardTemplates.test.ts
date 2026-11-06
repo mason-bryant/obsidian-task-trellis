@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { BoardNameTaken } from '../src/core/boardName.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { buildBoard, taskId, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
@@ -144,7 +145,7 @@ describe('new board editor', () => {
   });
 
   it('creates the board from the chosen template, and keeps the dialog when that fails', async () => {
-    const create = vi.fn(async (): Promise<void> => { throw new Error('Task Trellis/Chores.md already exists. Choose another board name.'); });
+    const create = vi.fn(async (): Promise<void> => { throw new BoardNameTaken('Task Trellis/Chores.md already exists. Choose another board name.'); });
     const ui = editor(create);
     ui.save.click();
     expect(ui.body.querySelector('[role="alert"]')!.textContent).toMatch(/name/i);
@@ -154,6 +155,8 @@ describe('new board editor', () => {
     expect(create).toHaveBeenCalledWith('Chores', 'eisenhower');
     expect(ui.close).not.toHaveBeenCalled();
     expect(ui.body.querySelector('[role="alert"]')!.textContent).toBe('Task Trellis/Chores.md already exists. Choose another board name.');
+    expect(document.activeElement).toBe(ui.name);
+    expect(ui.name.getAttribute('aria-invalid')).toBe('true');
     create.mockImplementation(async () => undefined);
     ui.save.click(); await Promise.resolve(); await Promise.resolve();
     expect(ui.close).toHaveBeenCalled();

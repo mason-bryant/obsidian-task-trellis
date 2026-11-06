@@ -22,7 +22,7 @@
 ## Exceptions
 
 - In Obsidian mobile, Add task sits above its list at any width, even on a wide iPad board, because Obsidian mobile's floating bottom toolbar would cover it at the bottom of the cell.
-- Obsidian mobile gets the touch styles at any width, even with a trackpad: the card drag grip, extra scroll space below the last card, editors pinned below the status bar, 16px text fields, and no buttons that appear only on hover. Its toolbar, keyboard and iOS behavior don't depend on the board's width.
+- Obsidian mobile gets the touch styles at any width, even with a trackpad: 44px targets, the card drag grip, extra scroll space below the last card, editors pinned below the status bar, 16px text fields, and no buttons that appear only on hover. Its toolbar, keyboard and iOS behavior don't depend on the board's width.
 
 ## Where it lives
 

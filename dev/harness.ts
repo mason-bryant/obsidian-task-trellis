@@ -392,7 +392,7 @@ function whatsNew(features: Feature[], update?: WhatsNewOptions['update']): void
 if (new URLSearchParams(location.search).has('whats-new')) {
   whatsNew(unseenFeatures('1.3.0', FEATURES[0]!.version), {
     version: FEATURES[0]!.version, hidden: false,
-    setHidden: (hidden) => { (window as unknown as { whatsNewHidden: boolean }).whatsNewHidden = hidden; },
+    setHidden: async (hidden) => { (window as unknown as { whatsNewHidden: boolean }).whatsNewHidden = hidden; return true; },
   });
 }
 

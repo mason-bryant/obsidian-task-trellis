@@ -55,6 +55,21 @@ describe('a No due date column that scrolls on its own', () => {
     }
   });
 
+  it('scrolls with the board when it’s the only column chosen, even when it’s on', () => {
+    draw();
+    const choose = (value: string) => {
+      const picker = root.querySelector<HTMLSelectElement>('.tt-column-picker')!;
+      picker.value = value; picker.dispatchEvent(new Event('change'));
+    };
+    choose('backlog');
+    expect(root.querySelectorAll('.tt-col-header')).toHaveLength(1);
+    expect(pane().classList.contains('tt-cell--undated')).toBe(true);
+    expect(grid().classList.contains('tt-grid--undated')).toBe(false);
+    expect(board().classList.contains('tt-scroll--undated')).toBe(false);
+    choose('');
+    expect(grid().classList.contains('tt-grid--undated')).toBe(true);
+  });
+
   it('scrolls with the board while it’s off', async () => {
     const off = { ...withColumn, 'undated-scroll': false };
     draw(off);

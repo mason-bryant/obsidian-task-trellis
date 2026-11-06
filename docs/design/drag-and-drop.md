@@ -16,7 +16,7 @@
 - Resizing a column is a separate interaction; see [responsive layouts](responsive-layouts-and-gestures.md). A resize separator never looks or behaves like a reorder handle.
 
 - **Subtask order:** on desktop, an open subtask is reordered among its direct siblings by dragging its row, with the same native drag, dimmed source and insertion marker as a card. Alt+Up/Down on a focused row does the same. Keep focus on the moved row; the Undo status says Subtask reordered. The intact Markdown block, including descendants and indented notes, moves with the task.
-- Completed subtasks can't be reordered, and dropping one inside its list does nothing. With Completed last, an open subtask lands only among the open ones. Hidden and completed siblings keep their place in the note, and a drop beside the row's current place on screen writes nothing. Dropping a subtask into another list, or into its own while a composer is open there, does nothing. Mobile and coarse-pointer devices don't reorder subtasks.
+- Completed subtasks can't be reordered, and dropping one inside its list does nothing. With Completed last, an open subtask lands only among the open ones. Hidden and completed siblings keep their place in the note, and a drop beside the row's current place on screen writes nothing. Dropping a subtask into another list, or into its own while a composer is open there, does nothing, though a drop over the nested list of one of its siblings counts as a drop among its siblings. Mobile and coarse-pointer devices don't reorder subtasks.
 
 ## Exceptions
 

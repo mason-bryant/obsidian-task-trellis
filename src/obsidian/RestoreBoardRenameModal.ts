@@ -1,4 +1,6 @@
-import { Modal, Notice, setIcon, type App } from 'obsidian';
+import { Modal, setIcon, type App } from 'obsidian';
+import { announce } from '../ui/announce.ts';
+import { notice } from './notice.ts';
 import { editorBusy, prepareEditorModal, renderEditorHeader } from '../ui/editorHeader.ts';
 import { BoardTagRename } from './BoardTagRename.ts';
 
@@ -10,7 +12,12 @@ export class RestoreBoardRenameModal extends Modal {
     this.closed = false; this.setTitle('Restore board rename');
     this.chrome = prepareEditorModal(this.modalEl);
     void this.draw().catch((error: unknown) => {
-      if (!this.closed) this.contentEl.createEl('p', { text: error instanceof Error ? error.message : 'Could not read recovery records.' });
+      if (this.closed || !this.chrome) return;
+      // The header draws last, so without this a failure here would leave no X.
+      renderEditorHeader(this.chrome.header, 'Restore board rename', setIcon, null, () => this.close());
+      const message = `Could not read the recovery records, so nothing was restored. ${error instanceof Error ? error.message : 'Check the Task Trellis recovery folder.'}`;
+      this.contentEl.createEl('p', { text: message });
+      announce(this.contentEl, message, 'alert');
     });
   }
   private async draw(): Promise<void> {
@@ -21,7 +28,7 @@ export class RestoreBoardRenameModal extends Modal {
       const entry = entries[Number(select.value)];
       if (busy || !entry) return;
       busy = true; select.disabled = true; header.setBusy(true, 'Restoring board rename…'); error.textContent = '';
-      void this.service.restore(entry.path).then(() => { new Notice('Task Trellis: board rename restored.'); super.close(); })
+      void this.service.restore(entry.path).then(() => { notice(this.app, 'Task Trellis: board rename restored.'); super.close(); })
         .catch((reason: unknown) => { error.textContent = reason instanceof Error ? reason.message : 'Could not restore this rename.'; })
         .finally(() => { busy = false; select.disabled = false; header.setBusy(false); });
     } : null, () => this.close(), 'Restore selected rename');
@@ -37,7 +44,7 @@ export class RestoreBoardRenameModal extends Modal {
       if (entry.record.problem) details.createEl('p', {text: entry.record.problem});
     };
     select.addEventListener('change', show); show();
-    const error = this.contentEl.createEl('p', {attr: {role: 'alert'}});
+    const error = this.contentEl.createEl('p', {cls: 'tt-field-error', attr: {role: 'alert'}});
   }
   /** Escape and clicks outside can't interrupt a restore being written. */
   close(): void { if (!editorBusy(this.modalEl)) super.close(); }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../src/obsidian/BoardSettingsModal.ts', () => ({ BoardSettingsModal: class {} }));
 vi.mock('../src/obsidian/LabelPickerModal.ts', () => ({ LabelPickerModal: class {} }));
 const drag = vi.hoisted(() => ({ active: false }));
@@ -166,6 +166,55 @@ it('bulk edits skip a changed selected line instead of modifying its replacement
   const result=await view.applyBulk(selected,{kind:'labels',mode:'add',ids:['red']},'house');
   expect(result.message).toContain('1 skipped');expect(f.content.split('\n')[0]).toBe('- [ ] Replacement');
   expect(f.content.split('\n')[1]).toContain('#tt/house/label/red');
+});
+
+it('names the tasks a bulk edit skipped, up to three and then how many more', async () => {
+  const lines = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', `A task with a name much longer than the status line has room for`];
+  const f = fixture(lines.map((name) => `- [ ] ${name}`).join('\n') + '\n'); await f.ready();
+  vi.spyOn(f.index, 'currentSnapshot').mockImplementation((task) => task);
+  const tasks = f.index.all();
+  type Tasks = typeof tasks;
+  const view = f.view as unknown as { applyBulk(tasks: Tasks, action: import('../src/core/bulkTriage.ts').BulkAction, slug: string): Promise<{ message: string }> };
+  const run = async (skip: Tasks) => {
+    vi.spyOn(f.plugin.writer, 'applyEdits').mockResolvedValueOnce({ appliedIds: [], skippedIds: skip.map((t) => t.id), failedPaths: [] } as never);
+    return (await view.applyBulk(tasks, { kind: 'priority', priority: 'high' }, 'house')).message;
+  };
+  expect(await run(tasks.slice(0, 1))).toBe('0 updated; 1 skipped because it changed or could not be saved (“Alpha”). Clear and reselect to retry.');
+  expect(await run(tasks.slice(0, 4))).toContain('4 skipped because they changed or could not be saved (“Alpha”, “Beta”, “Gamma” and 1 more).');
+  expect(await run(tasks.slice(5))).toContain('(“A task with a name much longer than the…”)');
+});
+
+describe('sorting by due date when it can’t move everything', () => {
+  const original = '- [ ] Late 📅 2026-10-30 #tt/house/backlog/100\n- [ ] Early 📅 2026-10-27 #tt/house/backlog/200\n- [ ] Middle 📅 2026-10-28 #tt/house/backlog/300\n';
+  const setup = async () => {
+    const f = fixture(original); await f.ready();
+    Object.assign(f.plugin.app.metadataCache, { getCache: () => null });
+    const view = f.view as unknown as ViewUnderTest & { today: string; sortByDueDate(): Promise<void> };
+    view.today = '2026-10-25';
+    return { f, view };
+  };
+
+  it('says nothing moved when nothing could be written', async () => {
+    const { f, view } = await setup();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    f.plugin.app.vault.process = vi.fn(async () => { throw new Error('Read only'); });
+    await view.sortByDueDate();
+    errors.mockRestore();
+    expect(f.content).toBe(original);
+    expect(notices.at(-1)).toBe('Task Trellis: could not sort by due date, so nothing moved. Check that the notes can be edited, then try again.');
+    expect(notices.some((n) => n.includes('sorted by due date'))).toBe(false);
+    expect(f.view.undoAction).toBeFalsy();
+  });
+
+  it.each([
+    [['b'], 'Task Trellis: sorted by due date, but 1 card couldn’t be moved and stayed where it was. Sort again to include it.'],
+    [['b', 'c'], 'Task Trellis: sorted by due date, but 2 cards couldn’t be moved and stayed where they were. Sort again to include them.'],
+  ])('says how many stayed when only some moved (%j)', async (skippedIds, message) => {
+    const { f, view } = await setup();
+    vi.spyOn(f.plugin.writer, 'applyEdits').mockResolvedValueOnce({ appliedIds: ['a'], skippedIds } as never);
+    await view.sortByDueDate();
+    expect(notices.at(-1)).toBe(message);
+  });
 });
 
 it('sorting by due date rewrites only the card out of place, and one Undo restores the note exactly', async () => {

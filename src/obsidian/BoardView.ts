@@ -28,6 +28,12 @@ export const VIEW_TYPE_BOARD = 'task-trellis-board';
 
 const STALENESS_CHECK_MS = 2_000;
 
+/** Up to three tasks by name, then how many more, for a status that says which tasks it means. */
+function namedTasks(tasks: BoardTask[]): string {
+  const shown = tasks.slice(0, 3).map((task) => `“${task.text.length > 40 ? `${task.text.slice(0, 39)}…` : task.text}”`);
+  return tasks.length > 3 ? `${shown.join(', ')} and ${tasks.length - 3} more` : shown.join(', ');
+}
+
 /** A board note shown as a board. The note's front matter is the board's configuration. */
 export class BoardView extends FileView {
   allowNoFile = false;
@@ -246,7 +252,7 @@ export class BoardView extends FileView {
     if (this.model.total === 0) {
       const missing = this.missingFilterKeys();
       if (missing.length > 0) {
-        this.board.warnings.push(`No note has a property named ${missing.map((k) => `"${k}"`).join(', ')}, so filter-properties matches nothing.`);
+        this.board.warnings.push(`No note has a property named ${missing.map((k) => `“${k}”`).join(', ')}, so filter-properties matches nothing.`);
       }
     }
     renderBoard(this.contentEl, this.model, this.host(), { warnings: this.board.warnings, info });
@@ -267,7 +273,7 @@ export class BoardView extends FileView {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[FM.hideCompletedSubtasks] = !show; });
     } catch (error) {
       console.error('[Task Trellis] saving completed subtasks failed', error);
-      this.alert(`Task Trellis: could not ${show ? 'show' : 'hide'} completed subtasks. Check that the board note can be edited, then try again.`);
+      this.alert(`Task Trellis: could not ${show ? 'show' : 'hide'} completed subtasks, so nothing changed. Check that the board note can be edited, then try again.`);
     }
   }
 
@@ -303,7 +309,7 @@ export class BoardView extends FileView {
             else delete fm[FM.columnWidths];
           });
         } catch (error) {
-          this.alert('Task Trellis: could not save column widths. The previous widths have been restored.');
+          this.alert('Task Trellis: could not save column widths. The previous widths have been restored; check that the board note can be edited, then try again.');
           throw error;
         }
       },
@@ -388,7 +394,7 @@ export class BoardView extends FileView {
       onToggle: (task) => void this.plugin.writer.toggle(this.plugin.index.currentSnapshot(task), (action) => {
         this.undoAction = { label: task.closed ? 'Task reopened' : 'Task completed', action, ids: [task.id] };
         this.highlightIds = new Set([task.id]); this.highlightUntil = Date.now() + 1000;
-      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); this.alert(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task. Check that its note can be edited, then try again.`); }),
+      }).then((lines) => this.showWritten(task, lines)).catch((error) => { console.error(error); this.alert(`Task Trellis: could not ${task.closed ? 'reopen' : 'complete'} the task, so nothing changed. Check that its note can be edited, then try again.`); }),
       onEdit: (task) => this.plugin.writer.tasksApi() ? void this.plugin.writer.editInModal(this.plugin.index.currentSnapshot(task)).then((lines) => this.showWritten(task, lines)).catch((error: unknown) => { console.error('[Task Trellis] editor failed', error); this.alert('Task Trellis: could not open the task editor, so nothing was changed. Check that the Tasks plugin is enabled, or open the task from its note link.'); }) : this.openSource(task, false),
       onOpenSource: (task, newTab) => this.openSource(task, newTab),
       onDragEnd: () => this.queueRender(),
@@ -502,7 +508,7 @@ export class BoardView extends FileView {
       // Label changes leave subtask cards alone: subtasks don't have labels.
       const unlabeled = snapshots.filter((task) => !edits.has(task.id));
       const message = [`${result.appliedIds.length} updated`,
-        ...skipped.size ? [`${skipped.size} skipped because they changed or could not be saved. Clear and reselect to retry`] : [],
+        ...skipped.size ? [`${skipped.size} skipped because ${skipped.size === 1 ? 'it' : 'they'} changed or could not be saved (${namedTasks(snapshots.filter((task) => skipped.has(task.id)))}). Clear and reselect to retry`] : [],
         ...unlabeled.length ? [`${unlabeled.length === 1 ? '1 subtask' : `${unlabeled.length} subtasks`} left unchanged, because subtasks don’t have labels`] : []].join('; ') + '.';
       this.render();
       return { tasks: [...(result.writtenTasks ?? []), ...tasks.filter((task) => skipped.has(task.id)), ...unlabeled], message };
@@ -542,10 +548,10 @@ export class BoardView extends FileView {
           this.undoAction = { label: `${moved === 1 ? '1 card' : `${moved} cards`} sorted by due date`, action: result.action, ids: result.appliedIds };
           this.highlightIds = new Set(result.appliedIds); this.highlightUntil = Date.now() + 1000;
         }
-        if (result.skippedIds.length) {
-          const skipped = result.skippedIds.length === 1 ? '1 card' : `${result.skippedIds.length} cards`;
-          this.alert(`Task Trellis: sorted by due date, but ${skipped} changed since the board was drawn and stayed where they were. Sort again to include them.`);
-        }
+        // A skipped card either changed since the board was drawn or couldn't be written; the writer says which notes failed.
+        const skipped = result.skippedIds.length;
+        if (skipped && !result.appliedIds.length) this.alert('Task Trellis: could not sort by due date, so nothing moved. Check that the notes can be edited, then try again.');
+        else if (skipped) this.alert(`Task Trellis: sorted by due date, but ${skipped === 1 ? '1 card couldn’t be moved and stayed where it was' : `${skipped} cards couldn’t be moved and stayed where they were`}. Sort again to include ${skipped === 1 ? 'it' : 'them'}.`);
         for (const id of result.skippedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
         await this.plugin.index.refresh([...new Set(tasks.map((task) => task.path))]);
         for (const id of result.appliedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
@@ -587,7 +593,7 @@ export class BoardView extends FileView {
         await this.plugin.index.refresh([move.parent.path]);
       } catch (error) {
         console.error('[Task Trellis] subtask reorder failed', error);
-        this.alert('Task Trellis: could not reorder the subtasks. Refresh the board and check that the note can be edited, then try again.');
+        this.alert('Task Trellis: could not reorder the subtasks, so nothing changed. Check that the note can be edited, then try again.');
       }
       this.renderWhenIdle();
     });
@@ -631,7 +637,7 @@ export class BoardView extends FileView {
       this.renderWhenIdle();
     } catch (err) {
       console.error('[Task Trellis] write failed', err);
-      this.alert('Task Trellis: could not move the task. Check that its note can be edited, then try again.');
+      this.alert('Task Trellis: could not move the task, so it’s back where it was. Check that its note can be edited, then try again.');
       for (const id of edits.keys()) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
       this.renderWhenIdle();
     }

@@ -8,21 +8,26 @@ import { renderLabelPicker, type LabelPickerHost } from '../ui/renderLabelPicker
 export class LabelPickerModal extends Modal {
   private saving = false;
   private chrome: ReturnType<typeof prepareEditorModal> | null = null;
+  private picker: ReturnType<typeof renderLabelPicker> | null = null;
 
   constructor(app: App, private labels: BoardLabel[], private selected: string[], private host: LabelPickerHost) {
     super(app);
   }
 
-  close(): void { if (!this.saving) super.close(); }
+  /** Escape and the X: from a label's editor or the color schemes, back to the list. */
+  close(): void {
+    if (this.saving || this.picker?.back()) return;
+    super.close();
+  }
 
   onOpen(): void {
     this.setTitle('Labels');
     this.modalEl.addClass('tt-label-modal');
     this.chrome = prepareEditorModal(this.modalEl);
-    renderLabelPicker(this.contentEl, this.labels, this.selected, { ...this.host, header: this.chrome.header, onClose: () => this.close(), onBusyChange: (busy) => { this.saving = busy; } });
+    this.picker = renderLabelPicker(this.contentEl, this.labels, this.selected, { ...this.host, header: this.chrome.header, onClose: () => this.close(), onBusyChange: (busy) => { this.saving = busy; } });
   }
 
-  onClose(): void { this.chrome?.destroy(); this.chrome = null; this.contentEl.empty(); this.host.onClose?.(); }
+  onClose(): void { this.picker = null; this.chrome?.destroy(); this.chrome = null; this.contentEl.empty(); this.host.onClose?.(); }
 }
 
 /**

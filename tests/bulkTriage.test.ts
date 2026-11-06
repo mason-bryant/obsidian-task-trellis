@@ -108,6 +108,76 @@ describe('bulk board interactions',()=>{
     f.click('Labels');await vi.waitFor(()=>expect(f.host.onBulkAction).toHaveBeenCalledTimes(2));
     expect(vi.mocked(f.host.onBulkAction!).mock.calls[1]![0]).toHaveLength(2);
   });
+  it.each([
+    ['saving',async(tasks:BoardTask[])=>({tasks,message:'1 updated'})],
+    ['cancelling',async()=>null],
+  ])('gives focus back to the bulk button after %s, so Escape still ends selecting',async(_,result)=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.host.onBulkAction=vi.fn(result);
+    f.draw();f.click('Priority');
+    const focused=()=>(document.activeElement as HTMLElement).dataset.boardFocus;
+    await vi.waitFor(()=>expect(focused()).toBe('bulk:priority'));
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
+    expect(focused()).toBe('select');
+  });
+  it('keeps the selection when a click in the bulk bar misses its buttons, but not on empty board space',()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.root.querySelector('.tt-bulk-count')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    f.root.querySelector('.tt-bulk-bar')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
+    f.root.querySelector('.tt-grid')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
+  });
+  it('keeps selecting when a click lands in a menu, which draws outside the board',()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    const menu=document.createElement('div');menu.className='menu';
+    const item=document.createElement('div');menu.append(item);document.body.append(menu);
+    item.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
+    menu.remove();
+    document.body.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
+  });
+  it('shows no labels on a subtask shown as a card of its own, while selecting as on the board',()=>{
+    const f=board();
+    const orphan={...task(`- [ ] Orphan #tt/${config.slug}/label/${config.labels[0]!.id}`,5),parentId:'gone'};
+    f.draw([f.a,orphan]);
+    const on=(selecting:boolean)=>{const name=selecting?'[aria-label="Select Orphan"]':null;
+      const c=name?f.root.querySelector(name)!.closest('.tt-card')!:[...f.root.querySelectorAll('.tt-card')].find(x=>x.textContent!.includes('Orphan'))!;
+      return c.querySelectorAll('.tt-card-labels').length;};
+    expect(on(false)).toBe(0);
+    f.click('Select');
+    expect(on(true)).toBe(0);
+  });
+  it('keeps completed and overdue cards looking the same while selecting',()=>{
+    const f=board();
+    const done=task(`- [x] Finished ✅ ${today} 📅 ${today}`,3),late=task('- [ ] Late 📅 2020-01-01',4);
+    f.draw([f.a,done,late]);f.click('Select');
+    const looks=(name:string)=>f.root.querySelector(`[aria-label="Select ${name}"]`)!.closest('.tt-card')!.classList;
+    expect(looks('Finished').contains('is-closed')).toBe(true);
+    expect(looks('Late').contains('is-overdue')).toBe(true);
+    expect(looks('A').contains('is-closed')).toBe(false);
+    expect(looks('A').contains('is-overdue')).toBe(false);
+  });
+  it('gives focus to Select when a bulk change leaves nothing selected',async()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.host.onBulkAction=vi.fn(async()=>({tasks:[],message:'Updated'}));
+    f.draw();f.click('Priority');
+    await vi.waitFor(()=>expect((document.activeElement as HTMLElement).dataset.boardFocus).toBe('select'));
+  });
+  it('keeps focus on the board after Undo while selecting',()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.host.undo={label:'1 task updated',run:vi.fn()};f.draw();
+    const key=()=>(document.activeElement as HTMLElement).dataset.boardFocus;
+    f.root.querySelector<HTMLButtonElement>('.tt-undo button')!.focus();
+    f.host.undo=undefined;f.host.highlightIds=new Set([f.b.id]);f.draw();
+    expect(key()).toBe(`select-card:${f.b.id}`);
+    f.host.undo={label:'1 task updated',run:vi.fn()};f.host.highlightIds=undefined;f.draw();
+    f.root.querySelector<HTMLButtonElement>('.tt-undo button')!.focus();
+    f.host.undo=undefined;f.draw();
+    expect(key()).toBe('select');
+  });
   it('clears selection when filters change and never selects a replacement line implicitly',()=>{
     const f=board();f.click('Select');f.click('Select A');
     f.draw([task('- [ ] Replacement'),f.b]);

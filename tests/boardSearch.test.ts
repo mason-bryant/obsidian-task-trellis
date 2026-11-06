@@ -28,6 +28,17 @@ const model = (search: string, quick: string[] = [], fm: Record<string, unknown>
 const cards = (m: BoardModel) => Object.values(m.cells).flatMap((row) => Object.values(row).flat()).map((t) => t.text).sort();
 
 describe('searching a board', () => {
+  it('finds a completed subtask a card shows, however long ago it was completed', () => {
+    const raw = '- [x] Line the drawers ✅ 2026-01-01';
+    const old: BoardTask = { ...parseTaskLine(raw)!, raw, id: taskId('Projects/Kitchen.md', 9), path: 'Projects/Kitchen.md', line: 9, parentId: repaint.id };
+    const found = (search: string, quick: string[] = []) => buildBoard([...tasks, old], config({ 'quick-filters': [{ id: 'undated', name: 'Undated', due: ['none'], 'match-subtasks': true }] }), TODAY, () => undefined, () => [], quick, search);
+    const shown = found('drawers');
+    expect(Object.values(shown.cells).flatMap((row) => Object.values(row).flat()).map((t) => t.id)).toEqual([repaint.id]);
+    expect(shown.quickContext?.matches.has(old.id)).toBe(true);
+    // A quick filter still leaves it out, as Show completed tasks for says.
+    expect(found('', ['undated']).quickContext?.matches.has(old.id)).toBe(false);
+  });
+
   it('ignores case, accents and repeated words', () => {
     expect(searchTerms('  Café  KITCHEN cafe ')).toEqual(['cafe', 'kitchen']);
     expect(searchTerms('   ')).toEqual([]);
@@ -141,6 +152,18 @@ describe('the search box', () => {
     ui.input().dispatchEvent(new CompositionEvent('compositionend'));
     vi.advanceTimersByTime(SEARCH_DELAY_MS);
     expect(ui.onSearch).toHaveBeenCalledWith('カ');
+  });
+
+  it('drops a search still waiting when an input method starts composing', () => {
+    const ui = board();
+    ui.type('k');
+    ui.input().dispatchEvent(new CompositionEvent('compositionstart'));
+    vi.advanceTimersByTime(SEARCH_DELAY_MS * 2);
+    expect(ui.onSearch).not.toHaveBeenCalled();
+    ui.input().value = 'kカ';
+    ui.input().dispatchEvent(new CompositionEvent('compositionend'));
+    vi.advanceTimersByTime(SEARCH_DELAY_MS);
+    expect(ui.onSearch).toHaveBeenCalledWith('kカ');
   });
 
   it('Enter searches at once and moves to the first card; Escape clears, then leaves Escape to the board', () => {

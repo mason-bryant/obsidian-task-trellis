@@ -93,6 +93,34 @@ it('says a new filter warning from the settings dialog, but not one already show
   expect(form.querySelector('.tt-filter-warnings')!.getAttribute('role')).toBeNull();
 });
 
+it('says a general settings error and moves focus to it, so it isn’t missed', async () => {
+  const draft = draftFromConfig(config);
+  const settings = document.createElement('div'); document.body.replaceChildren(settings);
+  const form = renderBoardSettings(settings, draft, config, {
+    icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(), attachFolderSuggest: vi.fn(),
+    taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
+  } as SettingsFormHost);
+  form.showErrors(['Two columns are both named “Doing”.']);
+  const box = settings.querySelector<HTMLElement>('.tt-settings-errors')!;
+  expect(document.activeElement).toBe(box);
+  expect(box.getAttribute('role')).toBeNull();
+  await later();
+  expect(region(settings, 'alert').textContent).toBe('Two columns are both named “Doing”.');
+  form.destroy();
+});
+
+it('says a new board warning once, and not again on a redraw', async () => {
+  const warned = (warnings: string[]) => renderBoard(root, buildBoard([paint], config, today, () => undefined), host, { warnings, info: [] });
+  warned(['Slug “house” is also used by Garden.']);
+  await later();
+  expect(region(root).textContent).toBe('Slug “house” is also used by Garden.');
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(region(root).textContent).toBe('');
+  warned(['Slug “house” is also used by Garden.']);
+  await later();
+  expect(region(root).textContent).toBe('');
+});
+
 it('says a notice from the active board, as an alert for an error, and adds nothing without one', async () => {
   notice(activeBoard(root) as unknown as App, 'Task Trellis: could not move the task. Check that its note can be edited, then try again.', { alert: true });
   await later();

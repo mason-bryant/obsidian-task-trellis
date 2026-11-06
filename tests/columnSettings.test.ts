@@ -64,7 +64,7 @@ it('says where a removed column’s open tasks will show, and keeps it current w
   expect(notes()).toEqual([]);
 
   root.querySelector<HTMLElement>('[aria-label="Remove This Week column"]')!.click();
-  const said = 'Removing This Week: 1 open task will show in Next. Their tags aren’t changed, so adding This Week back returns them.';
+  const said = 'Removing This Week: 1 open task will show in Next. Its tag isn’t changed, so adding This Week back returns it.';
   expect(notes()).toEqual([said]);
   vi.advanceTimersByTime(ANNOUNCE_DELAY_MS);
   expect(live.textContent).toBe(said);

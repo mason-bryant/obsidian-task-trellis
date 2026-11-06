@@ -91,7 +91,7 @@ function disposeSubtaskReorders(root: HTMLElement): void {
 }
 const displayStates = new WeakMap<HTMLElement, DisplayState>();
 /** What each board last said in its live region, so a redraw doesn't say it again. */
-const spoken = new WeakMap<HTMLElement, { undo?: RenderHost['undo']; count?: string; result?: string; search?: string }>();
+const spoken = new WeakMap<HTMLElement, { undo?: RenderHost['undo']; count?: string; result?: string; search?: string; warnings?: string[] }>();
 const quickDisclosures = new WeakMap<HTMLElement, { scope: string; collapsed: Set<string>; all: Set<string> }>();
 /** Wait this long after typing stops before searching, so a big board doesn't redraw for every letter. */
 export const SEARCH_DELAY_MS = 150;
@@ -135,9 +135,30 @@ const STALE_DRAG_MS = 60_000;
 let draggingId: string | null = null;
 let dragStartedAt = 0;
 /** An open "Add task" or "Add subtask" box's draft, kept across redraws so typing isn't lost when the view updates. */
-export type ComposerDraft = { key: string; text: string; labels?: string[]; picking?: boolean; saving?: boolean; refresh?: () => void };
+export type ComposerDraft = {
+  key: string; text: string; labels?: string[]; picking?: boolean; saving?: boolean; refresh?: () => void;
+  /** Closes the box on screen when another box takes its place. */
+  replaced?: () => void;
+};
 /** Where a surface keeps its open box. The board and the boards sidebar each have one, so opening one doesn't close the other. */
-export type ComposerSlot = { draft: ComposerDraft | null };
+export type ComposerSlot = {
+  draft: ComposerDraft | null;
+  /** What was typed in boxes another box replaced, by key, for when they open again. */
+  setAside: Map<string, Pick<ComposerDraft, 'text' | 'labels'>>;
+};
+
+/** Opens `key`'s box. The box it replaces closes, and its text and labels come back when it opens again. */
+export function openComposer(slot: ComposerSlot, key: string): void {
+  const previous = slot.draft;
+  if (previous?.key === key) return;
+  const kept = slot.setAside.get(key);
+  slot.setAside.delete(key);
+  slot.draft = { key, text: kept?.text ?? '', labels: kept?.labels };
+  if (!previous) return;
+  // One saving already keeps its own text: it goes to the host if the save fails.
+  if (!previous.saving && (previous.text.trim() || previous.labels?.length)) slot.setAside.set(previous.key, { text: previous.text, labels: previous.labels });
+  previous.replaced?.();
+}
 /** A task composer's Labels button: the board's labels and how they're drawn, and the host's picker. */
 export type ComposerLabels = {
   palette: BoardLabel[];
@@ -145,7 +166,7 @@ export type ComposerLabels = {
   pick(selected: string[], choose: (ids: string[]) => void, onClose: () => void): void;
 };
 /** The board's box. Keys include the board's slug, so a box open on one board doesn't show on another. */
-const boardComposer: ComposerSlot = { draft: null };
+const boardComposer: ComposerSlot = { draft: null, setAside: new Map() };
 /** During a redraw, whether focus was in the board before it; null between redraws. */
 let redrawHadFocus: boolean | null = null;
 
@@ -157,7 +178,8 @@ export function isDragging(): boolean {
 function focusBoardControl(root: HTMLElement, ...keys: string[]): boolean {
   const controls = [...root.querySelectorAll<HTMLElement>('[data-board-focus]')];
   for (const key of keys) {
-    const control = controls.find((el) => el.dataset.boardFocus === key);
+    // A disabled control can't take focus, so the next one has to.
+    const control = controls.find((el) => el.dataset.boardFocus === key && !(el as HTMLButtonElement).disabled);
     if (control) { control.focus({ preventScroll: true }); return true; }
   }
   return false;
@@ -179,8 +201,13 @@ export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHo
     drawBoard(root, model, host, notes);
     if (focusKey) {
       // A control that left with its task falls back to the task's card, then to a card the action changed.
-      const fallbacks = [focusKey, ...focusTask ? [`card:${focusTask}`, `subtask:${focusTask}`] : [], ...[...host.highlightIds ?? []].map((id) => `card:${id}`)];
+      // Undo goes away once used; while selecting, its cards have a selection square to focus instead.
+      const fallbacks = [focusKey, ...focusTask ? [`card:${focusTask}`, `subtask:${focusTask}`] : [],
+        ...[...host.highlightIds ?? []].flatMap((id) => [`card:${id}`, `select-card:${id}`]), ...focusKey === 'undo' ? ['select'] : []];
       focusBoardControl(root, ...fallbacks);
+    } else if (focusTask && !focused?.closest('.tt-add-box')) {
+      // A control with no key of its own, such as a link in a card's text. An open box finds its own focus.
+      focusBoardControl(root, `card:${focusTask}`, `subtask:${focusTask}`, `select-card:${focusTask}`);
     }
   } finally {
     redrawHadFocus = null;
@@ -269,7 +296,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       if (selection.busy) return;
       const target = event.target as Element | null;
       if (!target || typeof target.closest !== 'function') return;
-      if (root.contains(target) && target.closest('.tt-card, button, a, input, select, textarea, [role="button"], [role="splitter"], .tt-row-sticky')) return;
+      // The board's own menus draw outside it, in Obsidian's menu.
+      if (target.closest('.menu')) return;
+      if (root.contains(target) && target.closest('.tt-card, .tt-bulk-bar, button, a, input, select, textarea, [role="button"], [role="splitter"], .tt-row-sticky')) return;
       selection.active = false;
       selection.clear();
       // Do not cancel the click or move focus: an outside control must still work.
@@ -438,6 +467,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
     if (host.undo !== said.undo && !selection.active) announce(root, host.undo.label);
   }
   said.undo = host.undo;
+  // A warning's note isn't a live region, so say a new one.
+  for (const text of notes.warnings) if (!said.warnings?.includes(text)) announce(root, text);
+  said.warnings = notes.warnings;
   if (search && model.search !== said.search && model.search) {
     announce(root, model.total ? `${model.total} ${model.total === 1 ? 'card matches' : 'cards match'} “${model.search}”.` : `No tasks match “${model.search}”.`);
   }
@@ -450,7 +482,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       b.disabled = selection.busy; b.onclick = action; bar.append(b); return b;
     };
     const matching = triageCards(model, display.column);
-    button(`Select all ${matching.length}`, 'select-all', () => { selection.add(matching); redraw(); }).setAttribute('aria-label', `Select all ${matching.length} matching tasks`);
+    button(`Select all ${matching.length}`, 'select-all', () => { selection.add(matching); redraw(); }).setAttribute('aria-label', `Select all ${matching.length} matching ${matching.length === 1 ? 'task' : 'tasks'}`);
     button('Clear', 'select-clear', () => { selection.clear(); redraw(); }).setAttribute('aria-label', 'Clear selection');
     const actions = el('div', 'tt-bulk-actions'); bar.append(actions);
     for (const [kind, label] of [['move', 'Move'], ['due', 'Due date'], ['labels', 'Labels'], ['priority', 'Priority']] as const) {
@@ -466,11 +498,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
             if (bulkStates.get(root) !== selection || !root.isConnected) return;
             // Ask the host for a fresh model after writing; the index may have changed while the dialog was open.
             baseHost.onDragEnd();
-            if (root.isConnected) {
-              const current = root.querySelector<HTMLButtonElement>(`[data-board-focus="bulk:${kind}"]`);
-              current?.focus({ preventScroll: true });
-            }
             redraw();
+            // Only now, since the button is disabled until this redraw. With nothing left selected it stays disabled.
+            if (root.isConnected) focusBoardControl(root, `bulk:${kind}`, 'select');
           });
       });
       b.disabled = selection.busy || selection.tasks.length === 0;
@@ -523,7 +553,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       ? ['1 / -1']
       : [undatedAt > 0 ? `1 / ${undatedAt + 1}` : '', undatedAt < visibleColumns.length - 1 ? `${undatedAt + 2} / -1` : ''].filter(Boolean);
   if (undatedAt >= 0) {
-    if (config.undatedScroll) { grid.classList.add('tt-grid--undated'); scrollEl.classList.add('tt-scroll--undated'); }
+    if (config.undatedScroll && visibleColumns.length > 1) { grid.classList.add('tt-grid--undated'); scrollEl.classList.add('tt-scroll--undated'); }
     const undated = cell('none', visibleColumns[undatedAt]!, model, host, paging);
     undated.classList.add('tt-cell--undated');
     undated.style.gridColumn = String(undatedAt + 1);
@@ -655,22 +685,31 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   const kept = cards.reduce((last, task, i) => paging.keep.has(task.id) ? i : last, -1);
   if (!hidden && kept >= first) paging.pages.set(key, Math.max(paging.pages.get(key) ?? 0, Math.floor((kept - first) / CELL_PAGE) + 1));
   const pages = hidden ? 0 : paging.pages.get(key) ?? 0;
-  const shown = hidden ? limit : Math.min(cards.length, first + CELL_PAGE * pages);
+  // Collapsed, a cell shows its limit, and as far as a card that must stay drawn.
+  const shown = hidden ? Math.max(limit, kept + 1) : Math.min(cards.length, first + CELL_PAGE * pages);
+  // Focus goes on to the first card a button adds, which takes the button's place.
+  const focusFirstAdded = (button: HTMLElement, at: number) => {
+    button.dataset.boardFocus = `${host.selection ? 'select-card' : 'card'}:${cards[at]!.id}`;
+  };
   for (const task of cards.slice(0, shown)) c.append(card(task, model, host));
   if (shown < cards.length && !hidden) {
     const more = moreToggle(true, cards.length - shown, `more-cards:${key}`, host, () => {
-      // Focus goes on to the first card it adds, which takes the button's place.
-      more.dataset.boardFocus = `card:${cards[shown]!.id}`;
+      focusFirstAdded(more, shown);
       paging.pages.set(key, pages + 1);
       paging.redraw();
     });
     more.title = `Show the next ${Math.min(CELL_PAGE, cards.length - shown)}`;
     c.append(more);
   }
-  if (capped || shown > first) {
-    const toggle = moreToggle(hidden, cards.length - (limit ?? 0), `more:${key}`, host, () => {
+  // A card that must stay drawn can be the last one, which leaves nothing for "N more" to count.
+  if ((capped || shown > first) && !(hidden && shown === cards.length)) {
+    const toggle = moreToggle(hidden, cards.length - shown, `more:${key}`, host, () => {
       paging.pages.delete(key);
-      if (capped) { host.onToggleRow(moreKey(rowId)); return; }
+      if (capped) {
+        if (hidden) focusFirstAdded(toggle, shown);
+        host.onToggleRow(moreKey(rowId));
+        return;
+      }
       toggle.dataset.boardFocus = `more-cards:${key}`;
       paging.redraw();
     });
@@ -707,7 +746,7 @@ function addTask(target: { rowId: string; columnId: string }, config: BoardModel
     b.dataset.boardFocus = `add:${key}`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      boardComposer.draft = { key, text: '' };
+      openComposer(boardComposer, key);
       showBox();
     });
     // Closing with X or Escape hands focus back; closing because focus moved elsewhere leaves it there.
@@ -718,7 +757,7 @@ function addTask(target: { rowId: string; columnId: string }, config: BoardModel
   const labels = host.onComposerLabels && { palette: config.labels, shape: config.labelShape, pick: host.onComposerLabels };
   const showBox = () =>
     wrap.replaceChildren(
-      addBox(key, 'New task. Enter to add, ⌘/Ctrl+Enter for details', 'Add task', host,
+      addBox(key, 'New task. Enter to add, Cmd/Ctrl+Enter for details', 'Add task', host,
         (text, detailed, chosen) => host.onAddTask(target, text, detailed, chosen), showButton, { labels }),
     );
 
@@ -772,7 +811,10 @@ export function addBox(
     if (draft.saving && buttons.includes(box.ownerDocument.activeElement as HTMLButtonElement)) input.focus({ preventScroll: true });
     buttons.forEach((b) => { b.disabled = !!draft.saving; });
   };
-  if (draft) draft.refresh = refresh;
+  if (draft) {
+    draft.refresh = refresh;
+    draft.replaced = () => { stopViewport?.(); if (box.isConnected) onClose(); };
+  }
   const submit = async (detailed: boolean) => {
     if (!draft || slot.draft !== draft || draft.saving) return;
     const text = draft.text.trim();
@@ -794,18 +836,19 @@ export function addBox(
     }
   };
   input.addEventListener('keydown', (e) => {
-    if (isComposing(e)) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    } else if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      void submit(e.metaKey || e.ctrlKey);
-    }
+    if (isComposing(e) || e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    void submit(e.metaKey || e.ctrlKey);
+  });
+  // From anywhere in the box, including its buttons.
+  box.addEventListener('keydown', (e) => {
+    if (isComposing(e) || e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    close();
   });
   input.addEventListener('blur', () => {
-    // Clicking one of the buttons blurs first; let its click run. A box another one replaced closes too.
+    // Clicking one of the buttons blurs first; let its click run.
     // Picked labels are a draft too, and the label picker takes focus while it's open.
     window.setTimeout(() => {
       if (!box.isConnected) return;
@@ -941,7 +984,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   const actions = el('span', 'tt-card-actions');
   if (host.onLabels && !task.parentId) {
     const labelsButton = el('button', 'clickable-icon tt-card-icon tt-card-label-button');
-    labelsButton.type = 'button'; labelsButton.setAttribute('aria-label', 'Labels');
+    labelsButton.type = 'button'; labelsButton.setAttribute('aria-label', `Labels for ${task.text}`);
     labelsButton.dataset.boardFocus = `labels:${task.id}`;
     host.icon(labelsButton, 'tag');
     labelsButton.onclick = (event) => { event.stopPropagation(); host.onLabels?.(task); };
@@ -953,6 +996,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   if (host.onMoveMenu && !task.closed) actions.append(moveMenuButton(task, model, host));
   if (subtasks.length === 0 && actions.childElementCount > 0) meta.append(actions);
   const source = el('a', 'tt-source', host.sourceLabel(task));
+  source.dataset.boardFocus = `source:${task.id}`;
   source.href = '#';
   source.title = `Open ${task.path}, line ${task.line + 1}`;
   source.addEventListener('click', (e) => {
@@ -1041,6 +1085,8 @@ function labelMarks(labels: BoardLabel[], shape: LabelShape): HTMLElement {
 function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const selection = host.selection!;
   const c = el('div', 'tt-card tt-selection-card'); c.dataset.id = task.id;
+  if (task.closed) c.classList.add('is-closed');
+  if (isOverdue(task, model.today)) c.classList.add('is-overdue');
   paintCard(c, task, model);
   appendFilterContext(c, task, model, host);
   const selected = selection.has(task);
@@ -1054,10 +1100,11 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   const main = el('div', 'tt-card-main'); const text = el('div', 'tt-card-text'); host.renderText(text, task);
   main.append(check, text); c.append(main);
   const meta = el('div', 'tt-card-meta', host.sourceLabel(task)); appendBadges(meta, task, model, host); c.append(meta);
-  const labels = model.config.labels.filter((label) => taskLabels(task.raw, model.config.slug).includes(label.id));
+  // As on a card outside selecting: subtasks don't have labels.
+  const labels = task.parentId ? [] : model.config.labels.filter((label) => taskLabels(task.raw, model.config.slug).includes(label.id));
   if (labels.length) c.prepend(labelMarks(labels, model.config.labelShape));
   const children = model.subtasks[task.id]?.length ?? 0;
-  if (children) c.append(el('span', 'tt-selection-detail', `${children} subtasks`));
+  if (children) c.append(el('span', 'tt-selection-detail', children === 1 ? '1 subtask' : `${children} subtasks`));
   if (model.quickContext?.branches.has(task.id)) appendMatchingSummary(c, task, model);
   c.addEventListener('click', (event) => {
     if ((event.metaKey || event.ctrlKey) && (event.target as Element).closest('a')) return;
@@ -1158,6 +1205,8 @@ function searchField(root: HTMLElement, slug: string, query: string, host: Rende
     if (event.isComposing) return;
     win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS);
   });
+  // A search waiting from the last keystroke would otherwise run on the word being composed.
+  input.addEventListener('compositionstart', () => { win.clearTimeout(timer); timer = undefined; });
   input.addEventListener('compositionend', () => { win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS); });
   input.addEventListener('keydown', (event) => {
     if (isComposing(event)) return;
@@ -1305,7 +1354,7 @@ function subtaskBoxKey(task: BoardTask, slug: string): string {
 function subtaskBox(parent: BoardTask, slug: string, section: HTMLElement, host: RenderHost): HTMLElement {
   const box = addBox(
     subtaskBoxKey(parent, slug),
-    'New subtask. Enter to add, ⌘/Ctrl+Enter for details',
+    'New subtask. Enter to add, Cmd/Ctrl+Enter for details',
     'Add subtask',
     host,
     (text, detailed) => host.onAddSubtask(parent, text, detailed),
@@ -1335,7 +1384,7 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], model: BoardModel
   const b = el('button', `tt-subtask-toggle${collapsed ? ' is-collapsed' : ''}`);
   b.type = 'button';
   b.setAttribute('aria-expanded', String(!collapsed));
-  const action = `${collapsed ? 'Show' : 'Hide'} subtasks`;
+  const action = `${collapsed ? 'Show' : 'Hide'} subtasks of ${task.text}`;
   const label = `${action} (${done} of ${subtasks.length} done)`;
   b.dataset.boardFocus = `subtasks-${task.id}`;
   b.setAttribute('aria-label', label);
@@ -1366,7 +1415,7 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     const key = subtaskBoxKey(task, model.config.slug);
-    if (boardComposer.draft?.key !== key) boardComposer.draft = { key, text: '' };
+    openComposer(boardComposer, key);
     if ((model.subtasks[task.id]?.length ?? 0) > 0 && subtasksCollapsed(task, model, host)) {
       // Redraws with the list open, and the box in it.
       if (model.quickContext?.branches.has(task.id)) host.quickDisclosure?.toggle(task.id);
@@ -1395,7 +1444,7 @@ function moveButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   const b = el('button', 'clickable-icon tt-card-icon tt-card-move');
   b.type = 'button';
   const destination = model.rows[rowIndex(target.rowId)]!;
-  const label = `${destination.kind === 'now' ? 'Move into Due now' : 'Defer'}${destination.dropDate ? ` · due ${shortLabel(destination.dropDate)}` : ''}`;
+  const label = `${destination.kind === 'now' ? `Move ${task.text} into Due now` : `Defer ${task.text}`}${destination.dropDate ? ` · due ${shortLabel(destination.dropDate)}` : ''}`;
   b.setAttribute('aria-label', label);
   b.dataset.boardFocus = `move:${task.id}`;
   // Out of the No due date column it's a sideways move.

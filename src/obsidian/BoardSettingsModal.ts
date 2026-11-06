@@ -83,7 +83,7 @@ export class BoardSettingsModal extends Modal {
       this.closeSettings();
     } catch (error) {
       console.error('[Task Trellis] settings save failed', error);
-      notice(this.app, 'Task Trellis: could not save board settings. Your draft is still open.', { alert: true, region: this.contentEl });
+      notice(this.app, 'Task Trellis: could not save board settings. Your draft is still open; check that the board note can be edited, then try again.', { alert: true, region: this.contentEl });
     } finally {
       this.saving = false;
       this.form?.setSaving(false);

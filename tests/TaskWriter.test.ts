@@ -206,6 +206,16 @@ describe('TaskWriter.openSource', () => {
     expect(calls).toEqual(['reveal 2', 'focus 2', 'active 2', 'line 2:4']);
   });
 
+  it('says so when the note is gone, rather than doing nothing', async () => {
+    const { app, calls } = workspaceWith([]);
+    Object.assign(app.vault, { getFileByPath: () => null });
+    Object.assign(app.workspace, { getActiveViewOfType: () => null });
+    notices.length = 0;
+    await new TaskWriter(app).openSource(task('gone.md', 1, '- [ ] x'));
+    expect(calls).toEqual([]);
+    expect(notices).toEqual(['Task Trellis: could not find gone.md, so it wasn’t opened. The note may have been moved or deleted.']);
+  });
+
   it('opens a new tab when the note is not open, or when asked to', async () => {
     const { app, calls } = workspaceWith([{ path: 'a.md', win: 'main' }]);
     await new TaskWriter(app).openSource(task('b.md', 1, '- [ ] x'));

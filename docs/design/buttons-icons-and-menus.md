@@ -20,7 +20,7 @@ Use a labeled button for an unfamiliar or consequential action. Compact, repeate
 | More card actions | ⋯ opens Move to…, whose choices say what else the move changes, such as the due date it sets |
 | Arrange the board | One Arrange button on the toolbar opens a menu: Collapse all subtasks, Expand all subtasks and Show completed subtasks when the board has subtasks, then, after a separator, Sort by due date. Show completed subtasks has a checkmark while they show. It's the opposite of Hide completed subtasks under Appearance, and changes the same setting, so the two always agree. |
 
-A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks or Show subtasks.
+A card's actions sit at the right of its action row, in this order: Labels, Add subtask, the scheduling arrow, and ⋯ last. They stay together at the right when the metadata wraps. The subtask count and the add-subtask button share a row; the count's chevron is named for what it does, Hide subtasks of ‹task› or Show subtasks of ‹task›.
 
 The board toolbar always ends with Settings, after Select or Done selecting and What's new. Keep that order in the DOM, keyboard navigation and wrapped layouts, even when other controls are hidden.
 
@@ -36,6 +36,8 @@ Menus use Obsidian's public `Menu` API.
 
 ## Exceptions
 
+- After ⋯ moves a card, focus goes to the moved card rather than back to ⋯, since a keyboard user is following the card, which may now be somewhere else.
+- The boards sidebar's Create new board is a full-width button with no plus, as the sidebar's one main action.
 - The quick-filter menu isn't a native menu, because native menus can't show the color squares. The browser harness has its own stand-in for testing; it isn't a second menu style.
 
 ## Where it lives

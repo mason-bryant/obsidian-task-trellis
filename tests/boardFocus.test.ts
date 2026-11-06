@@ -46,6 +46,23 @@ it('a redraw gives focus back to the row toggle, checkbox, scheduling arrow, Und
   }
 });
 
+it('names a card’s repeated icon buttons for its task', () => {
+  host.onLabels = vi.fn(); draw();
+  const names = [...card(paint).querySelectorAll('.tt-card-icon')].map((b) => b.getAttribute('aria-label'));
+  expect(names).toContain('Labels for Paint the kitchen');
+  expect(names.some((n) => /^(Defer Paint the kitchen|Move Paint the kitchen into Due now)/.test(n ?? ''))).toBe(true);
+});
+
+it('a redraw gives focus back to a card’s source link, and to the card from a control with no key of its own', () => {
+  key(`source:${paint.id}`).focus(); draw();
+  expect(focusedKey()).toBe(`source:${paint.id}`);
+  card(paint).querySelector<HTMLButtonElement>('.tt-add-subtask')!.focus(); draw();
+  expect(document.activeElement).toBe(card(paint));
+  const link = document.createElement('a'); link.href = '#'; card(paint).querySelector('.tt-card-text')!.append(link);
+  link.focus(); draw();
+  expect(document.activeElement).toBe(card(paint));
+});
+
 it('focus falls back to the task\'s card when its control goes away, and Undo hands it to the restored card', () => {
   key(`move:${roofer.id}`).focus();
   tasks = [paint, walls, task('- [x] Call roofer 📅 2027-03-01 ✅ 2026-10-28', 2)]; draw();
@@ -63,6 +80,49 @@ it('the Move to… menu reports when it is open, and gives focus to the moved ca
   expect(more().getAttribute('aria-expanded')).toBe('false'); expect(document.activeElement).toBe(more());
   more().click(); draw(); closeMenu(true);
   expect(more().getAttribute('aria-expanded')).toBe('false'); expect(document.activeElement).toBe(card(paint));
+});
+
+it('keeps what was typed in a composer that another one replaced, until it’s discarded', () => {
+  const adds = () => [...root.querySelectorAll<HTMLButtonElement>('.tt-add-button')];
+  const inputs = () => [...root.querySelectorAll<HTMLTextAreaElement>('.tt-add-input')];
+  const type = (text: string) => { inputs()[0]!.value = text; inputs()[0]!.dispatchEvent(new Event('input')); };
+  const first = adds()[0]!.dataset.boardFocus!, second = adds()[1]!.dataset.boardFocus!;
+  const add = (key: string) => adds().find((b) => b.dataset.boardFocus === key)!;
+
+  add(first).click();
+  type('Half typed');
+  add(second).click();
+  // Only the new box is open, and it's empty, whether or not the first had focus.
+  expect(inputs().map((i) => i.value)).toEqual(['']);
+  expect(add(first)).toBeDefined();
+  // A redraw doesn't lose it.
+  draw();
+  expect(inputs().map((i) => i.value)).toEqual(['']);
+
+  add(first).click();
+  expect(inputs().map((i) => i.value)).toEqual(['Half typed']);
+  // The empty box it replaced has nothing to keep, and X discards the text.
+  add(second).click();
+  add(first).click();
+  expect(inputs()[0]!.value).toBe('Half typed');
+  root.querySelector<HTMLButtonElement>('.tt-add-cancel')!.click();
+  add(first).click();
+  expect(inputs()[0]!.value).toBe('');
+  root.querySelector<HTMLButtonElement>('.tt-add-cancel')!.click();
+});
+
+it.each(['.tt-editor-save', '.tt-add-labels-button', '.tt-add-cancel'])('closes a composer with Escape from its %s button, returning focus', (selector) => {
+  host.onComposerLabels = vi.fn();
+  draw();
+  const add = root.querySelector<HTMLButtonElement>('.tt-add-button')!;
+  const key = add.dataset.boardFocus!;
+  add.click();
+  const button = root.querySelector<HTMLButtonElement>(`.tt-add-box ${selector}`)!;
+  button.focus();
+  button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  expect(root.querySelector('.tt-add-input')).toBeNull();
+  expect((document.activeElement as HTMLElement).dataset.boardFocus).toBe(key);
+  delete host.onComposerLabels;
 });
 
 it('closing a composer with Escape or X returns focus to the button that opened it', () => {

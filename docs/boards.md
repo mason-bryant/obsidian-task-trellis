@@ -60,7 +60,7 @@ These properties are stored in the board note. The settings form handles the usu
 | `limit-undated` | true | Cap the cards shown in the No due date column. |
 | `undated-limit` | 10 | How many show there before the rest go behind "more". |
 | `undated-scroll` | false | With several columns showing, keep the No due date column in view and scroll it separately from the board. **No due date column scrolls** in the Appearance tab. |
-| `due-now` | 7 | Size of the Due now window, in `due-now-unit`s. Due now also holds overdue tasks. |
+| `due-now` | 7, or 1 for weeks | Size of the Due now window, in `due-now-unit`s. Due now also holds overdue tasks. |
 | `due-now-unit` | days | `days`: through today + `due-now` days. `weeks`: through the last day of the `due-now`-th week, counting this week as 1 (Sunday, with Monday week starts). |
 | `week-horizon` | 2 | Number of week rows after Due now. Everything later goes in Later. |
 | `week-start` | monday | First day of a week row. |
@@ -74,11 +74,20 @@ These properties are stored in the board note. The settings form handles the usu
 | `label-shape` | pill | How labels show on cards: `pill`, `circle` or `square`. |
 | `show-column-selector` | true | Show the toolbar column dropdown. Hiding it clears the chosen-column filter; narrow-board navigation stays available. |
 | `show-completed-days` | 7 | Completed tasks show for this many days after their done date. 0 hides them. |
+| `sort-completed-subtasks` | false | List a card's completed subtasks after its open ones. **Subtask order** in the Appearance tab. |
+| `hide-completed-subtasks` | false | Hide a card's completed subtasks, unless they have open subtasks. |
+| `overdue-bar` | true | Show the red bar on overdue cards. |
+| `open-links` | popup | Where a card's note and the links in its text open: `popup` or `tab`. |
+| `quick-filters` | High priority, Overdue and the first label | The board's quick filters; see [Quick filters](filters.md#quick-filters). |
+| `quick-filters-menu` | false | **Group filters in a menu**. |
+| `quick-filters-visible` | none | **Filters to keep visible**, the first few left on the toolbar. |
+| `quick-filters-visible-mobile` | none | **Filters to keep visible in single-column view**. |
+| `label-next` | 1 | The next new label's permanent number, managed by the label editor. |
 | `new-tasks` | default | Where tasks added on this board go: `default` (the plugin setting), `daily` or `note`. |
 | `new-tasks-note` | | The note for `new-tasks: note`, created if missing. |
 | `new-tasks-heading` | | The section new tasks go at the end of; empty adds to the end of the note. |
 
-A cell with more than 25 cards shows the first 25, then **N more**, which shows the next 25 each time you select it; **Show fewer** goes back. Done and No due date start from `done-limit` and `undated-limit` instead. The extra cards stay shown while the board is open, but not after you close it, so a large board opens without drawing every card. Column and row counts, **Select all** and **Select column** still include every card.
+A cell with more than 25 cards shows the first 25, then **N more**, which shows the next 25 each time you select it; **Show fewer** goes back. Done and No due date start from `done-limit` and `undated-limit` instead. The extra cards stay shown while the board is open, but not after you close it, so a large board opens without drawing every card. Done and No due date do remember being expanded, and then start from their first 25. Column and row counts, **Select all** and **Select column** still include every card.
 
 Every board gets an **Open board: ‹name›** command, so you can give each board its own hotkey, and an **Add task to ‹name›: ‹column›** command for each column but Done; see [Add a task](tasks.md#add-a-task). Command ids come from the slug and the column, so hotkeys survive renaming the note. Renaming a column, or renaming the board's tags, gives its commands new ids, so set those hotkeys again.
 

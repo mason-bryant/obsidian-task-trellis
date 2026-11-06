@@ -58,6 +58,17 @@ it('takes focus back, with the name selected, after Obsidian focuses the dialogâ
   expect(document.activeElement).toBe(ui.input);
   expect([ui.input.selectionStart, ui.input.selectionEnd]).toEqual([0, 'Original'.length]);
 });
+it('moves focus to the name before disabling its check, and keeps it there after a failure', async () => {
+  let fail!: (reason: Error) => void;
+  const ui = editor(() => new Promise<void>((_, reject) => { fail = reject; }));
+  const check = ui.header.querySelector<HTMLButtonElement>('.tt-editor-save')!;
+  check.focus(); check.click();
+  expect(document.activeElement).toBe(ui.input);
+  fail(new Error('Read only'));
+  await vi.waitFor(() => expect(check.disabled).toBe(false));
+  expect(document.activeElement).toBe(ui.input);
+});
+
 it('retains a failed name for retry, prevents overlapping saves, and ignores IME Enter', async () => {
   let reject!: (error: Error) => void;
   const save = vi.fn(() => new Promise<void>((_resolve, fail) => { reject = fail; }));

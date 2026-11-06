@@ -17,7 +17,6 @@ export type QuickFilterContext = {
 export function filterTaskFamilies<F extends { matchSubtasks: boolean }>(
   cards: BoardTask[], subtasks: Record<string, BoardTask[]>, byId: Map<string, BoardTask>,
   filters: F[], matches: (task: BoardTask, filter: F) => boolean,
-  isShown: (task: BoardTask) => boolean,
 ): { keep: Set<string>; context: QuickFilterContext } {
   const context: QuickFilterContext = {
     contextOnly: new Set(), matches: new Set(), branches: new Set(), filteredParents: new Set(), parents: {},
@@ -36,7 +35,7 @@ export function filterTaskFamilies<F extends { matchSubtasks: boolean }>(
       if (visited.has(child.id)) continue;
       visited.add(child.id);
       pending.push(...subtasks[child.id] ?? []);
-      if (!child.parentId || !isShown(child) || !filters.some((filter) => filter.matchSubtasks && matches(child, filter)) || !filters.every((filter, i) =>
+      if (!child.parentId || !filters.some((filter) => filter.matchSubtasks && matches(child, filter)) || !filters.every((filter, i) =>
         parentMatches[i] || (filter.matchSubtasks && matches(child, filter)))) continue;
       context.matches.add(child.id);
       let ancestor: BoardTask | undefined = child;
