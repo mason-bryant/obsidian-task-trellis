@@ -113,6 +113,20 @@ describe('what’s new window', () => {
     expect(window(update, { checked: true }).scrollBox.checked).toBe(true);
   });
 
+  it('saves one change at a time, without disabling the box', async () => {
+    let finish!: (worked: boolean) => void;
+    const ui = window();
+    ui.save.mockImplementationOnce(() => new Promise<boolean>((resolve) => { finish = resolve; }));
+    ui.scrollBox.click();
+    expect(ui.scrollBox.disabled).toBe(false);
+    ui.scrollBox.click();
+    expect(ui.scrollBox.checked).toBe(true);
+    expect(ui.save).toHaveBeenCalledOnce();
+    finish(true);
+    await vi.waitFor(() => { ui.scrollBox.click(); expect(ui.save).toHaveBeenCalledTimes(2); });
+    expect(ui.save).toHaveBeenLastCalledWith(false);
+  });
+
   it('puts Don’t show this again back when saving it fails', async () => {
     const ui = window({ hidden: false }, { hiddenSaves: false });
     ui.box!.click();

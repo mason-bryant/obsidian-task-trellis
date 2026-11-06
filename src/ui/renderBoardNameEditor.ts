@@ -1,4 +1,4 @@
-import { boardNameError } from '../core/boardName.ts';
+import { BoardNameTaken, boardNameError } from '../core/boardName.ts';
 import { BOARD_TEMPLATES, type BoardTemplate, type BoardTemplateId } from '../core/boardTemplates.ts';
 import { isComposing, uiElement } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
@@ -15,7 +15,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
   const input = uiElement(doc, 'input'); input.type = 'text'; input.value = name;
   input.setAttribute('aria-label', 'Board name');
   const help = uiElement(doc, 'p'); help.textContent = 'Task tags and label assignments stay unchanged. Shortcuts using the old board name need to be updated.';
-  const error = uiElement(doc, 'p'); error.className = 'tt-note tt-note--warning'; error.setAttribute('role', 'alert'); error.hidden = true;
+  const error = uiElement(doc, 'p'); error.className = 'tt-note tt-note--error'; error.setAttribute('role', 'alert'); error.hidden = true;
   label.append(caption, input); body.replaceChildren(label, help, error);
   const option = uiElement(doc, 'label'); option.className = 'tt-rename-option';
   const migrate = uiElement(doc, 'input'); migrate.type = 'checkbox';
@@ -75,6 +75,7 @@ export function renderBoardNameEditor(body: HTMLElement, headerRoot: HTMLElement
     catch (reason) {
       error.textContent = reason instanceof Error ? reason.message : 'Could not rename the board. Please try again.';
       error.hidden = false; reviewed = false;
+      if (reason instanceof BoardNameTaken) input.setAttribute('aria-invalid', 'true');
       saveButton.setAttribute('aria-label', migrate.checked ? 'Preview tag changes' : 'Save board name');
     } finally {
       busy = false; input.readOnly = false; migrate.disabled = false; previewButton.disabled = false; header.setBusy(false);
@@ -105,7 +106,7 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
   const input = uiElement(doc, 'input'); input.type = 'text'; input.value = name;
   input.setAttribute('aria-label', 'New board name');
   label.append(caption, input);
-  const error = paragraph(''); error.className = 'tt-note tt-note--warning'; error.setAttribute('role', 'alert'); error.hidden = true;
+  const error = paragraph(''); error.className = 'tt-note tt-note--error'; error.setAttribute('role', 'alert'); error.hidden = true;
   body.replaceChildren(label,
     paragraph(`The new board gets the ${source.name} board’s saved settings: columns, labels, filters, quick filters, appearance and where new tasks go.`),
     paragraph(`No tasks are copied or changed. The new board shows the same tasks, without their columns or labels from this board: open cards start in ${source.start}.`));
@@ -126,6 +127,7 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
       header.setBusy(false);
       error.textContent = reason instanceof Error ? reason.message : 'Could not duplicate the board. Please try again.';
       error.hidden = false; input.focus();
+      if (reason instanceof BoardNameTaken) input.setAttribute('aria-invalid', 'true');
     } finally {
       busy = false; input.readOnly = false;
     }
@@ -156,7 +158,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
   choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'Start from');
   field.append(node('span', '', 'Start from'), choices);
   const examples = node('p', 'tt-help tt-board-template-examples');
-  const error = node('p', 'tt-note tt-note--warning'); error.setAttribute('role', 'alert'); error.hidden = true;
+  const error = node('p', 'tt-note tt-note--error'); error.setAttribute('role', 'alert'); error.hidden = true;
   body.replaceChildren(label, field, examples, error);
 
   let chosen: BoardTemplate = BOARD_TEMPLATES[0]!;
@@ -197,6 +199,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
       header.setBusy(false);
       error.textContent = reason instanceof Error ? reason.message : 'Could not create the board. Please try again.';
       error.hidden = false; input.focus();
+      if (reason instanceof BoardNameTaken) input.setAttribute('aria-invalid', 'true');
     } finally {
       busy = false; input.readOnly = false;
     }

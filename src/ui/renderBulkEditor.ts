@@ -52,7 +52,7 @@ export function renderBulkEditor(root: HTMLElement, header: HTMLElement, config:
       return { kind, mode: mode.value as 'add' | 'remove', ids: [...ids] };
     };
   }
-  const error = node('p'); error.setAttribute('role', 'alert'); root.append(error);
+  const error = node('p'); error.className = 'tt-field-error'; error.setAttribute('role', 'alert'); root.append(error);
   let busy = false;
   const chrome = renderEditorHeader(header, BULK_TITLES[kind], icon, () => {
     if (busy) return;

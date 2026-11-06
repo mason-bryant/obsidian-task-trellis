@@ -1,7 +1,7 @@
 import { NotePopups } from './src/obsidian/NotePopup.ts';
 import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
 import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
-import { boardNameError, siblingPath } from './src/core/boardName.ts';
+import { BoardNameTaken, boardNameError, siblingPath } from './src/core/boardName.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
 import { BoardSettingsModal } from './src/obsidian/BoardSettingsModal.ts';
 import { around } from 'monkey-around';
@@ -413,7 +413,7 @@ export default class TaskTrellisPlugin extends Plugin {
     const template = BOARD_TEMPLATES.find((t) => t.id === templateId)!;
     const folder = normalizePath(this.settings.boardsFolder);
     const path = normalizePath(`${folder}/${name}.md`);
-    if (this.app.vault.getAbstractFileByPath(path)) throw new Error(`${path} already exists. Choose another board name.`);
+    if (this.app.vault.getAbstractFileByPath(path)) throw new BoardNameTaken(`${path} already exists. Choose another board name.`);
     const slug = this.freeSlug(name);
     let examples = '';
     if (template.examples) {
@@ -466,7 +466,7 @@ export default class TaskTrellisPlugin extends Plugin {
     const invalid = boardNameError(name);
     if (invalid) throw new Error(invalid);
     const path = siblingPath(file.path, name.trim());
-    if (this.app.vault.getAbstractFileByPath(path)) throw new Error('A note or folder with that name already exists. Choose another board name.');
+    if (this.app.vault.getAbstractFileByPath(path)) throw new BoardNameTaken('A note or folder with that name already exists. Choose another board name.');
     const settings = duplicateBoardFrontmatter(this.app.metadataCache.getFileCache(file)?.frontmatter ?? {}, this.freeSlug(name));
     try {
       return await this.app.vault.create(path, `---\n${stringifyYaml(settings)}---\n${BOARD_NOTE_TEXT}`);

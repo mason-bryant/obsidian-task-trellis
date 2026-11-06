@@ -44,7 +44,7 @@ export class RestoreBoardRenameModal extends Modal {
       if (entry.record.problem) details.createEl('p', {text: entry.record.problem});
     };
     select.addEventListener('change', show); show();
-    const error = this.contentEl.createEl('p', {attr: {role: 'alert'}});
+    const error = this.contentEl.createEl('p', {cls: 'tt-field-error', attr: {role: 'alert'}});
   }
   /** Escape and clicks outside can't interrupt a restore being written. */
   close(): void { if (!editorBusy(this.modalEl)) super.close(); }

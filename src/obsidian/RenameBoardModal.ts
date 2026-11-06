@@ -1,7 +1,7 @@
 import { Modal, setIcon, type App, type TFile } from 'obsidian';
 import { notice } from './notice.ts';
 import { BoardTagRename, type RenamePlan } from './BoardTagRename.ts';
-import { boardNameError } from '../core/boardName.ts';
+import { BoardNameTaken, boardNameError } from '../core/boardName.ts';
 import { parseBoardConfig } from '../core/boardConfig.ts';
 import { editorBusy, prepareEditorModal } from '../ui/editorHeader.ts';
 import { renderBoardNameEditor } from '../ui/renderBoardNameEditor.ts';
@@ -17,7 +17,7 @@ export async function renameBoard(app: App, file: TFile, originalPath: string, n
   const target = `${folder}${name.trim()}.md`;
   if (target === originalPath) return;
   const existing = app.vault.getAbstractFileByPath(target);
-  if (existing && existing !== file) throw new Error('A note or folder with that name already exists. Choose another board name.');
+  if (existing && existing !== file) throw new BoardNameTaken('A note or folder with that name already exists. Choose another board name.');
   try {
     // Older/hand-authored boards may still derive their namespace from the filename.
     // Persist it before changing that filename, without replacing an existing slug.

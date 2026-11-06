@@ -34,12 +34,16 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
     let saved = state.checked;
     const label = node('label', 'tt-whats-new-setting');
     const box = node('input'); box.type = 'checkbox'; box.checked = saved; box.disabled = !state.available;
+    let saving = false;
     box.addEventListener('change', () => {
+      // One save at a time, without disabling the box, which would drop focus to the page.
+      if (saving) { box.checked = !box.checked; return; }
+      saving = true;
       const checked = box.checked;
-      void state.save(checked).then((worked) => { if (worked) saved = checked; else box.checked = saved; });
+      void state.save(checked).then((worked) => { saving = false; if (worked) saved = checked; else box.checked = saved; });
     });
     label.append(box, node('span', '', setting.label));
-    return state.available ? [label] : [label, node('span', 'tt-whats-new-description', setting.unavailable)];
+    return state.available ? [label] : [label, node('span', 'tt-help', setting.unavailable)];
   };
   renderEditorHeader(headerRoot, 'What’s new', icon, null, close);
   const { update } = options;

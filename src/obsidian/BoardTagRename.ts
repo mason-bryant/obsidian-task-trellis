@@ -1,5 +1,5 @@
 import { parseYaml, stringifyYaml, TFile, TFolder, type App } from 'obsidian';
-import { boardNameError } from '../core/boardName.ts';
+import { BoardNameTaken, boardNameError } from '../core/boardName.ts';
 import { parseBoardConfig } from '../core/boardConfig.ts';
 import { inFolder } from '../core/filters.ts';
 import { mentionsNamespace, migrationSlug, renameFilterTags, renameTagFilter, rewriteBoardTaskTags } from '../core/boardTagRename.ts';
@@ -48,7 +48,7 @@ export class BoardTagRename {
     const targetPath = originalPath.slice(0, originalPath.lastIndexOf('/') + 1) + name.trim() + '.md';
     if (!safePath(originalPath) || !safePath(targetPath)) throw new Error('Board paths must be ordinary Markdown notes in the vault.');
     const occupied = this.app.vault.getAbstractFileByPath(targetPath);
-    if (occupied && occupied !== file) throw new Error('A note or folder with that name already exists.');
+    if (occupied && occupied !== file) throw new BoardNameTaken('A note or folder with that name already exists.');
     const pending = (await this.history()).find(({ record }) => record.status === 'prepared' || record.status === 'needs-recovery');
     if (pending) throw new Error(`Finish or restore the earlier rename first using Task Trellis: Restore board rename: ${pending.path}`);
     const original = await this.app.vault.read(file);
