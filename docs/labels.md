@@ -22,7 +22,7 @@ Label search is hidden by default. To show it, turn on **Settings → Task Trell
 
 ## Choose a color scheme
 
-Open a task’s labels, then choose **Color scheme** at the bottom. Select a scheme to preview your existing labels and use the **green checkmark** to apply it. The X returns without changing anything. Names, permanent IDs and task assignments stay the same.
+Open a task’s labels, then choose **Color scheme…** at the bottom. Select a scheme to preview your existing labels and use the **green checkmark** to apply it. The X returns without changing anything. Names, permanent IDs and task assignments stay the same.
 
 Available schemes: **Trellis** (the original colors), **Tableau balanced**, **Tableau classic**, **Botanical**, **Mediterranean**, **Retro pop**, **Jewel box**, **Neon studio**, **Sorbet**, **Velvet** and **Modern primary**. Each has six colors; boards with more than six labels repeat those colors in label order.
 

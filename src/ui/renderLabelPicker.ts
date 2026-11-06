@@ -60,7 +60,7 @@ export function renderLabelPicker(root: HTMLElement, initial: BoardLabel[], assi
     if (host.showSearch) root.append(search);
     root.append(list, create);
     if (host.saveScheme) {
-      const schemes = button('Color scheme', 'tt-label-schemes-button');
+      const schemes = button('Color scheme…', 'tt-label-schemes-button');
       schemes.onclick = () => schemePicker(); root.append(schemes);
     }
     root.append(error);

@@ -207,7 +207,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
           (node) => tags ? host.attachTagSuggest(node) : host.attachFolderSuggest(node), tags));
     } else {
       const key = input(rule.key, `${name}: Property`, (v) => { rule.key = v; refreshError(); rulesChanged(set); });
-      key.classList.add('tt-filter-key'); key.placeholder = 'Property';
+      key.classList.add('tt-filter-key'); key.placeholder = 'Property…';
       attach(host.attachKeySuggest(key));
       const condition = select(`${name}: Condition`, [['exists', 'exists'], ['matches', 'is any of']], rule.condition, (v) => {
         rule.condition = v as DraftFilter['condition']; rulesChanged(set); redraw(`${name}: Condition`);

@@ -484,7 +484,7 @@ class BoardPicker extends FuzzySuggestModal<TFile> {
     private onPick: (file: TFile) => void,
   ) {
     super(app);
-    this.setPlaceholder('Open a board');
+    this.setPlaceholder('Open a board…');
   }
 
   getItems(): TFile[] {

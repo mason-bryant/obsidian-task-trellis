@@ -757,7 +757,7 @@ function addTask(target: { rowId: string; columnId: string }, config: BoardModel
   const labels = host.onComposerLabels && { palette: config.labels, shape: config.labelShape, pick: host.onComposerLabels };
   const showBox = () =>
     wrap.replaceChildren(
-      addBox(key, 'New task. Enter to add, ⌘/Ctrl+Enter for details', 'Add task', host,
+      addBox(key, 'New task. Enter to add, Cmd/Ctrl+Enter for details', 'Add task', host,
         (text, detailed, chosen) => host.onAddTask(target, text, detailed, chosen), showButton, { labels }),
     );
 
@@ -1351,7 +1351,7 @@ function subtaskBoxKey(task: BoardTask, slug: string): string {
 function subtaskBox(parent: BoardTask, slug: string, section: HTMLElement, host: RenderHost): HTMLElement {
   const box = addBox(
     subtaskBoxKey(parent, slug),
-    'New subtask. Enter to add, ⌘/Ctrl+Enter for details',
+    'New subtask. Enter to add, Cmd/Ctrl+Enter for details',
     'Add subtask',
     host,
     (text, detailed) => host.onAddSubtask(parent, text, detailed),

@@ -118,7 +118,7 @@ function addTask(root: HTMLElement, name: string, open: BoardListTarget, host: B
     ? { ...open.labels, pick: (...args) => host.onComposerLabels?.(open.path, ...args) }
     : undefined;
   const showBox = (focus: boolean) => wrap.replaceChildren(
-    addBox(key, 'New task. Enter to add, ⌘/Ctrl+Enter for details', 'Add task', host, add, showButton, {
+    addBox(key, 'New task. Enter to add, Cmd/Ctrl+Enter for details', 'Add task', host, add, showButton, {
       slot: sidebarComposer,
       takeFocus: focus,
       labels,
