@@ -20,8 +20,8 @@ describe('what’s new', () => {
   });
 
   it('shows the features added since the version last seen, up to the running one', () => {
-    expect(unseenFeatures('1.3.0', '1.4.0').map((f) => f.name)).toEqual(['Board templates', 'Patterns and opacity for color rules']);
-    expect(unseenFeatures('1.2.0', '1.4.0')).toHaveLength(3);
+    expect(unseenFeatures('1.3.0', '1.4.0').map((f) => f.name)).toEqual(['Board templates', 'Patterns and opacity for color rules', 'Scroll a No due date column on its own']);
+    expect(unseenFeatures('1.2.0', '1.4.0')).toHaveLength(4);
     expect(unseenFeatures('1.4.0', '1.4.0')).toEqual([]);
     // A build older than a listed feature doesn't show it yet.
     expect(unseenFeatures('1.3.0', '1.3.0')).toEqual([]);
@@ -47,23 +47,29 @@ describe('what’s new', () => {
 });
 
 describe('what’s new window', () => {
-  function window(update?: { hidden: boolean }) {
+  function window(update?: { hidden: boolean }, setting: { checked?: boolean; available?: boolean; worked?: boolean } = {}) {
     const body = document.createElement('div'), header = document.createElement('div');
     document.body.replaceChildren(header, body);
     const setHidden = vi.fn(), tryFeature = vi.fn(), close = vi.fn();
+    const save = vi.fn(async (_checked: boolean) => setting.worked ?? true);
     renderWhatsNew(body, header, {
       features: update ? unseenFeatures('1.3.0', '1.4.0') : FEATURES, tryFeature,
+      setting: () => ({ checked: setting.checked ?? false, available: setting.available ?? true, save }),
       ...(update && { update: { version: '1.4.0', hidden: update.hidden, setHidden } }),
     }, () => undefined, close);
     const button = (text: string) => [...body.querySelectorAll('button')].find((b) => b.textContent === text)!;
-    return { body, header, setHidden, tryFeature, close, button, box: body.querySelector<HTMLInputElement>('input[type="checkbox"]') };
+    return {
+      body, header, setHidden, tryFeature, close, button, save,
+      box: body.querySelector<HTMLInputElement>('.tt-whats-new-hide input'),
+      scrollBox: body.querySelector<HTMLInputElement>('.tt-whats-new-setting input')!,
+    };
   }
 
   it('lists every feature from the toolbar, each button closing the window and then trying its feature', () => {
     const ui = window();
     expect(ui.header.querySelector('.tt-editor-cancel')!.getAttribute('aria-label')).toBe('Close');
     expect([...ui.body.querySelectorAll('li strong')].map((s) => s.textContent)).toEqual(FEATURES.map((f) => f.name));
-    expect([...ui.body.querySelectorAll('li')].map((li) => li.querySelector('button')?.textContent)).toEqual(['Create board…', 'Add suggested color rules…', undefined]);
+    expect([...ui.body.querySelectorAll('li')].map((li) => li.querySelector('button')?.textContent)).toEqual(['Create board…', 'Add suggested color rules…', undefined, undefined]);
     expect(ui.body.querySelector('.tt-whats-new-description')!.textContent).toMatch(/New in 1\.4\.0\.$/);
     expect(ui.box).toBeNull();
     const notes = ui.body.querySelector<HTMLAnchorElement>('a.tt-whats-new-notes')!;
@@ -79,7 +85,7 @@ describe('what’s new window', () => {
   it('after an update, lists what it added and saves Don’t show this again as soon as it changes', () => {
     const ui = window({ hidden: false });
     expect(ui.body.querySelector('p')!.textContent).toBe('Task Trellis 1.4.0 adds:');
-    expect([...ui.body.querySelectorAll('li strong')].map((s) => s.textContent)).toEqual(['Board templates', 'Patterns and opacity for color rules']);
+    expect([...ui.body.querySelectorAll('li strong')].map((s) => s.textContent)).toEqual(['Board templates', 'Patterns and opacity for color rules', 'Scroll a No due date column on its own']);
     expect(ui.body.textContent).toContain('The What’s new button on a board’s toolbar shows this at any time.');
     expect(ui.body.querySelector('a.tt-whats-new-notes')!.textContent).toBe('See all release notes on GitHub');
     const box = ui.box!;
@@ -90,6 +96,37 @@ describe('what’s new window', () => {
     box.checked = false; box.dispatchEvent(new Event('change'));
     expect(ui.setHidden).toHaveBeenLastCalledWith(false);
     expect(window({ hidden: true }).box!.checked).toBe(true);
+  });
+
+  it.each([[undefined], [{ hidden: false }]])('offers a No due date column’s scrolling as a checkbox that saves as soon as it changes (%j)', async (update) => {
+    const ui = window(update);
+    const item = ui.scrollBox.closest('li')!;
+    expect(item.querySelector('strong')!.textContent).toBe('Scroll a No due date column on its own');
+    expect(ui.scrollBox.closest('label')!.textContent).toBe('Scroll this board’s No due date column on its own');
+    expect(ui.scrollBox.checked).toBe(false);
+    ui.scrollBox.click();
+    expect(ui.save).toHaveBeenLastCalledWith(true);
+    // It stays open, with focus where it was, so the board behind it can be looked at.
+    expect(ui.close).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(ui.save).toHaveResolved());
+    expect(ui.scrollBox.checked).toBe(true);
+    expect(window(update, { checked: true }).scrollBox.checked).toBe(true);
+  });
+
+  it('puts the checkbox back when saving fails', async () => {
+    const off = window(undefined, { worked: false });
+    off.scrollBox.click();
+    await vi.waitFor(() => expect(off.scrollBox.checked).toBe(false));
+    const on = window(undefined, { checked: true, worked: false });
+    on.scrollBox.click();
+    await vi.waitFor(() => expect(on.scrollBox.checked).toBe(true));
+  });
+
+  it('says why the checkbox is disabled on a board with no No due date column', () => {
+    const ui = window(undefined, { available: false });
+    expect(ui.scrollBox.disabled).toBe(true);
+    expect(ui.scrollBox.closest('li')!.textContent).toContain('This board has no No due date column. Choose one under Settings, in Setup.');
+    expect(window().scrollBox.closest('li')!.textContent).not.toContain('This board has no');
   });
 });
 
@@ -131,7 +168,7 @@ describe('what’s new in the plugin', () => {
     expect(openWhatsNew).toHaveBeenCalledOnce();
     expect(p.settings.whatsNewSeen).toBe('1.4.0');
     const [features, update] = openWhatsNew.mock.calls[0]!;
-    expect(features.map((f) => f.version)).toEqual(['1.4.0', '1.4.0']);
+    expect(features.map((f) => f.version)).toEqual(['1.4.0', '1.4.0', '1.4.0']);
     expect([update.version, update.hidden]).toEqual(['1.4.0', false]);
     update.setHidden(true);
     expect(p.settings.whatsNewHidden).toBe(true);

@@ -1,4 +1,4 @@
-import { RELEASE_NOTES_URL, type Feature, type FeatureAction } from '../core/whatsNew.ts';
+import { RELEASE_NOTES_URL, type Feature, type FeatureAction, type FeatureSetting } from '../core/whatsNew.ts';
 import { uiElement } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
 
@@ -6,6 +6,8 @@ export type WhatsNewOptions = {
   features: Feature[];
   /** Starts what a feature's button tries, once the window has closed. */
   tryFeature(kind: FeatureAction['kind']): void;
+  /** A feature's board setting: its value here, whether this board can use it, and saving it, which resolves to whether that worked. */
+  setting(kind: FeatureSetting['kind']): { checked: boolean; available: boolean; save(checked: boolean): Promise<boolean> };
   /** Set when an update opens the window by itself, rather than the toolbar. */
   update?: {
     version: string;
@@ -26,6 +28,19 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
   const node = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
     const el = uiElement(doc, tag); el.className = cls; el.textContent = text; return el;
   };
+  /** Saves as soon as it changes, and goes back to the last value saved if that fails. */
+  const settingBox = (setting: FeatureSetting): HTMLElement[] => {
+    const state = options.setting(setting.kind);
+    let saved = state.checked;
+    const label = node('label', 'tt-whats-new-setting');
+    const box = node('input'); box.type = 'checkbox'; box.checked = saved; box.disabled = !state.available;
+    box.addEventListener('change', () => {
+      const checked = box.checked;
+      void state.save(checked).then((worked) => { if (worked) saved = checked; else box.checked = saved; });
+    });
+    label.append(box, node('span', '', setting.label));
+    return state.available ? [label] : [label, node('span', 'tt-whats-new-description', setting.unavailable)];
+  };
   renderEditorHeader(headerRoot, 'What’s new', icon, null, close);
   const { update } = options;
   const list = node('ul', 'tt-whats-new-list');
@@ -39,6 +54,7 @@ export function renderWhatsNew(body: HTMLElement, headerRoot: HTMLElement, optio
       button.onclick = () => { close(); options.tryFeature(action.kind); };
       item.append(button);
     }
+    if (feature.setting) item.append(...settingBox(feature.setting));
     list.append(item);
   }
   // A link rather than a button, since it leaves Obsidian. Obsidian opens it in the browser.

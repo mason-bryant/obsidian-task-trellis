@@ -103,7 +103,7 @@ let { config, warnings } = parseBoardConfig('House', {
 });
 // A load board keeps the defaults, like the native one.
 if (load) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done' }));
-if (undatedColumn !== null) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done', 'undated-column': undatedColumn || 'Backlog', ...load ? {} : { 'filter-properties': ['context: house'] } }));
+if (undatedColumn !== null) ({ config, warnings } = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Waiting', 'Done'], 'done-column': 'Done', 'undated-column': undatedColumn || 'Backlog', 'undated-scroll': new URLSearchParams(location.search).has('undated-scroll'), ...load ? {} : { 'filter-properties': ['context: house'] } }));
 let collapsed: Record<string, boolean> = {};
 /** The board's search box text, as the plugin keeps it per open board. */
 let search = '';
@@ -383,6 +383,10 @@ function whatsNew(features: Feature[], update?: WhatsNewOptions['update']): void
   nameDialog((body, header, close) => renderWhatsNew(body, header, {
     features, update,
     tryFeature: (kind) => { if (kind === 'create-board') sidebarHost.onCreateBoard(); else openSettings('color-rules'); },
+    setting: () => ({
+      checked: config.undatedScroll, available: !!config.undatedColumn,
+      save: async (on) => { config = { ...config, undatedScroll: on }; render(); return true; },
+    }),
   }, previewIcon, close));
 }
 if (new URLSearchParams(location.search).has('whats-new')) {

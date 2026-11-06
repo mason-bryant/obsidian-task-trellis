@@ -176,7 +176,29 @@ export class BoardView extends FileView {
 
   /** What’s new, whose buttons try each feature on this board. An update sets `update` when it opens this by itself. */
   openWhatsNew(features: Feature[], update?: WhatsNewOptions['update']): void {
-    new WhatsNewModal(this.app, { features, update, tryFeature: (kind) => this.tryFeature(kind) }, () => this.refocus('whats-new')).open();
+    const modal: WhatsNewModal = new WhatsNewModal(this.app, {
+      features, update,
+      tryFeature: (kind) => this.tryFeature(kind),
+      setting: () => {
+        const config = this.file ? this.plugin.boards.entry(this.file).config : null;
+        return { checked: config?.undatedScroll ?? false, available: !!config?.undatedColumn, save: (on) => this.setUndatedScroll(on, modal.contentEl) };
+      },
+    }, () => this.refocus('whats-new'));
+    modal.open();
+  }
+
+  /** What’s new's checkbox for No due date column scrolls. Saved in the board note; the board redraws once the note has changed. */
+  private async setUndatedScroll(on: boolean, region: HTMLElement): Promise<boolean> {
+    const file = this.file;
+    if (!file) return false;
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm[FM.undatedScroll] = on; });
+      return true;
+    } catch (error) {
+      console.error('[Task Trellis] saving how the No due date column scrolls failed', error);
+      notice(this.app, 'Task Trellis: could not change how the No due date column scrolls. Nothing was saved. Check that the board note can be edited, then try again.', { alert: true, region });
+      return false;
+    }
   }
 
   private tryFeature(kind: FeatureAction['kind']): void {

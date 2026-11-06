@@ -47,6 +47,7 @@ export type BoardDraft = DraftFilterSet & {
   undatedIndex: number;
   limitUndated: boolean;
   undatedLimit: string;
+  undatedScroll: boolean;
   dueNow: string;
   dueNowUnit: DueNowUnit;
   weekHorizon: string;
@@ -89,6 +90,7 @@ export function draftFromConfig(config: BoardConfig): BoardDraft {
     undatedIndex: config.columns.findIndex((c) => c.id === config.undatedColumn),
     limitUndated: config.limitUndated,
     undatedLimit: String(config.undatedLimit),
+    undatedScroll: config.undatedScroll,
     dueNow: String(config.dueNow),
     dueNowUnit: config.dueNowUnit,
     weekHorizon: String(config.weekHorizon),
@@ -168,6 +170,7 @@ export function draftToFrontmatter(draft: BoardDraft, original: BoardConfig): Dr
     [FM.undatedColumn]: undated ? undated.label : '',
     [FM.limitUndated]: draft.limitUndated,
     [FM.undatedLimit]: intField('Cards without a due date', draft.undatedLimit, 1, 500, errors),
+    [FM.undatedScroll]: draft.undatedScroll,
     [FM.dueNow]:
       draft.dueNowUnit === 'weeks'
         ? intField('Due now window', draft.dueNow, 1, 52, errors)

@@ -29,6 +29,7 @@ describe('board settings draft', () => {
       'undated-column': '',
       'limit-undated': true,
       'undated-limit': 10,
+      'undated-scroll': false,
       'due-now': 7,
       'due-now-unit': 'days',
       'week-horizon': 2,
