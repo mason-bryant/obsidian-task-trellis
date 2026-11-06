@@ -114,7 +114,7 @@ export class CliCommands {
         flags: {
           board: { value: '<slug|path>', description: 'Board the task goes on; not used with parent' },
           text: { value: '<text>', description: 'Task text', required: true },
-          column: { value: '<id>', description: 'Column; the board’s first workflow column by default' },
+          column: { value: '<id>', description: 'Column; the board’s backlog by default' },
           due: { value: '<YYYY-MM-DD>', description: 'Due date' },
           priority: { value: '<priority>', description: 'highest, high, medium, low or lowest' },
           labels: { value: '<ids>', description: 'Comma-separated label ids or names' },

@@ -55,7 +55,7 @@ Every command also takes `format=json` (the default) or `format=text`.
 
 ### Adding tasks
 
-`add` uses the board's first workflow column unless you give `column`, and refuses Done. The task goes to the note and heading set under the board's **Settings → New tasks**. `note` sends it to another note and `heading` puts it under another heading. A heading that doesn't exist is added at the end of the note, and a note that doesn't exist is created. If Templater fills new notes in that folder from a template, the task is added once Templater has done so, under the template's heading when it has that heading. Without a heading, the task goes at the end of the note, straight after any list the note ends with.
+`add` uses the board's backlog unless you give `column`: the column called Backlog, or else the first that isn't Done or a No due date column. It refuses Done, and a due date with a No due date column. The task goes to the note and heading set under the board's **Settings → New tasks**. `note` sends it to another note and `heading` puts it under another heading. A heading that doesn't exist is added at the end of the note, and a note that doesn't exist is created. If Templater fills new notes in that folder from a template, the task is added once Templater has done so, under the template's heading when it has that heading. Without a heading, the task goes at the end of the note, straight after any list the note ends with.
 
 If the board's filters would hide tasks in the destination note, nothing is added and the command says so. A note the add creates is checked after the task is written: folder filters at once, and tag and property filters once Obsidian has read the new note, waiting up to 2 seconds. The result includes a `warning` if the filters hide the task, for example when the board filters by a property the note's template doesn't set, or if Obsidian hadn't read the note in time.
 
@@ -71,13 +71,13 @@ obsidian task-trellis:add board=home note="Projects/Kitchen.md" heading="## To d
 	- [ ] Paint the walls
 ```
 
-With `parent=<id>`, the task becomes the last subtask of that task, and `subtasks` go under it in turn. `board`, `column`, `labels`, `note` and `heading` don't apply to subtasks.
+With `parent=<id>`, the task becomes the last subtask of that task, and `subtasks` go under it in turn. `board`, `column`, `labels`, `note`, `heading` and `request-id` can't be used with `parent`.
 
 `request-id` makes an add safe to retry. The id is saved in the task's line as a hidden comment, `<!-- task-trellis-request:<id> -->`, and a second add with the same id to the same note finds it and adds nothing. The comment stays in the line, so pass it only when nobody will see whether the first add worked, as in an unattended script.
 
 ### Moving cards
 
-`move` with only `column` keeps the card in its row, so its due date stays. Giving `row` sets the due date that dropping the card in that row would: the last day of Due now, the first day a week row shows, or none for No due date. A partial week shows only the days after Due now, so `week-2026-11-02` labeled `Nov 5 – Nov 8` sets 2026-11-05. Moving to Done completes the task; moving out of Done reopens it. Subtasks move with their card, so `move` refuses them; change a subtask with `set` or `complete` instead.
+`move` with only `column` keeps the card in its row, so its due date stays. A No due date column is the exception, as with **Move to…** on a card: moving into one removes the due date, and moving out of one sets the last day of Due now. Giving `row` sets the due date that dropping the card in that row would: the last day of Due now, the first day a week row shows, or none for No due date. A partial week shows only the days after Due now, so `week-2026-11-02` labeled `Nov 5 – Nov 8` sets 2026-11-05. Moving to Done completes the task; moving out of Done reopens it. Subtasks move with their card, so `move` refuses them; change a subtask with `set` or `complete` instead.
 
 ## Results
 
@@ -92,7 +92,7 @@ JSON results start with `"ok": true`, or are `{"ok": false, "error": "…"}` wit
 }
 ```
 
-`skipped` lists tasks left alone because they changed since they were read. A `bulk` label change also leaves subtask cards alone, because subtasks don’t have labels; their ids are listed in `unchanged`, with a `warning`. `dry-run` returns `"dryRun": true` and the lines that would be written, without writing them: `changes` with their ids, or for `add`, `destination` and `lines`.
+`add` returns its lines as `added` instead of `changed`, with `"duplicate": true` when `request-id` found an earlier add. `skipped` lists tasks left alone because they changed since they were read. A `bulk` label change also leaves subtask cards alone, because subtasks don’t have labels; their ids are listed in `unchanged`, with a `warning`. `dry-run` returns `"dryRun": true` and the lines that would be written, without writing them: `changes` with their ids, or for `add`, `destination` and `lines`, or `path`, `parent` and `lines` with `parent`.
 
 A 1.x release may add fields to these results, but existing fields keep their names and meaning, so read the fields you need and ignore the rest. See [formats and compatibility](compatibility.md).
 
