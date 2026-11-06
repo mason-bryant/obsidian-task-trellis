@@ -121,6 +121,14 @@ describe('bulk board interactions',()=>{
     expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
     expect(focused()).toBe('select');
   });
+  it('keeps the selection when a click in the bulk bar misses its buttons, but not on empty board space',()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.root.querySelector('.tt-bulk-count')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    f.root.querySelector('.tt-bulk-bar')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
+    f.root.querySelector('.tt-grid')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
+  });
   it('gives focus to Select when a bulk change leaves nothing selected',async()=>{
     const f=board();f.click('Select');f.click('Select A');
     f.host.onBulkAction=vi.fn(async()=>({tasks:[],message:'Updated'}));
