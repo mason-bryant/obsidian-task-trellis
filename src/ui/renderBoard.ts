@@ -135,9 +135,30 @@ const STALE_DRAG_MS = 60_000;
 let draggingId: string | null = null;
 let dragStartedAt = 0;
 /** An open "Add task" or "Add subtask" box's draft, kept across redraws so typing isn't lost when the view updates. */
-export type ComposerDraft = { key: string; text: string; labels?: string[]; picking?: boolean; saving?: boolean; refresh?: () => void };
+export type ComposerDraft = {
+  key: string; text: string; labels?: string[]; picking?: boolean; saving?: boolean; refresh?: () => void;
+  /** Closes the box on screen when another box takes its place. */
+  replaced?: () => void;
+};
 /** Where a surface keeps its open box. The board and the boards sidebar each have one, so opening one doesn't close the other. */
-export type ComposerSlot = { draft: ComposerDraft | null };
+export type ComposerSlot = {
+  draft: ComposerDraft | null;
+  /** What was typed in boxes another box replaced, by key, for when they open again. */
+  setAside: Map<string, Pick<ComposerDraft, 'text' | 'labels'>>;
+};
+
+/** Opens `key`'s box. The box it replaces closes, and its text and labels come back when it opens again. */
+export function openComposer(slot: ComposerSlot, key: string): void {
+  const previous = slot.draft;
+  if (previous?.key === key) return;
+  const kept = slot.setAside.get(key);
+  slot.setAside.delete(key);
+  slot.draft = { key, text: kept?.text ?? '', labels: kept?.labels };
+  if (!previous) return;
+  // One saving already keeps its own text: it goes to the host if the save fails.
+  if (!previous.saving && (previous.text.trim() || previous.labels?.length)) slot.setAside.set(previous.key, { text: previous.text, labels: previous.labels });
+  previous.replaced?.();
+}
 /** A task composer's Labels button: the board's labels and how they're drawn, and the host's picker. */
 export type ComposerLabels = {
   palette: BoardLabel[];
@@ -145,7 +166,7 @@ export type ComposerLabels = {
   pick(selected: string[], choose: (ids: string[]) => void, onClose: () => void): void;
 };
 /** The board's box. Keys include the board's slug, so a box open on one board doesn't show on another. */
-const boardComposer: ComposerSlot = { draft: null };
+const boardComposer: ComposerSlot = { draft: null, setAside: new Map() };
 /** During a redraw, whether focus was in the board before it; null between redraws. */
 let redrawHadFocus: boolean | null = null;
 
@@ -707,7 +728,7 @@ function addTask(target: { rowId: string; columnId: string }, config: BoardModel
     b.dataset.boardFocus = `add:${key}`;
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      boardComposer.draft = { key, text: '' };
+      openComposer(boardComposer, key);
       showBox();
     });
     // Closing with X or Escape hands focus back; closing because focus moved elsewhere leaves it there.
@@ -772,7 +793,10 @@ export function addBox(
     if (draft.saving && buttons.includes(box.ownerDocument.activeElement as HTMLButtonElement)) input.focus({ preventScroll: true });
     buttons.forEach((b) => { b.disabled = !!draft.saving; });
   };
-  if (draft) draft.refresh = refresh;
+  if (draft) {
+    draft.refresh = refresh;
+    draft.replaced = () => { stopViewport?.(); if (box.isConnected) onClose(); };
+  }
   const submit = async (detailed: boolean) => {
     if (!draft || slot.draft !== draft || draft.saving) return;
     const text = draft.text.trim();
@@ -805,7 +829,7 @@ export function addBox(
     }
   });
   input.addEventListener('blur', () => {
-    // Clicking one of the buttons blurs first; let its click run. A box another one replaced closes too.
+    // Clicking one of the buttons blurs first; let its click run.
     // Picked labels are a draft too, and the label picker takes focus while it's open.
     window.setTimeout(() => {
       if (!box.isConnected) return;
@@ -1366,7 +1390,7 @@ function addSubtaskButton(task: BoardTask, owner: HTMLElement, model: BoardModel
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     const key = subtaskBoxKey(task, model.config.slug);
-    if (boardComposer.draft?.key !== key) boardComposer.draft = { key, text: '' };
+    openComposer(boardComposer, key);
     if ((model.subtasks[task.id]?.length ?? 0) > 0 && subtasksCollapsed(task, model, host)) {
       // Redraws with the list open, and the box in it.
       if (model.quickContext?.branches.has(task.id)) host.quickDisclosure?.toggle(task.id);

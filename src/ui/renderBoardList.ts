@@ -1,6 +1,6 @@
 import { announce, clearForRedraw } from './announce.ts';
 import { uiElement } from './dom.ts';
-import { addBox, type ComposerLabels, type ComposerSlot, type RenderHost } from './renderBoard.ts';
+import { addBox, openComposer, type ComposerLabels, type ComposerSlot, type RenderHost } from './renderBoard.ts';
 
 /** A board in the boards sidebar. `folder` shows when another board has the same name. */
 export type BoardListItem = { path: string; name: string; folder: string };
@@ -22,7 +22,7 @@ export type BoardListHost = Pick<RenderHost, 'icon' | 'onUnsavedText'> & {
 };
 
 /** The sidebar's open box, apart from the board's. Its key names the board, so a draft stays with its board. */
-const sidebarComposer: ComposerSlot = { draft: null };
+const sidebarComposer: ComposerSlot = { draft: null, setAside: new Map() };
 
 /**
  * The boards sidebar: Create new board, then a row for each board. Under the open board's row,
@@ -100,7 +100,7 @@ function addTask(root: HTMLElement, name: string, open: BoardListTarget, host: B
     b.setAttribute('aria-label', `Add task to ${name}: ${open.place}`);
     b.dataset.boardFocus = `add:${open.path}`;
     b.addEventListener('click', () => {
-      sidebarComposer.draft = { key, text: '' };
+      openComposer(sidebarComposer, key);
       showBox(true);
     });
     // Closing with X or Escape hands focus back; closing because focus moved elsewhere leaves it there.

@@ -30,6 +30,20 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+it('keeps a board’s text when a box on another board replaces it', () => {
+  const garden: BoardListTarget = { ...house, path: 'Boards/Garden.md' };
+  const ui = setup();
+  const add = () => ui.q<HTMLButtonElement>('.tt-board-list-add .tt-add-button')!;
+  add().click();
+  ui.type('For the house');
+  ui.draw(garden);
+  add().click();
+  expect(ui.input().value).toBe('');
+  ui.draw(house);
+  add().click();
+  expect(ui.input().value).toBe('For the house');
+});
+
 it('offers Add task only under the open board, named for where the task goes', () => {
   const ui = setup();
   const active = ui.q('[aria-current="page"]')!;

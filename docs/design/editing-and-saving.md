@@ -37,7 +37,7 @@ Keep the draft when the destination is unavailable or the write fails. Don't clo
 
 Don't treat Enter as submit while an input method is composing text. In the inline composer, Enter adds the task, Shift+Enter starts a new line, and Cmd/Ctrl+Enter does what Details… does. Don't give a multiline editor an Enter-to-save handler.
 
-After a nested editor closes, focus returns to the item that was edited or the control that opened it. Saving or cancelling a label's definition returns focus to that label's checkbox; closing the inline composer returns it to the Add task or add-subtask button that opened it, and closing a composer's label picker returns it to the composer's Labels button. Valid drafts survive redraws. A composer with text or picked labels stays open when focus leaves it, and while its label picker is open. Restoring focus never takes it from another window.
+After a nested editor closes, focus returns to the item that was edited or the control that opened it. Saving or cancelling a label's definition returns focus to that label's checkbox; closing the inline composer returns it to the Add task or add-subtask button that opened it, and closing a composer's label picker returns it to the composer's Labels button. Valid drafts survive redraws. A composer with text or picked labels stays open when focus leaves it, and while its label picker is open. Opening another composer closes it, and its text and labels come back when it's opened again; X and Escape discard them. Restoring focus never takes it from another window.
 
 ## Exceptions
 

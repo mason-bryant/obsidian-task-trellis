@@ -65,6 +65,35 @@ it('the Move to… menu reports when it is open, and gives focus to the moved ca
   expect(more().getAttribute('aria-expanded')).toBe('false'); expect(document.activeElement).toBe(card(paint));
 });
 
+it('keeps what was typed in a composer that another one replaced, until it’s discarded', () => {
+  const adds = () => [...root.querySelectorAll<HTMLButtonElement>('.tt-add-button')];
+  const inputs = () => [...root.querySelectorAll<HTMLTextAreaElement>('.tt-add-input')];
+  const type = (text: string) => { inputs()[0]!.value = text; inputs()[0]!.dispatchEvent(new Event('input')); };
+  const first = adds()[0]!.dataset.boardFocus!, second = adds()[1]!.dataset.boardFocus!;
+  const add = (key: string) => adds().find((b) => b.dataset.boardFocus === key)!;
+
+  add(first).click();
+  type('Half typed');
+  add(second).click();
+  // Only the new box is open, and it's empty, whether or not the first had focus.
+  expect(inputs().map((i) => i.value)).toEqual(['']);
+  expect(add(first)).toBeDefined();
+  // A redraw doesn't lose it.
+  draw();
+  expect(inputs().map((i) => i.value)).toEqual(['']);
+
+  add(first).click();
+  expect(inputs().map((i) => i.value)).toEqual(['Half typed']);
+  // The empty box it replaced has nothing to keep, and X discards the text.
+  add(second).click();
+  add(first).click();
+  expect(inputs()[0]!.value).toBe('Half typed');
+  root.querySelector<HTMLButtonElement>('.tt-add-cancel')!.click();
+  add(first).click();
+  expect(inputs()[0]!.value).toBe('');
+  root.querySelector<HTMLButtonElement>('.tt-add-cancel')!.click();
+});
+
 it('closing a composer with Escape or X returns focus to the button that opened it', () => {
   const addTask = root.querySelector<HTMLButtonElement>('.tt-add-button')!;
   const cellKey = addTask.dataset.boardFocus;
