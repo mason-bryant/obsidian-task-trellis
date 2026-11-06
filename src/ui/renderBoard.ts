@@ -1066,6 +1066,8 @@ function labelMarks(labels: BoardLabel[], shape: LabelShape): HTMLElement {
 function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement {
   const selection = host.selection!;
   const c = el('div', 'tt-card tt-selection-card'); c.dataset.id = task.id;
+  if (task.closed) c.classList.add('is-closed');
+  if (isOverdue(task, model.today)) c.classList.add('is-overdue');
   paintCard(c, task, model);
   appendFilterContext(c, task, model, host);
   const selected = selection.has(task);

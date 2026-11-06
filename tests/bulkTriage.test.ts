@@ -129,6 +129,16 @@ describe('bulk board interactions',()=>{
     f.root.querySelector('.tt-grid')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
     expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
   });
+  it('keeps completed and overdue cards looking the same while selecting',()=>{
+    const f=board();
+    const done=task(`- [x] Finished ✅ ${today} 📅 ${today}`,3),late=task('- [ ] Late 📅 2020-01-01',4);
+    f.draw([f.a,done,late]);f.click('Select');
+    const looks=(name:string)=>f.root.querySelector(`[aria-label="Select ${name}"]`)!.closest('.tt-card')!.classList;
+    expect(looks('Finished').contains('is-closed')).toBe(true);
+    expect(looks('Late').contains('is-overdue')).toBe(true);
+    expect(looks('A').contains('is-closed')).toBe(false);
+    expect(looks('A').contains('is-overdue')).toBe(false);
+  });
   it('gives focus to Select when a bulk change leaves nothing selected',async()=>{
     const f=board();f.click('Select');f.click('Select A');
     f.host.onBulkAction=vi.fn(async()=>({tasks:[],message:'Updated'}));
