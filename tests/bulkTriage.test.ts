@@ -129,6 +129,16 @@ describe('bulk board interactions',()=>{
     f.root.querySelector('.tt-grid')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));
     expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
   });
+  it('keeps selecting when a click lands in a menu, which draws outside the board',()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    const menu=document.createElement('div');menu.className='menu';
+    const item=document.createElement('div');menu.append(item);document.body.append(menu);
+    item.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-count')?.textContent).toBe('1 selected');
+    menu.remove();
+    document.body.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
+  });
   it('keeps completed and overdue cards looking the same while selecting',()=>{
     const f=board();
     const done=task(`- [x] Finished ✅ ${today} 📅 ${today}`,3),late=task('- [ ] Late 📅 2020-01-01',4);

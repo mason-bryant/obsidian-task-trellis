@@ -296,6 +296,8 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       if (selection.busy) return;
       const target = event.target as Element | null;
       if (!target || typeof target.closest !== 'function') return;
+      // The board's own menus draw outside it, in Obsidian's menu.
+      if (target.closest('.menu')) return;
       if (root.contains(target) && target.closest('.tt-card, .tt-bulk-bar, button, a, input, select, textarea, [role="button"], [role="splitter"], .tt-row-sticky')) return;
       selection.active = false;
       selection.clear();
