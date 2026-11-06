@@ -20,7 +20,7 @@
 ### Bulk selection
 
 - Select starts selecting. In selection mode, an accent selection square takes the place of each card's completion checkbox, so the two never appear together and selecting can't complete a task.
-- Cmd-click or Ctrl-click toggles a card, starting selection if needed. Shift-click selects the cards shown between two cards in the same column. Modifier-clicking a link still follows the link.
+- Cmd-click or Ctrl-click toggles a card, starting selection if needed. Shift-click selects the cards shown between two cards in the same column. Cmd-clicking or Ctrl-clicking a link still follows the link.
 - Select all includes every matching card, past collapsed rows and display limits. The column picker limits it; swiping between columns doesn't. Select column adds that column's matching cards to the selection; Clear starts over.
 - Anything shown as a card can be selected, including a subtask shown as a card of its own because its parent isn't on the board. A bulk edit changes only that task's own line, and label changes leave subtasks alone, because subtasks don't have labels. Subtasks inside a card and context-only parents can't be selected on their own.
 - Selecting ends with a click on empty board space or outside the board, Escape, or Done selecting. A click in the bulk bar keeps it, even between its buttons. It stays on while a bulk editor is open or work is in progress.

@@ -20,7 +20,7 @@ Each Tags or Note folder box takes several values. Type a value and press Enter 
 
 - **Within a filter, any listed value can match:** tags `work, urgent` matches either tag, and two folders match a note in either. To require two tags, add two Tags filters to an All group.
 - A task matches the combined tags on its own checkbox line and its page. **Page tags** are the note's `tags` property and inline tags in non-task text; they apply to every task in that note. A tag on another task line does not apply to this task. `house` matches `#house` and `#house/kitchen`, but not `#household`. Internal `#tt/…` placement tags are ignored. Folders match the named folder and descendants. A Note folder value can also be one note's path, such as `Projects/Plan.md`, to match just that note. Properties come from the source note's frontmatter.
-- Property **Exists** matches a present key even if its value is null, empty, false or zero. **Matches any value** needs at least one value and compares against any scalar or list value. Keys are case-sensitive; values are case-insensitive. Numbers and booleans compare as strings. A missing property never matches, so it fails in an All group and passes in a None group.
+- Property **Exists** matches a present key even if its value is null, empty, false or zero. **is any of** needs at least one value and compares against any scalar or list value. Keys are case-sensitive; values are case-insensitive. Numbers and booleans compare as strings. A missing property never matches, so it fails in an All group and passes in a None group.
 - Empty filters and empty groups add no restriction. With no filters at all, the board shows every task.
 - The boards folder and globally excluded folders are unavailable to every board. Subtasks displayed inside a visible parent follow that parent without being filtered independently. A subtask shown as a standalone card must pass the filters itself.
 
@@ -117,9 +117,9 @@ Within Priority, Labels or Due, any checked choice can match. Every part you fil
 
 A parent brought in only for context is marked **Matching subtask** and stays in its usual column and date row. Matching branches are expanded temporarily, including intervening parents, and the matching subtasks retain their own dates. Other siblings are behind **Show other subtasks**. These disclosures do not overwrite your saved collapse settings; turning the filters off restores the normal view. Matching branches are also revealed inside collapsed rows and past card limits. The usual completed-task visibility rules still apply when deciding whether a subtask can match.
 
-Quick filters do not widen the underlying board's task membership. If an eligible subtask has ancestors outside the board, those ancestors appear as compact context headings that open the source note, not as editable board cards. Parents shown only for context are excluded from bulk selection; bulk editing still applies only to main tasks that match directly.
+Quick filters do not widen the underlying board's task membership. If an eligible subtask has ancestors outside the board, those ancestors appear as compact context headings that open the source note, not as editable board cards. Parents shown only for context are excluded from bulk selection; bulk editing applies to the cards that match directly, including a subtask shown as a card of its own.
 
-Boards come with three quick filters: **High priority** (high or highest), **Overdue**, and one for the board's first label, named after it with a 🏷️ in front (for example **🏷️ Critical**). Boards created before quick filters existed show the same three until their quick filters are edited. They're stored in the board note:
+New boards come with three quick filters, unless their [template](getting-started.md#board-templates) sets its own: **High priority** (high or highest), **Overdue**, and one for the board's first label, named after it with a 🏷️ in front (for example **🏷️ Critical**). Boards created before quick filters existed show the same three until their quick filters are edited. They're stored in the board note:
 
 ```yaml
 quick-filters:

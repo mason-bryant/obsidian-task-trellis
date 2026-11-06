@@ -36,6 +36,8 @@ Menus use Obsidian's public `Menu` API.
 
 ## Exceptions
 
+- After ⋯ moves a card, focus goes to the moved card rather than back to ⋯, since a keyboard user is following the card, which may now be somewhere else.
+- The boards sidebar's Create new board is a full-width button with no plus, as the sidebar's one main action.
 - The quick-filter menu isn't a native menu, because native menus can't show the color squares. The browser harness has its own stand-in for testing; it isn't a second menu style.
 
 ## Where it lives
