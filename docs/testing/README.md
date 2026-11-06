@@ -30,7 +30,7 @@ For a change to documentation only, check its links and read the diff. Don't cla
 ## Where to test
 
 - Use synthetic tasks, in automated tests or a disposable vault, for failures, bulk writes and recovery. Never leave test tasks or changed settings in a personal vault.
-- The browser harness (`npm run harness`) runs the real renderers against an in-memory vault. Its bulk writes never skip a stale task, so stale snapshots and partly failed bulk edits can only be checked in automated tests or a real vault.
+- The browser harness (`npm run harness`) runs the real renderers against an in-memory vault. It doesn't load Obsidian's styles, so buttons there have no fill of their own: check how a button looks in native Obsidian. Its bulk writes never skip a stale task, so stale snapshots and partly failed bulk edits can only be checked in automated tests or a real vault.
 - Native Obsidian can intercept events that work in the harness. A phone-width browser can't reproduce the iOS sidebar, keyboard or toolbars.
 - When asked to install a build locally: keep the plugin's settings, back up the files you replace, check that the installed files match the build, reload the plugin and look at the result.
 

@@ -7,7 +7,7 @@
 ### Color
 
 - Colors come from Obsidian's theme variables, so Task Trellis follows the user's theme in light and dark mode.
-- The board's background is `--background-secondary`. Cards, inputs and toolbar buttons sit on `--background-primary`. Borders are `--background-modifier-border`, and a hovered control fills with `--background-modifier-hover`. Secondary text is `--text-muted`.
+- The board's background is `--background-secondary`. Cards and inputs sit on `--background-primary`. Buttons keep Obsidian's own button fill, on the board and in settings, unless they're subtle or danger buttons. Borders are `--background-modifier-border`, and a hovered control fills with `--background-modifier-hover`. Secondary text is `--text-muted`.
 - `--interactive-accent` marks focus, drop targets, pressed toggles, the open composer and selected cards. `--text-accent` colors highlighted text and icons: column-header icons, the Due now row's title, high priorities and the selection checkmarks.
 - Red means overdue: `--color-red` for the overdue bar and due date. `--text-error` marks errors and invalid fields.
 - Users choose colors only for labels and color rules, with the same color picker: the label palette, Hue, Saturation and Lightness sliders, and an HTML color code, kept in step. Each slider's track shows what moving it does, behind Obsidian's own slider thumb. Label text gets black or white, whichever contrasts more with the label's color. A color rule tints its cards with its color over the card's own background, so the card's text and badges keep the theme's colors, and an overdue card keeps its red edge. The tint is automatic, 14% (24% in dark themes), unless the rule sets its own opacity, which the picker adds for color rules with a sample card in the tint. Color rules also choose a pattern: Solid, Stripes, Dots, Grid or Checks, each a button with its name over the pattern, like the label editor's color scheme choices. A pattern's marks take the rule's opacity and the space between them a lighter tint, so no part of a patterned card is darker than the solid tint, and the contrast warning holds for both. Labels get neither opacity nor patterns, since label text needs a solid, opaque color behind it.
@@ -30,12 +30,12 @@ Icons are Obsidian's line icons, drawn through the host's icon function (`setIco
 
 | Control | Looks like | Used for |
 | --- | --- | --- |
-| Toolbar button (`.tt-toolbar-button`, `.tt-button`) | Bordered, 7px corners, icon before text | Board toolbar actions and labeled buttons in settings |
+| Toolbar button (`.tt-toolbar-button`, `.tt-button`) | Obsidian's button fill, 7px corners, icon before text | Board toolbar actions and labeled buttons in settings |
 | Subtle button (`.tt-button--subtle`) | The same without a background | Secondary actions, such as Add quick filter and Add column |
 | Danger button (`.tt-button--danger`) | Red fill and white text, in Obsidian's error color | Destructive actions only: Delete board… and the warning's Delete board, and Discard changes |
 | Icon button (`.tt-icon-button`, `.tt-card-icon`) | No border, 6px corners, a fill on hover | Compact, repeated actions on cards and settings rows |
 | Editor save and close | 44px circles: a green check and an X | Editor headers only |
-| Add task (`.tt-add-button`) | Plain text after a plus, faint until its cell is hovered | Adding a task to a cell |
+| Add task (`.tt-add-button`) | Text after a plus, on Obsidian's button fill, faint until its cell is hovered | Adding a task to a cell |
 
 ### States
 
