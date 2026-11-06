@@ -542,10 +542,10 @@ export class BoardView extends FileView {
           this.undoAction = { label: `${moved === 1 ? '1 card' : `${moved} cards`} sorted by due date`, action: result.action, ids: result.appliedIds };
           this.highlightIds = new Set(result.appliedIds); this.highlightUntil = Date.now() + 1000;
         }
-        if (result.skippedIds.length) {
-          const skipped = result.skippedIds.length === 1 ? '1 card' : `${result.skippedIds.length} cards`;
-          this.alert(`Task Trellis: sorted by due date, but ${skipped} changed since the board was drawn and stayed where they were. Sort again to include them.`);
-        }
+        // A skipped card either changed since the board was drawn or couldn't be written; the writer says which notes failed.
+        const skipped = result.skippedIds.length;
+        if (skipped && !result.appliedIds.length) this.alert('Task Trellis: could not sort by due date, so nothing moved. Check that the notes can be edited, then try again.');
+        else if (skipped) this.alert(`Task Trellis: sorted by due date, but ${skipped === 1 ? '1 card couldn’t be moved and stayed where it was' : `${skipped} cards couldn’t be moved and stayed where they were`}. Sort again to include ${skipped === 1 ? 'it' : 'them'}.`);
         for (const id of result.skippedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
         await this.plugin.index.refresh([...new Set(tasks.map((task) => task.path))]);
         for (const id of result.appliedIds) if (this.pending.get(id) === owned.get(id)) this.pending.delete(id);
