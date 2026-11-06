@@ -11,7 +11,7 @@
 - Obsidian's notices aren't spoken, so a notice about a board is also said from the region of the board in the active view, or of its settings dialog: failures as alerts, other notices, such as a task added to a note the board's filters hide, as statuses.
 - Color is never the only signal. Label squares have descriptions, and the labels on cards are named after their label, and selections and active filters have a checkmark or a pressed state. Label text is chosen for at least 4.5:1 contrast with its label's color. Surfaces and text use Obsidian's theme colors.
 - The color picker's sliders are native range inputs, so arrow keys, Page Up/Down and Home/End move them and screen readers can adjust them. Each is named, and says its value with its unit; hue adds a rough color name, such as 216°, blue. When a color rule's opacity would leave a card's details below 4.5:1 contrast in the current theme, the picker shows a warning, and the opacity slider's value says so too.
-- Touch targets are 44px, with space between them.
+- Touch targets are 44px, with space between them. A small control can keep its look with a bigger area to tap around it, as a card's completion checkbox and source link do.
 - Reduced motion turns animation off, and nothing depends on it: rows sliding aside and columns settling aren't needed to understand the result, and the drop indicator shows without animation. Long and enlarged text stays usable without covering nearby controls.
 
 ### Keyboard alternatives today

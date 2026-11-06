@@ -72,6 +72,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Scroll every column vertically, including after paging and after the index updates.
 - Slow partial swipes, flicks, diagonal movement, taps on links, pinch zoom, and handle drags near the edges.
 - Reach the last card above the floating toolbar, with short and long lists.
+- On a real phone, tap just outside a card's completion checkbox and source link, and a settings checkbox's text: each still does what it should, and nothing looks bigger than it did.
 - Pointer and keyboard resizing, resetting, and a failed save.
 - Editors with the keyboard open on native iOS when available. Record browser and simulator coverage separately from devices.
 - On a wide board, open a subtask composer on the last card showing above a cell's pinned Add task box, in an ordinary cell and in a No due date column: its text box and buttons sit above that box, and typing doesn't move the board again.

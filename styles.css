@@ -710,6 +710,8 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
   .tt-filter-expression > .tt-input, .tt-filter-group-header > .tt-filter-conjunction, .tt-filter-group-actions > .tt-button { min-height: 44px; }
   .tt-filter-expression .tt-icon-button, .tt-filter-group-header .tt-icon-button { width: 44px; height: 44px; }
 }
+.is-mobile :is(.tt-filter-expression > .tt-input, .tt-filter-group-header > .tt-filter-conjunction, .tt-filter-group-actions > .tt-button) { min-height: 44px; }
+.is-mobile :is(.tt-filter-expression .tt-icon-button, .tt-filter-group-header .tt-icon-button) { width: 44px; height: 44px; }
 .tt-field-error { grid-column: 1 / -1; color: var(--text-error); font-size: var(--font-ui-small); }
 .tt-field-error[hidden] { display: none; }
 .tt-input[aria-invalid='true'] { border-color: var(--text-error); }
@@ -780,6 +782,10 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
     min-width: 44px;
   }
 }
+.is-mobile :is(.tt-subtask-controls .tt-subtask-toggle, .tt-subtask-controls .tt-card-icon, .tt-board-tools .tt-toolbar-button) {
+  min-height: 44px;
+  min-width: 44px;
+}
 
 /* Touch screens: 44px targets in settings and on the column picker too. */
 @media (pointer: coarse) {
@@ -849,7 +855,19 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
   .tt-card-icon.tt-card-more { display: inline-flex; }
   /* A tap leaves :hover on, which would keep the card lifted. */
   .tt-card:hover { transform: none; }
+  /* Small controls keep their look, with a bigger area to tap around them. */
+  .tt-checkbox { position: relative; }
+  .tt-checkbox::before { content: ''; position: absolute; inset: -13px; }
+  .tt-source { min-height: 44px; margin-block: -13.5px; }
+  .tt-check-field { min-height: 44px; margin-block: 8px; }
 }
+.is-mobile :is(.tt-card-icon, .tt-subtask-toggle, .tt-row-toggle, .tt-add-cancel) { min-width: 44px; min-height: 44px; }
+.is-mobile .tt-row-toggle { align-items: center; justify-content: center; margin-left: -12px; }
+.is-mobile :is(.tt-add-button, .tt-more) { min-height: 44px; }
+.is-mobile .tt-checkbox { position: relative; }
+.is-mobile .tt-checkbox::before { content: ''; position: absolute; inset: -13px; }
+.is-mobile .tt-source { min-height: 44px; margin-block: -13.5px; }
+.is-mobile .tt-check-field { min-height: 44px; margin-block: 8px; }
 /* Obsidian's mobile app, also with a trackpad: dragging a card isn't dependable there. */
 .is-mobile .tt-card-icon.tt-card-more { display: inline-flex; }
 .tt-menu-detail { margin-left: 8px; color: var(--text-muted); font-size: var(--font-ui-smaller); }
@@ -949,6 +967,7 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 @media (pointer: coarse) {
   .tt-board-list button.tt-board-list-item, .tt-board-list-create { min-height: 44px; }
 }
+.is-mobile :is(.tt-board-list button.tt-board-list-item, .tt-board-list-create) { min-height: 44px; }
 
 /* Board-specific labels, in the board's Label shape: circles and squares are 20px stickers, and
    pills keep the original short bars. */
@@ -1037,6 +1056,8 @@ button.tt-editor-save:disabled, button.tt-editor-cancel:disabled { opacity: .4; 
 .tt-add-actions > .tt-add-labels-button svg { width: 18px; height: 18px; stroke-width: 1.8; }
 /* Four 44px targets still fit a 240px column, the narrowest a board allows. */
 @media (hover: none) { .tt-add-actions { gap: 4px; } .tt-add-actions > .tt-add-labels-button { min-width: 44px; min-height: 44px; } }
+.is-mobile .tt-add-actions { gap: 4px; }
+.is-mobile .tt-add-actions > .tt-add-labels-button { min-width: 44px; min-height: 44px; }
 .tt-add-labels > .tt-card-labels { margin-bottom: 8px; }
 @media (pointer: coarse) {
   .tt-editor-modal { position: fixed; top: calc(var(--tt-editor-top, 12px) + var(--tt-editor-safe-top)); bottom: auto; left: 50%; transform: translateX(-50%); margin: 0; max-height: calc(var(--tt-editor-height, 85dvh) - var(--tt-editor-safe-top) - var(--tt-editor-safe-bottom)); }
@@ -1124,6 +1145,7 @@ button.tt-scheme-choice[aria-pressed='true'] { outline: 2px solid var(--interact
 @media (pointer: coarse) {
   .tt-bulk-bar button, .tt-select-card, .tt-select-column { min-height: 44px; min-width: 44px; }
 }
+.is-mobile :is(.tt-bulk-bar button, .tt-select-card, .tt-select-column) { min-height: 44px; min-width: 44px; }
 
 .tt-bulk-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
 .tt-board--selecting .tt-arrange-menu { display: none; }
