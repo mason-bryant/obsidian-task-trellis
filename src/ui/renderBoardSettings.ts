@@ -608,7 +608,8 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       }
     }
     if (errors.length) {
-      const box = el('div', 'tt-settings-errors'); box.setAttribute('role', 'alert');
+      // Said by showErrors from the live region, which a redraw keeps; one drawn with its text isn't spoken.
+      const box = el('div', 'tt-settings-errors'); box.tabIndex = -1;
       errors.forEach((error) => box.append(el('div', '', error))); body.append(box);
     }
     const headerSlot = host.header ?? el('div', 'tt-editor-header-slot');
@@ -657,7 +658,11 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       draw();
       const invalid = root.querySelector<HTMLElement>('[aria-invalid="true"]');
       if (invalid) { invalid.focus(); invalid.scrollIntoView({ block: 'nearest' }); }
-      else root.querySelector('.tt-settings-errors')?.scrollIntoView({ block: 'nearest' });
+      else {
+        const box = root.querySelector<HTMLElement>('.tt-settings-errors');
+        box?.focus(); box?.scrollIntoView({ block: 'nearest' });
+      }
+      if (errors.length) announce(root, errors.join(' '), 'alert');
     },
     setSaving(value) { saving = value; draw(); },
     section: () => section,

@@ -137,9 +137,9 @@ describe('quick-filter context UI', () => {
     expect(f.root.querySelector(`[data-id="${sibling.id}"]`)).not.toBeNull();
     f.button('Hide other subtasks').click();
     expect(f.root.querySelector(`[data-id="${sibling.id}"]`)).toBeNull();
-    f.button('Hide subtasks (0 of 2 done)').click();
+    f.button('Hide subtasks of Paint kitchen (0 of 2 done)').click();
     expect(f.root.querySelector('.tt-subtasks')).toBeNull();
-    f.button('Show subtasks (0 of 2 done)').click();
+    f.button('Show subtasks of Paint kitchen (0 of 2 done)').click();
     expect(f.root.querySelector('.tt-subtasks')).not.toBeNull();
     expect(f.host.onToggleRow).not.toHaveBeenCalled();
     f.draw(model(family, [overdue], {}, []));

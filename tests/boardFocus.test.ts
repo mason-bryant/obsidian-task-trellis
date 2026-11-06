@@ -46,6 +46,12 @@ it('a redraw gives focus back to the row toggle, checkbox, scheduling arrow, Und
   }
 });
 
+it('names a card’s repeated icon buttons for its task', () => {
+  const names = [...card(paint).querySelectorAll('.tt-card-icon')].map((b) => b.getAttribute('aria-label'));
+  expect(names[0]).toBe('Labels for Paint the kitchen');
+  expect(names.some((n) => /^(Defer Paint the kitchen|Move Paint the kitchen into Due now)/.test(n ?? ''))).toBe(true);
+});
+
 it('a redraw gives focus back to a card’s source link, and to the card from a control with no key of its own', () => {
   key(`source:${paint.id}`).focus(); draw();
   expect(focusedKey()).toBe(`source:${paint.id}`);

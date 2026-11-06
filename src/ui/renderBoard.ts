@@ -984,7 +984,7 @@ function card(task: BoardTask, model: BoardModel, host: RenderHost): HTMLElement
   const actions = el('span', 'tt-card-actions');
   if (host.onLabels && !task.parentId) {
     const labelsButton = el('button', 'clickable-icon tt-card-icon tt-card-label-button');
-    labelsButton.type = 'button'; labelsButton.setAttribute('aria-label', 'Labels');
+    labelsButton.type = 'button'; labelsButton.setAttribute('aria-label', `Labels for ${task.text}`);
     labelsButton.dataset.boardFocus = `labels:${task.id}`;
     host.icon(labelsButton, 'tag');
     labelsButton.onclick = (event) => { event.stopPropagation(); host.onLabels?.(task); };
@@ -1381,7 +1381,7 @@ function subtaskToggle(task: BoardTask, subtasks: BoardTask[], model: BoardModel
   const b = el('button', `tt-subtask-toggle${collapsed ? ' is-collapsed' : ''}`);
   b.type = 'button';
   b.setAttribute('aria-expanded', String(!collapsed));
-  const action = `${collapsed ? 'Show' : 'Hide'} subtasks`;
+  const action = `${collapsed ? 'Show' : 'Hide'} subtasks of ${task.text}`;
   const label = `${action} (${done} of ${subtasks.length} done)`;
   b.dataset.boardFocus = `subtasks-${task.id}`;
   b.setAttribute('aria-label', label);
@@ -1441,7 +1441,7 @@ function moveButton(task: BoardTask, model: BoardModel, host: RenderHost): HTMLE
   const b = el('button', 'clickable-icon tt-card-icon tt-card-move');
   b.type = 'button';
   const destination = model.rows[rowIndex(target.rowId)]!;
-  const label = `${destination.kind === 'now' ? 'Move into Due now' : 'Defer'}${destination.dropDate ? ` · due ${shortLabel(destination.dropDate)}` : ''}`;
+  const label = `${destination.kind === 'now' ? `Move ${task.text} into Due now` : `Defer ${task.text}`}${destination.dropDate ? ` · due ${shortLabel(destination.dropDate)}` : ''}`;
   b.setAttribute('aria-label', label);
   b.dataset.boardFocus = `move:${task.id}`;
   // Out of the No due date column it's a sideways move.

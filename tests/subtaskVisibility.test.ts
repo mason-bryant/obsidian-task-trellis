@@ -69,12 +69,12 @@ afterEach(() => {
 describe('subtask visibility controls', () => {
   it('labels the action and progress, hides only descendants, and restores keyboard focus', () => {
     expect(toggle(parent).textContent).toBe('1/2');
-    expect(toggle(parent).getAttribute('aria-label')).toBe('Hide subtasks (1 of 2 done)');
+    expect(toggle(parent).getAttribute('aria-label')).toBe('Hide subtasks of Paint the kitchen (1 of 2 done)');
     expect(toggle(parent).parentElement?.nextElementSibling?.className).toBe('tt-subtasks');
     expect(toggle(parent).parentElement?.querySelector('.tt-add-subtask')).not.toBeNull();
     click(toggle(parent));
     expect(toggle(parent).textContent).toBe('1/2');
-    expect(toggle(parent).getAttribute('aria-label')).toBe('Show subtasks (1 of 2 done)');
+    expect(toggle(parent).getAttribute('aria-label')).toBe('Show subtasks of Paint the kitchen (1 of 2 done)');
     expect(toggle(parent).getAttribute('aria-expanded')).toBe('false');
     expect(owner(parent)).toBeDefined(); expect(owner(child)).toBeUndefined();
     expect(document.activeElement).toBe(toggle(parent));
@@ -87,7 +87,7 @@ describe('subtask visibility controls', () => {
   it('keeps nested choices when the parent is hidden and shown', () => {
     click(toggle(child)); click(toggle(parent)); click(toggle(parent));
     expect(owner(child)).toBeDefined(); expect(owner(grandchild)).toBeUndefined();
-    expect(toggle(child).getAttribute('aria-label')).toBe('Show subtasks (0 of 1 done)');
+    expect(toggle(child).getAttribute('aria-label')).toBe('Show subtasks of Prepare walls (0 of 1 done)');
     click(toggle(child)); expect(owner(grandchild)).toBeDefined();
   });
 
