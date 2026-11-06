@@ -545,7 +545,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       ? ['1 / -1']
       : [undatedAt > 0 ? `1 / ${undatedAt + 1}` : '', undatedAt < visibleColumns.length - 1 ? `${undatedAt + 2} / -1` : ''].filter(Boolean);
   if (undatedAt >= 0) {
-    if (config.undatedScroll) { grid.classList.add('tt-grid--undated'); scrollEl.classList.add('tt-scroll--undated'); }
+    if (config.undatedScroll && visibleColumns.length > 1) { grid.classList.add('tt-grid--undated'); scrollEl.classList.add('tt-scroll--undated'); }
     const undated = cell('none', visibleColumns[undatedAt]!, model, host, paging);
     undated.classList.add('tt-cell--undated');
     undated.style.gridColumn = String(undatedAt + 1);
