@@ -677,22 +677,31 @@ function cell(rowId: string, column: BoardColumn, model: BoardModel, host: Rende
   const kept = cards.reduce((last, task, i) => paging.keep.has(task.id) ? i : last, -1);
   if (!hidden && kept >= first) paging.pages.set(key, Math.max(paging.pages.get(key) ?? 0, Math.floor((kept - first) / CELL_PAGE) + 1));
   const pages = hidden ? 0 : paging.pages.get(key) ?? 0;
-  const shown = hidden ? limit : Math.min(cards.length, first + CELL_PAGE * pages);
+  // Collapsed, a cell shows its limit, and as far as a card that must stay drawn.
+  const shown = hidden ? Math.max(limit, kept + 1) : Math.min(cards.length, first + CELL_PAGE * pages);
+  // Focus goes on to the first card a button adds, which takes the button's place.
+  const focusFirstAdded = (button: HTMLElement, at: number) => {
+    button.dataset.boardFocus = `${host.selection ? 'select-card' : 'card'}:${cards[at]!.id}`;
+  };
   for (const task of cards.slice(0, shown)) c.append(card(task, model, host));
   if (shown < cards.length && !hidden) {
     const more = moreToggle(true, cards.length - shown, `more-cards:${key}`, host, () => {
-      // Focus goes on to the first card it adds, which takes the button's place.
-      more.dataset.boardFocus = `card:${cards[shown]!.id}`;
+      focusFirstAdded(more, shown);
       paging.pages.set(key, pages + 1);
       paging.redraw();
     });
     more.title = `Show the next ${Math.min(CELL_PAGE, cards.length - shown)}`;
     c.append(more);
   }
-  if (capped || shown > first) {
-    const toggle = moreToggle(hidden, cards.length - (limit ?? 0), `more:${key}`, host, () => {
+  // A card that must stay drawn can be the last one, which leaves nothing for "N more" to count.
+  if ((capped || shown > first) && !(hidden && shown === cards.length)) {
+    const toggle = moreToggle(hidden, cards.length - shown, `more:${key}`, host, () => {
       paging.pages.delete(key);
-      if (capped) { host.onToggleRow(moreKey(rowId)); return; }
+      if (capped) {
+        if (hidden) focusFirstAdded(toggle, shown);
+        host.onToggleRow(moreKey(rowId));
+        return;
+      }
       toggle.dataset.boardFocus = `more-cards:${key}`;
       paging.redraw();
     });
