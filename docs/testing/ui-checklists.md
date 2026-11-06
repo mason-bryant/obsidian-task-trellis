@@ -21,7 +21,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Light and dark themes, and the user's installed theme when available.
 - After changing the settings editor or the toolbar, look at both.
 - Long cells, in an ordinary cell and in Done or No due date with their limits: More moves focus to the first card it adds, and a focused or just-moved card past the limit stays shown.
-- After changing what a card or cell draws, open a large board: `npm run harness`, then `dev/harness.html?load=2000`, at phone width and wide. The [large-board report](../qa/large-board-2026-10-30.md) says how its memory was measured. Long cells are tested in [cellPaging](../../tests/cellPaging.test.ts).
+- After changing what a card or cell draws, open a large board: `npm run harness`, then `dev/harness.html?load=2000`, at phone width and wide. The [development guide](../development.md#repeatable-readiness-checks) says how to measure its memory. Long cells are tested in [cellPaging](../../tests/cellPaging.test.ts).
 
 ## Wording
 

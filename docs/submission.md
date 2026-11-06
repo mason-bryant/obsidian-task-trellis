@@ -13,7 +13,7 @@ Updated October 30, 2026 for **1.0.0**. Task Trellis is listed in the Community 
 - Description: Manage tasks across your notes with configurable kanban boards, due-date rows, colored labels, and mobile task capture.
 - License: MIT, with historical MIT and bundled ISC notices retained.
 - Minimum Obsidian version: **1.13.7**.
-- Mobile: enabled. Device-specific evidence and remaining gaps are recorded in [testing](testing.md).
+- Mobile: enabled. Each version's [release notes](releases/README.md) say what was tested on which devices and what wasn't. Android, Windows and Linux haven't had a native test.
 
 ## Suggested listing introduction
 
@@ -35,7 +35,7 @@ Capture ideas on your phone with the task button above each list or the ready-ma
 ## Release validation
 
 - **484 application tests in 37 files**, **8 shortcut tests**, lint, TypeScript, production packaging/release validation and preview build pass. PR 28 CI passed on Node 22 and 24; the release preparation PR must pass the same checks.
-- Native macOS Obsidian 1.13.7: pop-up save/recovery, task promotion, plugin reload, bulk dates and Done movement across two notes, unchanged subtasks, saved-file verification and exact Undo restoration. See the dated test report for scope and limitations.
+- Native macOS Obsidian 1.13.7: pop-up save/recovery, task promotion, plugin reload, bulk dates and Done movement across two notes, unchanged subtasks, saved-file verification and exact Undo restoration. See the [0.1.16 test report](https://github.com/mason-bryant/obsidian-task-trellis/blob/0.1.16/docs/testing.md) for scope and limitations.
 - Browser checks cover selection shortcuts, click-away behavior, editor validation and the 390px layout. This is not a native mobile test.
 - Earlier real-iPhone evidence includes agent-operated 0.1.10 checks and the maintainer-confirmed 0.1.12 checklist. For 0.1.16, the agent-operated phone attempt was incomplete because remote input was unreliable; the maintainer then completed the requested phone smoke check and reported that it looked good. This closes the smoke checklist on maintainer-reported evidence; Android remains deferred by the maintainer. No new VoiceOver or cross-device conflict-resolution pass is claimed.
 - Required install assets are **main.js**, **manifest.json** and **styles.css**. Notices are embedded in the bundle. The release workflow verifies metadata, tests, builds and publishes those assets with provenance attestations.
