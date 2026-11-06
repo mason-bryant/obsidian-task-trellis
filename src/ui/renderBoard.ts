@@ -178,7 +178,8 @@ export function isDragging(): boolean {
 function focusBoardControl(root: HTMLElement, ...keys: string[]): boolean {
   const controls = [...root.querySelectorAll<HTMLElement>('[data-board-focus]')];
   for (const key of keys) {
-    const control = controls.find((el) => el.dataset.boardFocus === key);
+    // A disabled control can't take focus, so the next one has to.
+    const control = controls.find((el) => el.dataset.boardFocus === key && !(el as HTMLButtonElement).disabled);
     if (control) { control.focus({ preventScroll: true }); return true; }
   }
   return false;
@@ -200,7 +201,9 @@ export function renderBoard(root: HTMLElement, model: BoardModel, host: RenderHo
     drawBoard(root, model, host, notes);
     if (focusKey) {
       // A control that left with its task falls back to the task's card, then to a card the action changed.
-      const fallbacks = [focusKey, ...focusTask ? [`card:${focusTask}`, `subtask:${focusTask}`] : [], ...[...host.highlightIds ?? []].map((id) => `card:${id}`)];
+      // Undo goes away once used; while selecting, its cards have a selection square to focus instead.
+      const fallbacks = [focusKey, ...focusTask ? [`card:${focusTask}`, `subtask:${focusTask}`] : [],
+        ...[...host.highlightIds ?? []].flatMap((id) => [`card:${id}`, `select-card:${id}`]), ...focusKey === 'undo' ? ['select'] : []];
       focusBoardControl(root, ...fallbacks);
     }
   } finally {
@@ -487,11 +490,9 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
             if (bulkStates.get(root) !== selection || !root.isConnected) return;
             // Ask the host for a fresh model after writing; the index may have changed while the dialog was open.
             baseHost.onDragEnd();
-            if (root.isConnected) {
-              const current = root.querySelector<HTMLButtonElement>(`[data-board-focus="bulk:${kind}"]`);
-              current?.focus({ preventScroll: true });
-            }
             redraw();
+            // Only now, since the button is disabled until this redraw. With nothing left selected it stays disabled.
+            if (root.isConnected) focusBoardControl(root, `bulk:${kind}`, 'select');
           });
       });
       b.disabled = selection.busy || selection.tasks.length === 0;

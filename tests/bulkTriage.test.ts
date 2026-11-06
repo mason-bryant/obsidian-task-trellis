@@ -108,6 +108,37 @@ describe('bulk board interactions',()=>{
     f.click('Labels');await vi.waitFor(()=>expect(f.host.onBulkAction).toHaveBeenCalledTimes(2));
     expect(vi.mocked(f.host.onBulkAction!).mock.calls[1]![0]).toHaveLength(2);
   });
+  it.each([
+    ['saving',async(tasks:BoardTask[])=>({tasks,message:'1 updated'})],
+    ['cancelling',async()=>null],
+  ])('gives focus back to the bulk button after %s, so Escape still ends selecting',async(_,result)=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.host.onBulkAction=vi.fn(result);
+    f.draw();f.click('Priority');
+    const focused=()=>(document.activeElement as HTMLElement).dataset.boardFocus;
+    await vi.waitFor(()=>expect(focused()).toBe('bulk:priority'));
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
+    expect(focused()).toBe('select');
+  });
+  it('gives focus to Select when a bulk change leaves nothing selected',async()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.host.onBulkAction=vi.fn(async()=>({tasks:[],message:'Updated'}));
+    f.draw();f.click('Priority');
+    await vi.waitFor(()=>expect((document.activeElement as HTMLElement).dataset.boardFocus).toBe('select'));
+  });
+  it('keeps focus on the board after Undo while selecting',()=>{
+    const f=board();f.click('Select');f.click('Select A');
+    f.host.undo={label:'1 task updated',run:vi.fn()};f.draw();
+    const key=()=>(document.activeElement as HTMLElement).dataset.boardFocus;
+    f.root.querySelector<HTMLButtonElement>('.tt-undo button')!.focus();
+    f.host.undo=undefined;f.host.highlightIds=new Set([f.b.id]);f.draw();
+    expect(key()).toBe(`select-card:${f.b.id}`);
+    f.host.undo={label:'1 task updated',run:vi.fn()};f.host.highlightIds=undefined;f.draw();
+    f.root.querySelector<HTMLButtonElement>('.tt-undo button')!.focus();
+    f.host.undo=undefined;f.draw();
+    expect(key()).toBe('select');
+  });
   it('clears selection when filters change and never selects a replacement line implicitly',()=>{
     const f=board();f.click('Select');f.click('Select A');
     f.draw([task('- [ ] Replacement'),f.b]);
