@@ -2,6 +2,8 @@
 
 Every new release needs a committed `<version>.md` here, in the same PR as the version bump. This applies to patches as well as feature releases. The filename must match `manifest.json`, without a `v` prefix, and its first line must be `# Task Trellis <version>`.
 
+[next.md](next.md) lists what has changed since the last release, so the maintainer knows what to validate before tagging. Every pull request that changes something users see adds a line to it. The version bump starts its notes from that list, then empties it.
+
 Write for people installing the update:
 
 - Lead with the useful changes and important fixes, grouped by user task rather than commit.
