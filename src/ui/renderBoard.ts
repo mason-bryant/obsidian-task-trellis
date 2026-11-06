@@ -819,15 +819,16 @@ export function addBox(
     }
   };
   input.addEventListener('keydown', (e) => {
-    if (isComposing(e)) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    } else if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      void submit(e.metaKey || e.ctrlKey);
-    }
+    if (isComposing(e) || e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    void submit(e.metaKey || e.ctrlKey);
+  });
+  // From anywhere in the box, including its buttons.
+  box.addEventListener('keydown', (e) => {
+    if (isComposing(e) || e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    close();
   });
   input.addEventListener('blur', () => {
     // Clicking one of the buttons blurs first; let its click run.

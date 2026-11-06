@@ -94,6 +94,20 @@ it('keeps what was typed in a composer that another one replaced, until it’s d
   root.querySelector<HTMLButtonElement>('.tt-add-cancel')!.click();
 });
 
+it.each(['.tt-editor-save', '.tt-add-labels-button', '.tt-add-cancel'])('closes a composer with Escape from its %s button, returning focus', (selector) => {
+  host.onComposerLabels = vi.fn();
+  draw();
+  const add = root.querySelector<HTMLButtonElement>('.tt-add-button')!;
+  const key = add.dataset.boardFocus!;
+  add.click();
+  const button = root.querySelector<HTMLButtonElement>(`.tt-add-box ${selector}`)!;
+  button.focus();
+  button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  expect(root.querySelector('.tt-add-input')).toBeNull();
+  expect((document.activeElement as HTMLElement).dataset.boardFocus).toBe(key);
+  delete host.onComposerLabels;
+});
+
 it('closing a composer with Escape or X returns focus to the button that opened it', () => {
   const addTask = root.querySelector<HTMLButtonElement>('.tt-add-button')!;
   const cellKey = addTask.dataset.boardFocus;
