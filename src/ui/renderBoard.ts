@@ -1100,7 +1100,8 @@ function selectionCard(task: BoardTask, model: BoardModel, host: RenderHost): HT
   const main = el('div', 'tt-card-main'); const text = el('div', 'tt-card-text'); host.renderText(text, task);
   main.append(check, text); c.append(main);
   const meta = el('div', 'tt-card-meta', host.sourceLabel(task)); appendBadges(meta, task, model, host); c.append(meta);
-  const labels = model.config.labels.filter((label) => taskLabels(task.raw, model.config.slug).includes(label.id));
+  // As on a card outside selecting: subtasks don't have labels.
+  const labels = task.parentId ? [] : model.config.labels.filter((label) => taskLabels(task.raw, model.config.slug).includes(label.id));
   if (labels.length) c.prepend(labelMarks(labels, model.config.labelShape));
   const children = model.subtasks[task.id]?.length ?? 0;
   if (children) c.append(el('span', 'tt-selection-detail', children === 1 ? '1 subtask' : `${children} subtasks`));
@@ -1204,6 +1205,8 @@ function searchField(root: HTMLElement, slug: string, query: string, host: Rende
     if (event.isComposing) return;
     win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS);
   });
+  // A search waiting from the last keystroke would otherwise run on the word being composed.
+  input.addEventListener('compositionstart', () => { win.clearTimeout(timer); timer = undefined; });
   input.addEventListener('compositionend', () => { win.clearTimeout(timer); timer = win.setTimeout(send, SEARCH_DELAY_MS); });
   input.addEventListener('keydown', (event) => {
     if (isComposing(event)) return;

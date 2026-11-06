@@ -154,6 +154,18 @@ describe('the search box', () => {
     expect(ui.onSearch).toHaveBeenCalledWith('カ');
   });
 
+  it('drops a search still waiting when an input method starts composing', () => {
+    const ui = board();
+    ui.type('k');
+    ui.input().dispatchEvent(new CompositionEvent('compositionstart'));
+    vi.advanceTimersByTime(SEARCH_DELAY_MS * 2);
+    expect(ui.onSearch).not.toHaveBeenCalled();
+    ui.input().value = 'kカ';
+    ui.input().dispatchEvent(new CompositionEvent('compositionend'));
+    vi.advanceTimersByTime(SEARCH_DELAY_MS);
+    expect(ui.onSearch).toHaveBeenCalledWith('kカ');
+  });
+
   it('Enter searches at once and moves to the first card; Escape clears, then leaves Escape to the board', () => {
     const ui = board();
     ui.input().focus(); ui.type('porch'); ui.key('Enter');

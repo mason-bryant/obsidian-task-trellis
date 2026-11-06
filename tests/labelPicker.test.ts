@@ -28,6 +28,17 @@ beforeEach(() => {
 });
 
 describe('label picker', () => {
+  it('goes back from a label’s editor to its checkbox, as Escape does through the dialog, and has nothing to go back from on the list', () => {
+    const view = renderLabelPicker(root, labels, [], host);
+    expect(view.back()).toBe(false);
+    edit();
+    expect(root.querySelector('.tt-label-editor')).not.toBeNull();
+    expect(view.back()).toBe(true);
+    expect(root.querySelector('.tt-label-editor')).toBeNull();
+    expect(root.querySelector('.tt-label-row')).not.toBeNull();
+    expect(view.back()).toBe(false);
+  });
+
   it('saves multiple checked labels and unchecked labels without closing the picker', async () => {
     check('red').click(); await flush();
     check('blue').click(); await flush();

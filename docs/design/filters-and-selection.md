@@ -29,7 +29,7 @@
 
 ## Exceptions
 
-None recorded.
+- A search's words can't be split between a subtask shown as a card of its own and a subtask nested under it: the card and its nested subtask have to match separately. It's rare, and it would take a good deal more to handle.
 
 ## Where it lives
 

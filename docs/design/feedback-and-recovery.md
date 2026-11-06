@@ -23,7 +23,7 @@
 
 ## Exceptions
 
-None recorded.
+- After Rename board… changes a board's tags from its settings, the notes on removed columns in Setup can be out of date until the settings are reopened. It's a rare combination, and saving doesn't rely on those notes.
 
 ## Where it lives
 

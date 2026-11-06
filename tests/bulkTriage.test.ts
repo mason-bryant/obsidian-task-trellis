@@ -139,6 +139,17 @@ describe('bulk board interactions',()=>{
     document.body.dispatchEvent(new MouseEvent('click',{bubbles:true}));
     expect(f.root.querySelector('.tt-bulk-bar')).toBeNull();
   });
+  it('shows no labels on a subtask shown as a card of its own, while selecting as on the board',()=>{
+    const f=board();
+    const orphan={...task(`- [ ] Orphan #tt/${config.slug}/label/${config.labels[0]!.id}`,5),parentId:'gone'};
+    f.draw([f.a,orphan]);
+    const on=(selecting:boolean)=>{const name=selecting?'[aria-label="Select Orphan"]':null;
+      const c=name?f.root.querySelector(name)!.closest('.tt-card')!:[...f.root.querySelectorAll('.tt-card')].find(x=>x.textContent!.includes('Orphan'))!;
+      return c.querySelectorAll('.tt-card-labels').length;};
+    expect(on(false)).toBe(0);
+    f.click('Select');
+    expect(on(true)).toBe(0);
+  });
   it('keeps completed and overdue cards looking the same while selecting',()=>{
     const f=board();
     const done=task(`- [x] Finished ✅ ${today} 📅 ${today}`,3),late=task('- [ ] Late 📅 2020-01-01',4);
