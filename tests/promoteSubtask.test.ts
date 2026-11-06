@@ -139,9 +139,9 @@ it('disables every draggable ancestor of a nested composer and restores them onl
   expect([nested.draggable, parent.draggable, main.draggable]).toEqual([false, false, false]);
   const drag = new Event('dragstart', { bubbles: true, cancelable: true });
   nested.dispatchEvent(drag); expect(drag.defaultPrevented).toBe(true);
-  // A second composer can coexist until a redraw; closing one must not re-enable its ancestors.
+  // A second composer closes the first at once, which re-enables only what no open composer is inside.
   parent.querySelector<HTMLButtonElement>(':scope > .tt-subtask-controls .tt-add-subtask')!.click();
-  nested.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect(nested.querySelector('textarea')).toBeNull();
   expect(nested.draggable).toBe(true);
   expect([parent.draggable, main.draggable]).toEqual([false, false]);
   parent.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
