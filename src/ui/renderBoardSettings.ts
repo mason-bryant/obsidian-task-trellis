@@ -5,6 +5,7 @@ import { installRowReorder } from './reorderRows.ts';
 import { quickFilterColors } from './quickFilterColors.ts';
 import { renderColorPicker } from './colorPicker.ts';
 import type { BoardConfig } from '../core/boardConfig.ts';
+import { NO_UNDATED_COLUMN } from '../core/whatsNew.ts';
 import { LABEL_COLORS, labelDescription, normalizeLabelColor } from '../core/labels.ts';
 import { newQuickFilterId, QUICK_DUES, QUICK_PRIORITIES } from '../core/quickFilters.ts';
 import { convertDueNow, filterError, filterItemName, filterWarnings, removedColumnNotes, WEEKDAY_NAMES, type BoardDraft, type DraftColorRule, type DraftCriteria, type DraftFilter, type DraftFilterSet, type DraftGroup, type DraftNode, type DraftRule } from '../core/boardDraft.ts';
@@ -588,6 +589,10 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
       body.append(check('Hide overdue bars', !draft.overdueBar, (v) => { draft.overdueBar = !v; }));
       body.append(field('Open notes and links in', select('Open notes and links in', [['popup', 'Pop-up editor'], ['tab', 'A tab']], draft.openLinks, (v) => { draft.openLinks = v === 'tab' ? 'tab' : 'popup'; }),
         'A card’s note and the links in its text. The pop-up editor edits the note without leaving the board. Cmd/Ctrl-click always opens a new tab.'));
+      const undatedScroll = select('No due date column scrolls', [['board', 'With the board'], ['own', 'On its own']], draft.undatedScroll ? 'own' : 'board', (v) => { draft.undatedScroll = v === 'own'; });
+      undatedScroll.disabled = draft.undatedIndex < 0;
+      body.append(field('No due date column scrolls', undatedScroll, draft.undatedIndex < 0 ? NO_UNDATED_COLUMN
+        : 'On its own keeps the column in view beside the rows. With one column showing, it scrolls with the board.'));
     } else {
       heading(body, 'Give new tasks a home', 'Tasks added on this board go to this note and section.');
       body.append(field('Add new tasks to', select('Add new tasks to', [['default', 'Plugin default'], ['daily', 'Today’s daily note'], ['note', 'A specific note']], draft.newTasks, (v) => { draft.newTasks = v as BoardConfig['newTasks']; redraw(); })));

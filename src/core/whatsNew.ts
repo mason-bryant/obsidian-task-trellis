@@ -5,8 +5,19 @@ import { LABEL_COLORS } from './labels.ts';
 /** What a feature's button in What’s new does. */
 export type FeatureAction = { kind: 'create-board' | 'color-rules'; label: string };
 
+/** A board setting that a feature's checkbox in What’s new changes, saved as soon as it changes. */
+export type FeatureSetting = {
+  kind: 'undated-scroll';
+  label: string;
+  /** Why the box is disabled on a board that can't use the setting. */
+  unavailable: string;
+};
+
 /** A feature worth pointing out after an update, and from the board's toolbar for good. */
-export type Feature = { version: string; name: string; description: string; action?: FeatureAction };
+export type Feature = { version: string; name: string; description: string; action?: FeatureAction; setting?: FeatureSetting };
+
+/** Said wherever a board can't use No due date column scrolls. */
+export const NO_UNDATED_COLUMN = 'This board has no No due date column. Choose one under Settings, in Setup.';
 
 /**
  * Newest first. Each release that adds something users should try adds it here, with the release's
@@ -22,6 +33,11 @@ export const FEATURES: Feature[] = [
     version: '1.4.0', name: 'Patterns and opacity for color rules',
     description: 'Color rules can tint cards with stripes, dots, a grid or checks as well as solid color, at any opacity, and colors mix with hue, saturation and lightness sliders.',
     action: { kind: 'color-rules', label: 'Add suggested color rules…' },
+  },
+  {
+    version: '1.4.0', name: 'Scroll a No due date column on its own',
+    description: 'With several columns showing, a No due date column can stay in view below the column headers and scroll separately from the rows beside it. It’s off until you turn it on, here or under Settings, in Appearance.',
+    setting: { kind: 'undated-scroll', label: 'Scroll this board’s No due date column on its own', unavailable: NO_UNDATED_COLUMN },
   },
   {
     version: '1.3.0', name: 'Search cards',

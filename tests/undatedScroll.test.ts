@@ -9,7 +9,7 @@ const today = '2026-10-23';
 const task = (raw: string, line: number): BoardTask => ({ ...parseTaskLine(raw)!, raw, path: 'House.md', line, id: taskId('House.md', line) });
 const undated = task('- [ ] Someday, maybe #tt/house/doing', 0);
 const dated = task('- [ ] Paint the kitchen 📅 2026-10-24 #tt/house/doing', 1);
-const withColumn = { columns: ['Backlog', 'Doing', 'Done'], 'undated-column': 'Backlog' };
+const withColumn = { columns: ['Backlog', 'Doing', 'Done'], 'undated-column': 'Backlog', 'undated-scroll': true };
 
 let root: HTMLElement;
 let host: RenderHost;
@@ -43,12 +43,43 @@ afterEach(() => {
 });
 
 describe('a No due date column that scrolls on its own', () => {
-  it('is marked only on a board that has one', () => {
+  it('is marked only on a board that has one and has turned it on', () => {
     draw();
     expect(grid().classList.contains('tt-grid--undated')).toBe(true);
-    draw({ columns: ['Backlog', 'Doing', 'Done'] });
-    expect(grid().classList.contains('tt-grid--undated')).toBe(false);
-    expect(grid().style.getPropertyValue('--tt-header-height')).toBe('');
+    expect(board().classList.contains('tt-scroll--undated')).toBe(true);
+    for (const fm of [{ columns: ['Backlog', 'Doing', 'Done'], 'undated-scroll': true }, { ...withColumn, 'undated-scroll': false }, { columns: ['Backlog', 'Doing', 'Done'], 'undated-column': 'Backlog' }]) {
+      draw(fm);
+      expect(grid().classList.contains('tt-grid--undated')).toBe(false);
+      expect(board().classList.contains('tt-scroll--undated')).toBe(false);
+      expect(grid().style.getPropertyValue('--tt-header-height')).toBe('');
+    }
+  });
+
+  it('scrolls with the board while it’s off', async () => {
+    const off = { ...withColumn, 'undated-scroll': false };
+    draw(off);
+    expect(pane().classList.contains('tt-cell--undated')).toBe(true);
+    // Only the board's place is kept: the column has none of its own.
+    board().scrollTop = 90;
+    pane().scrollTop = 240;
+    draw(off);
+    expect(pane().scrollTop).toBe(0);
+    expect(board().scrollTop).toBe(90);
+    // A composer scrolls the board, as it does in any other cell.
+    const viewport = Object.assign(new EventTarget(), { offsetTop: 0, height: 700 });
+    Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
+    board().getBoundingClientRect = rect(100, 600);
+    pane().getBoundingClientRect = rect(150, 500);
+    openComposer();
+    const box = pane().querySelector<HTMLElement>('.tt-add-box')!;
+    // Lower than the board's bottom edge, and moved by scrolling the board.
+    let top = 640;
+    box.getBoundingClientRect = () => rect(top, 120)();
+    Object.defineProperty(board(), 'scrollTop', { configurable: true, get: () => 730 - top, set: (value: number) => { top = 730 - value; } });
+    box.querySelector<HTMLTextAreaElement>('.tt-add-input')!.dispatchEvent(new Event('input'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(top).toBeLessThan(640);
+    expect(pane().scrollTop).toBe(0);
   });
 
   it('keeps its own place and the board’s through a redraw', () => {

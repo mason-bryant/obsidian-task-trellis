@@ -637,8 +637,10 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 @media (pointer: coarse) { .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; } }
 .is-mobile .tt-whats-new-notes { display: inline-flex; align-items: center; min-height: 44px; }
 .tt-whats-new-notes + .tt-help { margin-top: 12px; }
-.tt-whats-new-hide { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; }
-.tt-whats-new-hide input { margin: 0; }
+.tt-whats-new-hide, .tt-whats-new-setting { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.tt-whats-new-hide { margin-top: 8px; }
+.tt-whats-new-hide input, .tt-whats-new-setting input { margin: 0; flex: none; }
+.tt-whats-new-setting:has(input:disabled) { opacity: .5; }
 .tt-settings-footer { display: flex; align-items: center; gap: 8px; flex: none; padding: 14px 0 0; border-top: 1px solid var(--background-modifier-border); }
 .tt-settings-footer > :first-child { margin-right: auto; }
 .tt-settings-save .tt-icon { color: var(--tt-save-color, #15803d); }
@@ -790,10 +792,11 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
  * Narrow boards, such as on a phone or in a narrow pane: one column fills the board, and a
  * sideways swipe moves exactly one column. Below 600px the grid can't show two 240px columns
  * with room for a scrollbar and a cue that more columns follow, so the columns would be cut off
- * mid-card. Column widths come from .tt-scroll (cqw), and a No due date column's height from its
- * height (cqh). Container queries need iOS 16 or later.
+ * mid-card. Column widths come from .tt-scroll (cqw), and the height of a No due date column that
+ * scrolls on its own from its height (cqh). Container queries need iOS 16 or later.
  */
-.tt-scroll { container-type: size; }
+.tt-scroll { container-type: inline-size; }
+.tt-scroll--undated { container-type: size; }
 .tt-pager, .tt-row-bar--rest > .tt-row-sticky { display: none; }
 /* Keep non-dragging moves available to keyboard users on desktop too. */
 .tt-card-icon.tt-card-more { display: inline-flex; }
@@ -866,8 +869,8 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 .is-mobile .tt-grid { --tt-grid-bottom: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 .is-mobile .tt-cell--undated::after { content: ''; flex: none; height: calc(96px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 
-/* With several columns showing, a No due date column runs beside every row, so it stays in view and
- * scrolls on its own, ending level with the rows. One column at a time, it scrolls like the others. */
+/* The board's No due date column scrolls setting. With several columns showing, the column stays in
+ * view and scrolls on its own, ending level with the rows. One column at a time, it scrolls like the others. */
 @container trellis not (max-width: 600px) {
   .tt-grid--undated { box-sizing: border-box; min-height: 100cqh; align-content: start; }
   .tt-grid--undated > .tt-cell--undated {

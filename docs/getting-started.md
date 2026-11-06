@@ -45,10 +45,11 @@ The example board writes its sample tasks to a note of their own, **Task Trellis
 
 ## See what’s new
 
-**What’s new**, just before **Settings** on a board’s toolbar, describes recent features, with a button to try them:
+**What’s new**, just before **Settings** on a board’s toolbar, describes recent features, with a button or checkbox to try them:
 
 - **Create board…** opens the new board dialog, with its templates.
 - **Add suggested color rules…** opens this board’s settings at **Card color rules**, in the **Appearance** tab, with three rules added: **Overdue** in red stripes, **Due today** in orange and **High priority** in purple dots. Nothing is saved until you save the settings; change or remove the rules first if you like, or discard them.
+- **Scroll this board’s No due date column on its own** is a checkbox that saves as soon as you change it, and the window stays open so you can see the board change behind it. It’s the same as **No due date column scrolls** in **Settings → Appearance**, and is off until you turn it on.
 
 **See all release notes on GitHub**, at the end of the window, opens your browser at the notes for every release, including older ones.
 

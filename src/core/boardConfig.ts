@@ -37,6 +37,8 @@ export type BoardConfig = FilterSet & {
   /** Show at most `undatedLimit` cards in that column, the rest behind a "more" toggle. */
   limitUndated: boolean;
   undatedLimit: number;
+  /** With several columns showing, that column stays in view and scrolls separately from the rows. */
+  undatedScroll: boolean;
   /** Due now runs through today + `dueNow` days, or to the end of the `dueNow`-th week (this week is 1). */
   dueNow: number;
   dueNowUnit: DueNowUnit;
@@ -106,6 +108,7 @@ export const FM = {
   undatedColumn: 'undated-column',
   limitUndated: 'limit-undated',
   undatedLimit: 'undated-limit',
+  undatedScroll: 'undated-scroll',
   dueNow: 'due-now',
   dueNowUnit: 'due-now-unit',
   weekHorizon: 'week-horizon',
@@ -164,6 +167,7 @@ export function newBoardFrontmatter(slug: string): Record<string, unknown> {
     [FM.undatedColumn]: '',
     [FM.limitUndated]: true,
     [FM.undatedLimit]: 10,
+    [FM.undatedScroll]: false,
     [FM.dueNow]: 7,
     [FM.dueNowUnit]: 'days',
     [FM.weekHorizon]: 2,
@@ -251,6 +255,7 @@ export function parseBoardConfig(
       undatedColumn,
       limitUndated: boolSetting(f[FM.limitUndated], true),
       undatedLimit: intSetting(f[FM.undatedLimit], 10, 1, 500),
+      undatedScroll: boolSetting(f[FM.undatedScroll], false),
       ...dueNowSetting(f, warnings),
       weekHorizon: intSetting(f[FM.weekHorizon], 2, 0, 52),
       weekStart: weekStartSetting(f[FM.weekStart], warnings),

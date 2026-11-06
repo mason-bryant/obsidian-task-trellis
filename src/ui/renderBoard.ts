@@ -192,7 +192,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   const baseHost = host;
   const scroller = root.querySelector<HTMLElement>('.tt-scroll');
   const scroll = scroller ? { top: verticalScroller(scroller).scrollTop, left: scroller.scrollLeft, column: columnInView(scroller)?.dataset.column,
-    undated: scroller.querySelector('.tt-cell--undated')?.scrollTop ?? 0 } : null;
+    undated: scroller.querySelector('.tt-grid--undated > .tt-cell--undated')?.scrollTop ?? 0 } : null;
   // A focused card, or one an action just changed, stays drawn even when it moved past its cell's page.
   const active = root.ownerDocument.activeElement;
   const focusedCard = active && root.contains(active) ? active.closest<HTMLElement>('.tt-card')?.dataset.id : undefined;
@@ -523,7 +523,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
       ? ['1 / -1']
       : [undatedAt > 0 ? `1 / ${undatedAt + 1}` : '', undatedAt < visibleColumns.length - 1 ? `${undatedAt + 2} / -1` : ''].filter(Boolean);
   if (undatedAt >= 0) {
-    grid.classList.add('tt-grid--undated');
+    if (config.undatedScroll) { grid.classList.add('tt-grid--undated'); scrollEl.classList.add('tt-scroll--undated'); }
     const undated = cell('none', visibleColumns[undatedAt]!, model, host, paging);
     undated.classList.add('tt-cell--undated');
     undated.style.gridColumn = String(undatedAt + 1);
@@ -602,7 +602,7 @@ function drawBoard(root: HTMLElement, model: BoardModel, host: RenderHost, notes
   watchHeaderHeight(root, grid);
   if (scroll) {
     verticalScroller(scrollEl).scrollTop = scroll.top;
-    const undated = scrollEl.querySelector('.tt-cell--undated');
+    const undated = scrollEl.querySelector('.tt-grid--undated > .tt-cell--undated');
     if (undated) undated.scrollTop = scroll.undated;
     scrollEl.scrollLeft = scroll.left;
     // One column at a time, come back to the same column even when the columns beside it changed.
@@ -1488,7 +1488,7 @@ function verticalScroller(scroller: HTMLElement): HTMLElement {
 
 /** What scrolls an element up and down: with several columns showing, a No due date column scrolls on its own. */
 function verticalScrollerOf(element: Element | null, scroller: HTMLElement): HTMLElement {
-  return (!swipesColumns(scroller) && element?.closest<HTMLElement>('.tt-cell--undated')) || verticalScroller(scroller);
+  return (!swipesColumns(scroller) && element?.closest<HTMLElement>('.tt-grid--undated > .tt-cell--undated')) || verticalScroller(scroller);
 }
 
 /** A No due date column stays just below the column headers, whose height depends on the theme and on titles wrapping. */

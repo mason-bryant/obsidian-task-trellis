@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { newBoardFrontmatter, parseBoardConfig } from '../src/core/boardConfig.ts';
 import { changedFrontmatter, draftChanged, draftFromConfig, draftToFrontmatter } from '../src/core/boardDraft.ts';
 import { renderBoardSettings } from '../src/ui/renderBoardSettings.ts';
@@ -10,6 +10,58 @@ import { parseTaskLine } from '../src/core/taskLine.ts';
 it('defaults to note-order subtasks, all shown, with the overdue bar', () => {
   expect(parseBoardConfig('House', {}).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup', labelShape: 'pill' });
   expect(parseBoardConfig('House', newBoardFrontmatter('house')).config).toMatchObject({ sortCompletedSubtasks: false, hideCompletedSubtasks: false, overdueBar: true, openLinks: 'popup', labelShape: 'pill' });
+});
+
+describe('No due date column scrolls', () => {
+  const open = (fm: Record<string, unknown>) => {
+    const config = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing', 'Done'], ...fm }).config, draft = draftFromConfig(config);
+    const root = document.createElement('div'); document.body.replaceChildren(root);
+    renderBoardSettings(root, draft, config, {
+      initialSection: 'appearance', icon: vi.fn(), attachKeySuggest: vi.fn(), attachValueSuggest: vi.fn(), attachTagSuggest: vi.fn(),
+      attachFolderSuggest: vi.fn(), taggedTasks: () => [], onSave: vi.fn(), onDiscard: vi.fn(),
+    });
+    const choice = () => root.querySelector<HTMLSelectElement>('select[aria-label="No due date column scrolls"]')!;
+    return { root, config, draft, choice };
+  };
+
+  it('is off unless a board turns it on, on new boards too', () => {
+    expect(parseBoardConfig('House', {}).config.undatedScroll).toBe(false);
+    expect(parseBoardConfig('House', newBoardFrontmatter('house')).config.undatedScroll).toBe(false);
+    expect(parseBoardConfig('House', { 'undated-scroll': 'yes please' }).config.undatedScroll).toBe(false);
+    expect(parseBoardConfig('House', { 'undated-scroll': true }).config.undatedScroll).toBe(true);
+  });
+
+  it('is a dropdown at the end of Appearance, since it doesn’t hide anything', () => {
+    const { root, choice } = open({ 'undated-column': 'Backlog' });
+    expect([...root.querySelectorAll<HTMLElement>('.tt-settings-body > *')].at(-1)!.contains(choice())).toBe(true);
+    expect([...choice().options].map((o) => o.textContent)).toEqual(['With the board', 'On its own']);
+    expect(choice().value).toBe('board');
+    expect(choice().disabled).toBe(false);
+  });
+
+  it('saves only itself, as part of the settings draft', () => {
+    const { config, draft, choice } = open({ 'undated-column': 'Backlog' });
+    expect(draftChanged(draft, config)).toBe(false);
+    choice().value = 'own'; choice().dispatchEvent(new Event('change'));
+    expect(draftChanged(draft, config)).toBe(true);
+    expect(changedFrontmatter(draft, config)).toEqual({ 'undated-scroll': true });
+    const on = open({ 'undated-column': 'Backlog', 'undated-scroll': true });
+    expect(on.choice().value).toBe('own');
+    on.choice().value = 'board'; on.choice().dispatchEvent(new Event('change'));
+    expect(changedFrontmatter(on.draft, on.config)).toEqual({ 'undated-scroll': false });
+  });
+
+  it('is disabled, saying why, until the draft has a No due date column', () => {
+    const { root, choice } = open({});
+    expect(choice().disabled).toBe(true);
+    expect(choice().closest('.tt-field')!.textContent).toContain('This board has no No due date column. Choose one under Settings, in Setup.');
+    root.querySelector<HTMLButtonElement>('#tt-tab-setup')!.click();
+    const column = root.querySelector<HTMLSelectElement>('select[aria-label="No due date column"]')!;
+    column.value = '0'; column.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>('#tt-tab-appearance')!.click();
+    expect(choice().disabled).toBe(false);
+    expect(choice().closest('.tt-field')!.textContent).not.toContain('This board has no');
+  });
 });
 
 it('checks to hide, saves inverse visibility flags, and keeps spacing and order as choices', () => {

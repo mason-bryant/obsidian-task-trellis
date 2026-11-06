@@ -28,7 +28,7 @@ The board toolbar always ends with Settings, after Select or Done selecting and 
 
 Show a toggle's state with `aria-pressed` or a checkbox, not only a color. A menu's trigger exposes whether the menu is open, and gets focus back when the menu closes. After a redraw, find the current trigger again rather than focusing an element that was removed.
 
-Every checkbox for Appearance's own settings means **hide when checked, show when unchecked**, and its label begins with Hide. Card color rules' checkboxes choose what a rule matches instead; see the [look and feel](look-and-feel.md) Exceptions. Keep stored preferences compatible when inverting a control’s wording. Non-visibility settings, such as card spacing and subtask ordering, use dropdowns instead of checkboxes.
+Every checkbox for Appearance's own settings means **hide when checked, show when unchecked**, and its label begins with Hide. Card color rules' checkboxes choose what a rule matches instead; see the [look and feel](look-and-feel.md) Exceptions. Keep stored preferences compatible when inverting a control’s wording. Non-visibility settings, such as card spacing, subtask ordering and how a No due date column scrolls, use dropdowns instead of checkboxes.
 
 A quick-filter button shows the filter icon, then the color squares of its labels, then its name. The toolbar, the menu and the settings preview draw those squares the same way. In the menu, a checkmark means the filter is on; being in the menu doesn't turn a filter off. The menu's trigger counts the active filters inside it.
 
