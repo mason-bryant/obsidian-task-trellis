@@ -9,6 +9,7 @@ Task Trellis should look and behave the same way wherever the same kind of thing
 - Avoid desktop-only APIs: the plugin also runs in Obsidian mobile.
 - Don't push a version tag unless the maintainer asks: pushing one publishes a release. See the [release checklist](docs/releasing.md).
 - Every version bump must include `docs/releases/<version>.md`, starting with `# Task Trellis <version>`. Describe user-visible changes, compatibility/migration notes, and actual validation with remaining gaps. Follow [the release-note guide](docs/releases/README.md); packaging rejects missing or mismatched notes and publishing uses this file as the GitHub release description.
+- Keep [the next-release list](docs/releases/next.md) current. Every change users will see adds a line there in the same pull request, so the maintainer knows what to validate before a release. A version bump starts its release notes from that list, then empties it.
 - Before a pull request, run the checks from [CONTRIBUTING.md](CONTRIBUTING.md):
 
   ```bash
