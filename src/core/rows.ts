@@ -50,7 +50,8 @@ export function computeRows(config: BoardConfig, today: ISODate): RowDef[] {
     rows.push({
       id: `week-${start}`,
       kind: 'week',
-      label: from === start ? `Week of ${shortLabel(start)}` : `${shortLabel(from)} – ${shortLabel(to)}`,
+      // A week cut down to its last day is named by that day, not as a range from it to itself.
+      label: from === start ? `Week of ${shortLabel(start)}` : from === to ? dayLabel(from) : `${shortLabel(from)} – ${shortLabel(to)}`,
       detail: from === start ? '' : 'Partial week',
       from,
       to,

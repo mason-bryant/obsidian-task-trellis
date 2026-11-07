@@ -8,7 +8,7 @@ What has changed since the last release (1.3.0), so the maintainer knows what to
 
 - **Board templates:** **Create board** can start from Kanban, Weekly planner, Project, Eisenhower matrix or an Example board with sample tasks.
 - **First run:** turning Task Trellis on in a vault with no boards brings the boards sidebar to the front, listing the templates, and a notice points to it. Choosing a template opens **New board** with it chosen. Until then, turning it on showed nothing.
-- **Template previews:** **New board** shows a picture of the chosen template's board, with sample tasks in its columns, rows and colors, and is wider to fit it beside the choices.
+- **Template previews:** **New board** shows a picture of the chosen template's board, with sample tasks in its columns, rows and colors, and is wider to fit it beside the choices. What's new mentions them.
 - **Color picker:** the label editor and card color rules share Hue, Saturation and Lightness sliders, along with the palette and HTML color code.
 - **Color rule opacity and patterns:** a rule can set its own opacity and use Stripes, Dots, Grid or Checks, with a Preview card and a contrast warning.
 - **What's new:** a toolbar button just before Settings lists recent features, with buttons to try them and a link to all release notes. After an update that adds features, it opens by itself once, with **Don't show this again**.
@@ -38,6 +38,7 @@ What has changed since the last release (1.3.0), so the maintainer knows what to
 - **Damaged rename recovery file:** the others can still be restored, and Task Trellis names the bad file. A new tag rename waits, and says which file to deal with, including one that used to be skipped silently.
 - **Boards and columns called Constructor or `__proto__`:** cards stay in their tagged column, and moves stick. A column called that keeps its normal width, and a board called that remembers its collapsed rows.
 - **Column widths:** saving an unrelated setting no longer erases the width of a column added in another window or by Sync.
+- **A one-day partial week:** the row is labeled with its day, such as **Sun, Nov 15**, instead of **Nov 15 – Nov 15**.
 - **Small look fixes:** the accent focus ring in dialogs, errors in the error color, and reduced motion in the sidebar and the touch drag copy.
 
 ## Still needs checking
@@ -50,5 +51,6 @@ No pull request has covered these, so they need a person or a real device:
 - **What's new opening by itself:** after a real update, which needs the version bump.
 - **VoiceOver:** results and notices being spoken, and the settings' extra status regions.
 - **Desktop mouse:** drags with a physically held mouse, and the checkmark in Arrange in macOS's native menu.
+- **Obsidian 1.13.7,** the oldest version the manifest allows. Everything since 1.3.0 was tested on 1.14.5.
 - **Windows and Linux.**
 - **Real sync conflicts.**

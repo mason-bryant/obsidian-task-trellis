@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyEdit, buildBoard, columnOf, moveChoices, planDrop, quickMoveTarget, taskId, type BoardTask, type MoveChoice } from '../src/core/board.ts';
 import { destinationFor, newBoardFrontmatter, parseBoardConfig, type BoardConfig } from '../src/core/boardConfig.ts';
-import { startOfWeek } from '../src/core/dates.ts';
+import { dayLabel, startOfWeek } from '../src/core/dates.ts';
 import { computeRows, rowForDue } from '../src/core/rows.ts';
 import { planReorder } from '../src/core/sort.ts';
 import { parseTaskLine, setClosedFallback } from '../src/core/taskLine.ts';
@@ -140,6 +140,14 @@ describe('computeRows', () => {
       ['week-2026-11-02', '2026-11-02', '2026-11-08', '2026-11-02'],
       ['later', '2026-11-09', undefined, '2026-11-09'],
     ]);
+  });
+
+  it('names a partial week of one day by that day', () => {
+    // Due now ends on a Saturday, so the week it ends in has just its Sunday left.
+    const saturday = computeRows(config({ 'due-now': 4 }), '2026-10-27');
+    expect(saturday[1]!.to).toBe('2026-10-31');
+    expect(saturday[2]).toMatchObject({ label: dayLabel('2026-11-01'), detail: 'Partial week', from: '2026-11-01', to: '2026-11-01' });
+    expect(saturday[2]!.label).not.toContain('–');
   });
 
   it('buckets due dates, overdue included in now', () => {

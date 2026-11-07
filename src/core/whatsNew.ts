@@ -26,7 +26,7 @@ export const NO_UNDATED_COLUMN = 'This board has no No due date column. Choose o
 export const FEATURES: Feature[] = [
   {
     version: '1.4.0', name: 'Board templates',
-    description: 'Create board can start a weekly planner, a project, an Eisenhower matrix, or an example board full of sample tasks to try things out.',
+    description: 'Create board can start a weekly planner, a project, an Eisenhower matrix, or an example board full of sample tasks to try things out, and shows a preview of each.',
     action: { kind: 'create-board', label: 'Create board…' },
   },
   {
