@@ -3,7 +3,7 @@ import { BoardNameTaken } from '../src/core/boardName.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { buildBoard, taskId, type BoardTask } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import { BOARD_TEMPLATES, EXAMPLE_PROPERTY, exampleNote, templateFrontmatter } from '../src/core/boardTemplates.ts';
+import { BOARD_TEMPLATES, EXAMPLE_PROPERTY, exampleNote, templateFrontmatter, type BoardTemplateId } from '../src/core/boardTemplates.ts';
 import { indentWidth } from '../src/core/subtasks.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { renderNewBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
@@ -107,11 +107,11 @@ describe('board templates', () => {
 });
 
 describe('new board editor', () => {
-  function editor(create = vi.fn(async (): Promise<void> => undefined)) {
+  function editor(create = vi.fn(async (): Promise<void> => undefined), template?: BoardTemplateId) {
     const body = document.createElement('div'), header = document.createElement('div');
     document.body.replaceChildren(header, body);
     const close = vi.fn();
-    renderNewBoardEditor(body, header, { examplesPath: (name) => `Task Trellis examples/${name}.md` }, () => undefined, create, close);
+    renderNewBoardEditor(body, header, { examplesPath: (name) => `Task Trellis examples/${name}.md`, template }, () => undefined, create, close);
     const name = body.querySelector<HTMLInputElement>('input[aria-label="Board name"]')!;
     const choice = (text: string) => [...body.querySelectorAll<HTMLButtonElement>('.tt-board-template')].find((b) => b.querySelector('.tt-board-template-name')!.textContent === text)!;
     const pressed = () => [...body.querySelectorAll('.tt-board-template[aria-pressed="true"]')].map((b) => b.querySelector('.tt-board-template-name')!.textContent);
@@ -131,6 +131,21 @@ describe('new board editor', () => {
     ui.name.value = 'Chores'; ui.name.dispatchEvent(new Event('input'));
     ui.choice('Project').click();
     expect([ui.pressed(), ui.name.value]).toEqual([['Project'], 'Chores']);
+  });
+
+  it('starts from the template the sidebar offered, with its name, and makes that board', async () => {
+    const ui = editor(undefined, 'weekly');
+    expect([ui.pressed(), ui.name.value]).toEqual([['Weekly planner'], 'Weekly planner']);
+    // Still only a suggestion: another choice replaces the name until one is typed.
+    ui.choice('Project').click();
+    expect([ui.pressed(), ui.name.value]).toEqual([['Project'], 'Project']);
+    ui.choice('Weekly planner').click();
+    ui.save.click();
+    await vi.waitFor(() => expect(ui.create).toHaveBeenCalledWith('Weekly planner', 'weekly'));
+
+    const example = editor(undefined, 'example');
+    expect(example.pressed()).toEqual(['Example board']);
+    expect(example.body.querySelector<HTMLElement>('.tt-board-template-examples')!.hidden).toBe(false);
   });
 
   it('says where the example board’s sample tasks go', () => {

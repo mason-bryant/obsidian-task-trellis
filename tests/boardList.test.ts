@@ -4,6 +4,7 @@ import { renderBoardList, type BoardListHost, type BoardListTarget } from '../sr
 import { renderBoard, type RenderHost } from '../src/ui/renderBoard.ts';
 import { buildBoard } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
+import { BOARD_TEMPLATES } from '../src/core/boardTemplates.ts';
 
 const boards = [
   { path: 'Boards/Garden.md', name: 'Garden', folder: 'Boards' },
@@ -131,6 +132,30 @@ it('has no Labels button without a picker, and the board’s and sidebar’s box
   ui.draw();
   expect(board.querySelector<HTMLTextAreaElement>('.tt-add-input')!.value).toBe('Board draft');
   expect(ui.input().value).toBe('Sidebar draft');
+});
+
+it('offers the templates when there are no boards, each opening New board with it chosen', () => {
+  const root = document.createElement('div');
+  document.body.replaceChildren(root);
+  const host: BoardListHost = { icon: () => {}, onCreateBoard: vi.fn(), onOpenBoard: vi.fn(), onAddTask: vi.fn(async () => true) };
+  renderBoardList(root, [], null, host);
+  expect(root.querySelector('.tt-board-list-empty')!.textContent).toBe('No boards yet. Pick a template to start your first one.');
+  expect(root.querySelector('.tt-board-list-templates')!.getAttribute('aria-label')).toBe('Templates');
+  const choices = () => [...root.querySelectorAll<HTMLButtonElement>('.tt-board-list-template')];
+  expect(choices().map((b) => [b.querySelector('.tt-board-list-template-name')!.textContent, b.querySelector('.tt-board-list-template-description')!.textContent]))
+    .toEqual(BOARD_TEMPLATES.map((t) => [t.name, t.description]));
+  choices().find((b) => b.textContent!.startsWith('Example board'))!.click();
+  expect(host.onCreateBoard).toHaveBeenLastCalledWith('example');
+  // Create new board stays the main action, starting from the dialog's own first choice.
+  root.querySelector<HTMLButtonElement>('.tt-board-list-create')!.click();
+  expect(host.onCreateBoard).toHaveBeenLastCalledWith();
+
+  choices()[1]!.focus();
+  renderBoardList(root, [], null, host);
+  expect(document.activeElement).toBe(choices()[1]);
+  renderBoardList(root, boards, null, host);
+  expect(root.querySelector('.tt-board-list-templates')).toBeNull();
+  expect(root.querySelector('.tt-board-list-empty')).toBeNull();
 });
 
 it('puts focus back on the board row or button that had it after a redraw', () => {

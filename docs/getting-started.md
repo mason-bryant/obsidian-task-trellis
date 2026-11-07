@@ -19,7 +19,9 @@ The plugin also runs on mobile. Install it in the vault you use on your phone be
 
 ## Create a board
 
-1. Run **Task Trellis: Create board** from Obsidian’s command palette, or open the Task Trellis boards sidebar and choose **Create new board**.
+When you first turn Task Trellis on, the Task Trellis boards sidebar comes to the front, listing the [board templates](#board-templates). Close Obsidian’s settings to see it.
+
+1. Choose a template in the boards sidebar, or run **Task Trellis: Create board** from Obsidian’s command palette, or choose **Create new board** at the top of the boards sidebar.
 2. Name the board and choose what it starts from; see [Board templates](#board-templates). Its **New tasks** settings open automatically.
 3. Open the board’s **Settings → Setup → Filters** to choose the tasks it should show. With no filters, it shows eligible tasks across your vault, except the boards folder and globally excluded folders.
 4. In **Settings → New tasks**, choose where new tasks should be saved. For a simple setup, choose a specific note such as `Tasks/Inbox.md`. You can also use today’s daily note; that requires Obsidian’s **Daily notes** core plugin.

@@ -142,8 +142,11 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
   focusName(input);
 }
 
-/** Where the example board's sample tasks go: `name` is the board's name as typed. */
-export type NewBoardOptions = { examplesPath(name: string): string };
+/**
+ * Where the example board's sample tasks go (`name` is the board's name as typed), and the template
+ * chosen when the dialog opens, as from a template in the boards sidebar. Without one, Kanban.
+ */
+export type NewBoardOptions = { examplesPath(name: string): string; template?: BoardTemplateId };
 
 /** Names a new board and chooses what it starts from. A failed create keeps the name and choice to try again. */
 export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement, options: NewBoardOptions,
@@ -164,9 +167,10 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
   const error = node('p', 'tt-note tt-note--error'); error.setAttribute('role', 'alert'); error.hidden = true;
   body.replaceChildren(label, field, examples, error);
 
-  let chosen: BoardTemplate = BOARD_TEMPLATES[0]!;
+  let chosen: BoardTemplate = BOARD_TEMPLATES.find((t) => t.id === options.template) ?? BOARD_TEMPLATES[0]!;
   // The name follows the choice until it's typed in.
-  let suggested = '';
+  let suggested = chosen.suggestedName;
+  input.value = suggested;
   for (const template of BOARD_TEMPLATES) {
     const b = node('button', 'tt-board-template'); b.type = 'button'; b.dataset.template = template.id;
     b.append(node('span', 'tt-board-template-name', template.name), node('span', 'tt-board-template-description', template.description));

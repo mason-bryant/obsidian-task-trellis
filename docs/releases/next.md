@@ -7,6 +7,7 @@ What has changed since the last release (1.3.0), so the maintainer knows what to
 ## New
 
 - **Board templates:** **Create board** can start from Kanban, Weekly planner, Project, Eisenhower matrix or an Example board with sample tasks.
+- **First run:** turning Task Trellis on in a vault with no boards brings the boards sidebar to the front, listing the templates, and a notice points to it. Choosing a template opens **New board** with it chosen. Until then, turning it on showed nothing.
 - **Color picker:** the label editor and card color rules share Hue, Saturation and Lightness sliders, along with the palette and HTML color code.
 - **Color rule opacity and patterns:** a rule can set its own opacity and use Stripes, Dots, Grid or Checks, with a Preview card and a contrast warning.
 - **What's new:** a toolbar button just before Settings lists recent features, with buttons to try them and a link to all release notes. After an update that adds features, it opens by itself once, with **Don't show this again**.

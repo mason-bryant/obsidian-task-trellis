@@ -397,13 +397,16 @@ if (new URLSearchParams(location.search).has('whats-new')) {
 }
 
 // ?sidebar shows the boards sidebar beside the board. Only House has tasks here; the other board is for switching.
+// ?sidebar=empty shows it as a new vault does, with no boards and the templates, until a board is created.
 const sidebar = new URLSearchParams(location.search).has('sidebar');
+let noBoards = new URLSearchParams(location.search).get('sidebar') === 'empty';
 let openBoardPath = 'Task Trellis/House.md';
 const sidebarHost: BoardListHost = {
   icon: previewIcon,
   // Makes the board here instead of in a vault: the example board's tasks join the harness's notes.
-  onCreateBoard: () => nameDialog((body, header, close) => renderNewBoardEditor(body, header,
-    { examplesPath: (name) => `${EXAMPLES_FOLDER}/${name || 'Example board'}.md` }, previewIcon, async (name, template) => {
+  onCreateBoard: (chosen) => nameDialog((body, header, close) => renderNewBoardEditor(body, header,
+    { examplesPath: (name) => `${EXAMPLES_FOLDER}/${name || 'Example board'}.md`, template: chosen }, previewIcon, async (name, template) => {
+      noBoards = false;
       const slug = slugify(name);
       const examples = template === 'example' ? `${EXAMPLES_FOLDER}/${name}.md` : '';
       if (examples) {
@@ -426,10 +429,10 @@ function renderSidebar(): void {
   root.hidden = !sidebar;
   if (!sidebar) return;
   const cell = backlogCell(config)!;
-  renderBoardList(root, [
+  renderBoardList(root, noBoards ? [] : [
     { path: 'Task Trellis/Garden.md', name: 'Garden', folder: 'Task Trellis' },
     { path: 'Task Trellis/House.md', name: 'House', folder: 'Task Trellis' },
-  ], openBoardPath === 'Task Trellis/House.md' ? { path: openBoardPath, place: cell.place, labels: { palette: config.labels, shape: config.labelShape } } : null, sidebarHost);
+  ], noBoards ? null : openBoardPath === 'Task Trellis/House.md' ? { path: openBoardPath, place: cell.place, labels: { palette: config.labels, shape: config.labelShape } } : null, sidebarHost);
 }
 
 function offerUndo(before: string, label: string): void {
