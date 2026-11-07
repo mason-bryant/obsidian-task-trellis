@@ -418,7 +418,7 @@ export default class TaskTrellisPlugin extends Plugin {
   }
 
   promptNewBoard(template?: BoardTemplateId): void {
-    new NewBoardModal(this.app, { examplesPath: (name) => this.examplesPath(name), template }, (name, chosen) => this.createBoard(name, chosen)).open();
+    new NewBoardModal(this.app, { examplesPath: (name) => this.examplesPath(name), template, today: todayISO() }, (name, chosen) => this.createBoard(name, chosen)).open();
   }
 
   /** A free path for the example board's sample tasks, named after the board. */

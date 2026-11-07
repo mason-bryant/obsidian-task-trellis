@@ -7,6 +7,7 @@ import { BOARD_TEMPLATES, EXAMPLE_PROPERTY, exampleNote, templateFrontmatter, ty
 import { indentWidth } from '../src/core/subtasks.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
 import { renderNewBoardEditor } from '../src/ui/renderBoardNameEditor.ts';
+import { templatePreview } from '../src/core/templatePreview.ts';
 
 const TODAY = '2026-11-03';
 
@@ -106,12 +107,49 @@ describe('board templates', () => {
   });
 });
 
+describe('template previews', () => {
+  const cards = (model: ReturnType<typeof templatePreview>) =>
+    Object.values(model.cells).flatMap((columns) => Object.values(columns).flat());
+  const used = (model: ReturnType<typeof templatePreview>, by: (task: { id: string }) => string | undefined) =>
+    new Set(cards(model).map(by).filter(Boolean));
+
+  it.each(BOARD_TEMPLATES.map((t) => [t.id, t]))('show %s’s own board, with every sample task on it', (_id, template) => {
+    const model = templatePreview(template.id, TODAY);
+    expect(model.config.name).toBe(template.name);
+    expect(model.config.columns).toEqual(parseBoardConfig(template.name, templateFrontmatter(template.id, 'preview')).config.columns);
+    // Nothing is hidden by the template's filters, and the tasks spread over its columns and rows.
+    expect(model.total).toBe(cards(model).length);
+    expect(cards(model).length).toBeGreaterThanOrEqual(7);
+    expect(used(model, (t) => model.config.columns.find((c) => Object.values(model.cells).some((r) => r[c.id]?.some((x) => x.id === t.id)))?.id).size).toBeGreaterThanOrEqual(3);
+    expect(used(model, (t) => model.rowOf[t.id]).size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('match every color rule a template sets up, so its colors and patterns show', () => {
+    for (const template of BOARD_TEMPLATES) {
+      const model = templatePreview(template.id, TODAY);
+      const matched = new Set(Object.values(model.colors).map((r) => r.name));
+      expect([...matched].sort(), template.id).toEqual(model.config.colorRules.map((r) => r.name).sort());
+    }
+    // Each Eisenhower quadrant has a card of its own.
+    const eisenhower = templatePreview('eisenhower', TODAY);
+    const quadrant = (text: string) => eisenhower.colors[cards(eisenhower).find((t) => t.text === text)!.id]?.name;
+    expect(['File the tax return', 'Plan next quarter’s goals', 'Reply to the HOA email', 'Sort old photos'].map(quadrant))
+      .toEqual(['Do', 'Schedule', 'Delegate', 'Eliminate']);
+  });
+
+  it('show the example board’s real sample tasks', () => {
+    const model = templatePreview('example', TODAY);
+    expect(cards(model).map((t) => t.text)).toContain('Fix the leaky kitchen tap');
+    expect(model.subtasks[cards(model).find((t) => t.text === 'Plan the garden party')!.id]!.length).toBe(3);
+  });
+});
+
 describe('new board editor', () => {
   function editor(create = vi.fn(async (): Promise<void> => undefined), template?: BoardTemplateId) {
     const body = document.createElement('div'), header = document.createElement('div');
     document.body.replaceChildren(header, body);
     const close = vi.fn();
-    renderNewBoardEditor(body, header, { examplesPath: (name) => `Task Trellis examples/${name}.md`, template }, () => undefined, create, close);
+    renderNewBoardEditor(body, header, { examplesPath: (name) => `Task Trellis examples/${name}.md`, template, today: TODAY }, () => undefined, create, close);
     const name = body.querySelector<HTMLInputElement>('input[aria-label="Board name"]')!;
     const choice = (text: string) => [...body.querySelectorAll<HTMLButtonElement>('.tt-board-template')].find((b) => b.querySelector('.tt-board-template-name')!.textContent === text)!;
     const pressed = () => [...body.querySelectorAll('.tt-board-template[aria-pressed="true"]')].map((b) => b.querySelector('.tt-board-template-name')!.textContent);
@@ -146,6 +184,23 @@ describe('new board editor', () => {
     const example = editor(undefined, 'example');
     expect(example.pressed()).toEqual(['Example board']);
     expect(example.body.querySelector<HTMLElement>('.tt-board-template-examples')!.hidden).toBe(false);
+  });
+
+  it('previews the chosen template’s board, only to look at, and redraws it for another choice', () => {
+    const ui = editor();
+    const preview = ui.body.querySelector<HTMLElement>('.tt-board-template-preview')!;
+    expect(preview.getAttribute('aria-hidden')).toBe('true');
+    expect(preview.inert).toBe(true);
+    const columns = () => [...preview.querySelectorAll('.tt-col-header .tt-col-title')].map((h) => h.textContent);
+    expect(columns()).toEqual(['Backlog', 'Doing', 'Waiting', 'Done']);
+    expect(preview.querySelector('.tt-board-name')!.textContent).toBe('Kanban');
+    ui.choice('Project').click();
+    expect(columns()).toEqual(['Backlog', 'Ready', 'In progress', 'Review', 'Done']);
+    expect(preview.querySelectorAll('.tt-card').length).toBeGreaterThanOrEqual(7);
+    // Typing a name doesn't redraw it.
+    const board = preview.querySelector('.tt-board')!.firstElementChild;
+    ui.name.value = 'Launch'; ui.name.dispatchEvent(new Event('input'));
+    expect(preview.querySelector('.tt-board')!.firstElementChild).toBe(board);
   });
 
   it('says where the example board’s sample tasks go', () => {

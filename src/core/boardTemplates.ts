@@ -73,7 +73,7 @@ export function templateFrontmatter(id: BoardTemplateId, slug: string, examplesN
     case 'project':
       return {
         ...fm,
-        ...labels(['Feature', 'Chore', 'Bug', 'Blocked', 'Design', 'Research']),
+        ...labels(PROJECT_LABELS),
         [FM.columns]: ['Backlog', 'Ready', 'In progress', 'Review', 'Done'],
         [FM.dueNow]: 14,
         [FM.weekHorizon]: 4,
@@ -122,6 +122,7 @@ export function templateFrontmatter(id: BoardTemplateId, slug: string, examplesN
 }
 
 const EXAMPLE_LABELS = ['Outdoors', 'Errands', 'Calls', 'Repairs', 'Fun', 'Admin'];
+const PROJECT_LABELS = ['Feature', 'Chore', 'Bug', 'Blocked', 'Design', 'Research'];
 type Example = { text: string; due?: number; priority?: Priority; labels?: string[]; column?: string; done?: number; subtasks?: Example[] };
 
 /** Days are from today, so the board has something in every row whenever it's made. */
@@ -144,9 +145,9 @@ const EXAMPLES: Example[] = [
   { text: 'Pay the water bill', labels: ['Admin'], done: 0 },
 ];
 
-/** The example board's note: its property, a line about what it's for, and sample tasks placed on the board. */
-export function exampleNote(slug: string, boardName: string, today: ISODate): string {
-  const ids = (names: string[] = []) => names.map((n) => String(EXAMPLE_LABELS.indexOf(n) + 1));
+/** Sample task lines placed on a board: `labels` name the board's labels, in `labelNames`' order. */
+function sampleLines(tasks: Example[], slug: string, labelNames: string[], today: ISODate): string[] {
+  const ids = (names: string[] = []) => names.map((n) => String(labelNames.indexOf(n) + 1));
   const line = (task: Example, indent = ''): string[] => {
     let text = `${indent}- [${task.done !== undefined ? 'x' : ' '}] ${task.text}`;
     if (task.priority) text = setPriority(text, task.priority);
@@ -156,10 +157,72 @@ export function exampleNote(slug: string, boardName: string, today: ISODate): st
     if (task.column) text = setPlacement(text, slug, task.column);
     return [text, ...(task.subtasks ?? []).flatMap((s) => line(s, `${indent}    `))];
   };
+  return tasks.flatMap((task) => line(task));
+}
+
+/** The example board's note: its property, a line about what it's for, and sample tasks placed on the board. */
+export function exampleNote(slug: string, boardName: string, today: ISODate): string {
   return [
     '---', `${EXAMPLE_PROPERTY}: ${slug}`, '---',
     `Sample tasks for the ${boardName} board, made by Task Trellis. Change them, add your own, or delete this note and the board when you’re done.`,
     '', '## Tasks', '',
-    ...EXAMPLES.flatMap((task) => line(task)), '',
+    ...sampleLines(EXAMPLES, slug, EXAMPLE_LABELS, today), '',
   ].join('\n');
+}
+
+/**
+ * Tasks that show what each template is for, in its columns and rows and matching its color rules,
+ * for the New board dialog's preview. They're never written to the vault; the example board's
+ * preview shows the sample tasks it does write.
+ */
+const PREVIEW_TASKS: Record<Exclude<BoardTemplateId, 'example'>, Example[]> = {
+  kanban: [
+    { text: 'Return the library books', due: -1, priority: 'high' },
+    { text: 'Book a dentist appointment', due: 2 },
+    { text: 'Clean out the garage' },
+    { text: 'Write the quarterly report', due: 0, column: 'doing', subtasks: [
+      { text: 'Gather the numbers', done: -1 },
+      { text: 'Draft the summary' },
+    ] },
+    { text: 'Plan a weekend trip', column: 'doing' },
+    { text: 'Hear back about the quote', due: 3, column: 'waiting' },
+    { text: 'Renew the passport', due: 12 },
+    { text: 'Pay the electric bill', done: 0 },
+  ],
+  weekly: [
+    { text: 'Grocery run', due: 0, column: 'to-do' },
+    { text: 'Submit the expense report', due: 1, priority: 'high', column: 'to-do' },
+    { text: 'Call Mom', due: 2, column: 'to-do' },
+    { text: 'Draft the newsletter', due: 0, column: 'doing' },
+    { text: 'Book flights for the trip', due: 7, column: 'to-do' },
+    { text: 'Learn to bake sourdough' },
+    { text: 'Reorganize the bookshelf' },
+    { text: 'Water the plants', done: 0 },
+  ],
+  project: [
+    { text: 'Research competitor pricing', labels: ['Research'] },
+    { text: 'Sketch the onboarding flow', due: 20, labels: ['Design'] },
+    { text: 'Add CSV export', due: 6, labels: ['Feature'], column: 'ready' },
+    { text: 'Fix the login timeout', due: 1, priority: 'high', labels: ['Bug'], column: 'in-progress' },
+    { text: 'Migrate the database', due: 4, labels: ['Chore', 'Blocked'], column: 'in-progress' },
+    { text: 'New pricing page', due: 3, labels: ['Feature', 'Design'], column: 'review' },
+    { text: 'Write the release notes', labels: ['Chore'], done: -1 },
+  ],
+  eisenhower: [
+    { text: 'File the tax return', due: 0, priority: 'high' },
+    { text: 'Fix the broken heater', due: -1, priority: 'highest', column: 'doing' },
+    { text: 'Plan next quarter’s goals', due: 4, priority: 'high' },
+    { text: 'Start a savings plan', due: 12, priority: 'high' },
+    { text: 'Reply to the HOA email', due: 1 },
+    { text: 'Pick up the dry cleaning', due: 0, column: 'doing' },
+    { text: 'Sort old photos' },
+    { text: 'Browse new phone cases', due: 15 },
+    { text: 'Renew the car registration', done: 0 },
+  ],
+};
+
+/** The note a template's preview reads its tasks from. */
+export function previewNote(id: BoardTemplateId, slug: string, today: ISODate): string {
+  if (id === 'example') return exampleNote(slug, 'Example board', today);
+  return [...sampleLines(PREVIEW_TASKS[id], slug, id === 'project' ? PROJECT_LABELS : [], today), ''].join('\n');
 }

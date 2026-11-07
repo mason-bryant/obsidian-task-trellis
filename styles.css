@@ -30,7 +30,7 @@
   border-left: 3px solid var(--text-error);
   color: var(--text-normal);
 }
-.tt-board-name-field input[aria-invalid='true'] { border-color: var(--text-error); }
+.tt-board-name-field > input[aria-invalid='true'] { border-color: var(--text-error); }
 .tt-chips:has(> .tt-input[aria-invalid='true']) { border-color: var(--text-error); }
 
 .tt-note--warning {
@@ -504,7 +504,8 @@ button.tt-board-rename { height: auto; min-height: 44px; padding: 0; border: 0; 
 button.tt-board-rename:hover { color: var(--interactive-accent); background: transparent; }
 button.tt-board-rename:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 4px; }
 .tt-board-name-field { display: flex; flex-direction: column; gap: 8px; }
-.tt-board-name-field input { width: 100%; }
+/* Only the name box: the template preview's cards have inputs of their own. */
+.tt-board-name-field > input { width: 100%; }
 /* New board's templates look like the label editor's color scheme choices: a name over what it gives you. */
 .tt-board-template-field { margin-top: 16px; }
 .tt-board-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 8px; }
@@ -513,6 +514,20 @@ button.tt-board-template[aria-pressed='true'] { outline: 2px solid var(--interac
 .tt-board-template-name { font-weight: 600; }
 .tt-board-template-description { color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: normal; line-height: 1.4; }
 .tt-board-template-examples[hidden] { display: none; }
+/* New board: wide enough for the choices beside a preview; on a narrow screen, the preview goes first. */
+.tt-editor-modal.tt-new-board-modal { box-sizing: border-box; width: min(960px, 94vw); }
+.tt-new-board { container: new-board / inline-size; }
+.tt-board-template-layout { display: flex; flex-direction: column; gap: 12px; }
+.tt-board-template-preview { order: -1; }
+@container new-board (min-width: 680px) {
+  .tt-board-template-layout { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); align-items: start; gap: 16px; }
+  .tt-board-template-preview { order: 0; position: sticky; top: 0; }
+  .tt-board-template-list .tt-board-templates { grid-template-columns: minmax(0, 1fr); }
+}
+/* A picture of the chosen template's board: drawn at a desktop width, then scaled to the frame's. */
+.tt-board-template-preview .tt-help { margin: 0 0 6px; }
+.tt-board-template-preview-frame { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); }
+.tt-board-template-preview-frame > .tt-board { position: absolute; top: 0; left: 0; width: var(--tt-preview-width, 960px); height: calc(var(--tt-preview-width, 960px) * 3 / 4); transform: scale(var(--tt-preview-scale, 0.5)); transform-origin: 0 0; pointer-events: none; }
 .tt-board-total, .tt-filter-count { font-size: var(--font-ui-smaller); color: var(--text-muted); }
 .tt-filter-count { border-left: 1px solid var(--background-modifier-border); padding-left: 10px; }
 .tt-toolbar-button, .tt-button {

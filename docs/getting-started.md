@@ -33,7 +33,7 @@ Make sure the destination for new tasks matches the board’s filters. For examp
 
 ## Board templates
 
-**Start from** in the new board dialog sets up a board for a way of working. Each is an ordinary board, so you can change any of it later in **Settings**.
+**Start from** in the new board dialog sets up a board for a way of working, and shows a preview of the board the chosen one makes, with sample tasks. Each is an ordinary board, so you can change any of it later in **Settings**.
 
 | Template | Columns | What it sets up |
 | --- | --- | --- |

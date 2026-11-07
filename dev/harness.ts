@@ -405,7 +405,7 @@ const sidebarHost: BoardListHost = {
   icon: previewIcon,
   // Makes the board here instead of in a vault: the example board's tasks join the harness's notes.
   onCreateBoard: (chosen) => nameDialog((body, header, close) => renderNewBoardEditor(body, header,
-    { examplesPath: (name) => `${EXAMPLES_FOLDER}/${name || 'Example board'}.md`, template: chosen }, previewIcon, async (name, template) => {
+    { examplesPath: (name) => `${EXAMPLES_FOLDER}/${name || 'Example board'}.md`, template: chosen, today }, previewIcon, async (name, template) => {
       noBoards = false;
       const slug = slugify(name);
       const examples = template === 'example' ? `${EXAMPLES_FOLDER}/${name}.md` : '';

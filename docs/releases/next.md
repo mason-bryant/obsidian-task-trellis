@@ -8,6 +8,7 @@ What has changed since the last release (1.3.0), so the maintainer knows what to
 
 - **Board templates:** **Create board** can start from Kanban, Weekly planner, Project, Eisenhower matrix or an Example board with sample tasks.
 - **First run:** turning Task Trellis on in a vault with no boards brings the boards sidebar to the front, listing the templates, and a notice points to it. Choosing a template opens **New board** with it chosen. Until then, turning it on showed nothing.
+- **Template previews:** **New board** shows a picture of the chosen template's board, with sample tasks in its columns, rows and colors, and is wider to fit it beside the choices.
 - **Color picker:** the label editor and card color rules share Hue, Saturation and Lightness sliders, along with the palette and HTML color code.
 - **Color rule opacity and patterns:** a rule can set its own opacity and use Stripes, Dots, Grid or Checks, with a Preview card and a contrast warning.
 - **What's new:** a toolbar button just before Settings lists recent features, with buttons to try them and a link to all release notes. After an update that adds features, it opens by itself once, with **Don't show this again**.
@@ -45,6 +46,7 @@ No pull request has covered these, so they need a person or a real device:
 
 - **iPhone and Android:** the new tap areas, the phone keyboard with the Add task box and Search, the color sliders, the settings tabs and What's new.
 - **iPad:** the same, plus **On its own** for the No due date column, including touch drags over it.
+- **First run and template previews on a phone:** turning Task Trellis on should open the boards sidebar as the left drawer, and **New board** should show the preview above the templates.
 - **What's new opening by itself:** after a real update, which needs the version bump.
 - **VoiceOver:** results and notices being spoken, and the settings' extra status regions.
 - **Desktop mouse:** drags with a physically held mouse, and the checkmark in Arrange in macOS's native menu.
