@@ -1,3 +1,4 @@
+import { BOARD_TEMPLATES, type BoardTemplateId } from '../core/boardTemplates.ts';
 import { announce, clearForRedraw } from './announce.ts';
 import { uiElement } from './dom.ts';
 import { addBox, openComposer, type ComposerLabels, type ComposerSlot, type RenderHost } from './renderBoard.ts';
@@ -13,7 +14,8 @@ export type BoardListTarget = { path: string; place: string; labels: Omit<Compos
 
 /** What the sidebar needs from its host (the Obsidian view, or the dev harness). */
 export type BoardListHost = Pick<RenderHost, 'icon' | 'onUnsavedText'> & {
-  onCreateBoard(): void;
+  /** Opens the New board dialog, with `template` chosen when the sidebar's empty state offered it. */
+  onCreateBoard(template?: BoardTemplateId): void;
   onOpenBoard(path: string): void;
   /** Adds a task to the top of the board's backlog; `detailed` opens the full editor first. */
   onAddTask(path: string, text: string, detailed: boolean, labels: string[]): Promise<boolean> | boolean;
@@ -25,7 +27,8 @@ export type BoardListHost = Pick<RenderHost, 'icon' | 'onUnsavedText'> & {
 const sidebarComposer: ComposerSlot = { draft: null, setAside: new Map() };
 
 /**
- * The boards sidebar: Create new board, then a row for each board. Under the open board's row,
+ * The boards sidebar: Create new board, then a row for each board, or with no boards yet, the
+ * templates a board can start from. Under the open board's row,
  * Add task opens the same composer as a board cell's, adding to the top of that board's backlog.
  * A redraw puts focus back on the control that had it, found by its `data-board-focus` key.
  */
@@ -48,7 +51,21 @@ export function renderBoardList(root: HTMLElement, boards: BoardListItem[], open
   create.addEventListener('click', () => host.onCreateBoard());
   root.append(create);
   if (boards.length === 0) {
-    root.append(node('p', 'tt-board-list-empty', 'No boards yet. Create a board to get started.'));
+    // A new vault's first look: what each template sets up, one choice away from the New board dialog.
+    root.append(node('p', 'tt-board-list-empty', 'No boards yet. Pick a template to start your first one.'));
+    const templates = node('ul', 'tt-board-list-templates');
+    templates.setAttribute('aria-label', 'Templates');
+    for (const template of BOARD_TEMPLATES) {
+      const button = node('button', 'tt-board-list-template');
+      button.type = 'button';
+      button.dataset.boardFocus = `template:${template.id}`;
+      button.append(node('span', 'tt-board-list-template-name', template.name), node('span', 'tt-board-list-template-description', template.description));
+      button.addEventListener('click', () => host.onCreateBoard(template.id));
+      const row = node('li', '');
+      row.append(button);
+      templates.append(row);
+    }
+    root.append(templates);
   } else {
     const names = new Map<string, number>();
     for (const { name } of boards) names.set(name, (names.get(name) ?? 0) + 1);

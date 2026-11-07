@@ -26,3 +26,19 @@ it('remembers the board settings tab, starting at the first and ignoring one tha
   expect(normalizeSettings({ boardSettingsTab: 'colors' }).boardSettingsTab).toBe('appearance');
   expect(normalizeSettings({ boardSettingsTab: 3 }).boardSettingsTab).toBe('appearance');
 });
+
+it('keeps what’s collapsed on a board called __proto__ through a save and a load', () => {
+  const settings = normalizeSettings({});
+  settings.collapsed['__proto__'] = { later: true };
+  settings.collapsed.constructor = { now: true } as never;
+  const loaded = normalizeSettings(JSON.parse(JSON.stringify(settings)));
+  expect(loaded.collapsed['__proto__']).toEqual({ later: true });
+  expect(loaded.collapsed.constructor).toEqual({ now: true });
+  expect(normalizeSettings({}).collapsed.constructor).toBeUndefined();
+  expect(({} as Record<string, unknown>).later).toBeUndefined();
+});
+
+it('keeps what’s collapsed on other boards', () => {
+  expect(normalizeSettings({ collapsed: { home: { later: false } } }).collapsed.home).toEqual({ later: false });
+  expect(normalizeSettings({ collapsed: 'nonsense' }).collapsed).toEqual({});
+});

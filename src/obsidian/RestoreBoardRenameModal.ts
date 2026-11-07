@@ -21,8 +21,15 @@ export class RestoreBoardRenameModal extends Modal {
     });
   }
   private async draw(): Promise<void> {
-    const entries = (await this.service.history()).filter(({record}) => record.status !== 'restored');
+    const recovery = await this.service.recovery();
+    const entries = recovery.entries.filter(({record}) => record.status !== 'restored');
     if (this.closed || !this.chrome) return;
+    if (recovery.unreadable.length) {
+      const one = recovery.unreadable.length === 1;
+      const message = `Could not read ${recovery.unreadable.join(', ')}, so ${one ? 'it' : 'they'} can’t be restored. ${one ? 'It was' : 'They were'} left as ${one ? 'it was' : 'they were'}.`;
+      this.contentEl.createEl('p', { cls: 'tt-field-error', text: message });
+      announce(this.contentEl, message, 'alert');
+    }
     let busy = false;
     const header = renderEditorHeader(this.chrome.header, 'Restore board rename', setIcon, entries.length ? () => {
       const entry = entries[Number(select.value)];

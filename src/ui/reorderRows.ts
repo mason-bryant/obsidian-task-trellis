@@ -7,12 +7,11 @@ import { uiElement } from './dom.ts';
  */
 export function installRowReorder(body: HTMLElement, rowSelector: string, move: (from: number, to: number) => void): () => void {
   const rows = [...body.querySelectorAll<HTMLElement>(rowSelector)];
-  const view = body.ownerDocument.defaultView!;
   type Box = { top: number; height: number; left: number; width: number };
   let drag: {
     from: number; id: number; handle: HTMLElement; startY: number; startX: number;
     y: number; x: number; to: number; moved: boolean; scroll: number; maxScroll: number;
-    boxes: Box[]; gap: number; placeholder: HTMLElement | null;
+    boxes: Box[]; gap: number; placeholder: HTMLElement | null; view: Window; stopListening: () => void;
   } | null = null;
   let frame = 0;
   const target = () => {
@@ -52,13 +51,14 @@ export function installRowReorder(body: HTMLElement, rowSelector: string, move: 
       if (speed) body.scrollTop = Math.max(0, Math.min(drag.maxScroll, body.scrollTop + speed));
       target();
     }
-    frame = view.requestAnimationFrame(tick);
+    frame = drag.view.requestAnimationFrame(tick);
   };
   const finish = (commit: boolean) => {
     const current = drag;
     drag = null;
-    view.cancelAnimationFrame(frame);
     if (!current) return;
+    current.view.cancelAnimationFrame(frame);
+    current.stopListening();
     current.placeholder?.remove();
     body.classList.remove('tt-reordering');
     rows.forEach((row) => {
@@ -83,9 +83,16 @@ export function installRowReorder(body: HTMLElement, rowSelector: string, move: 
       const source = boxes[from]!;
       const gap = boxes[from + 1] ? boxes[from + 1]!.top - source.top - source.height :
         boxes[from - 1] ? source.top - boxes[from - 1]!.top - boxes[from - 1]!.height : 0;
+      // Obsidian can intercept pointer moves before they reach a captured handle, so observe them
+      // in document capture while this grip drags. Settings build their rows before a pop-out
+      // adopts them, so the grip's document and window are only known once it's pressed.
+      const doc = handle.ownerDocument, view = doc.defaultView!;
+      doc.addEventListener('pointermove', moving, true);
+      doc.addEventListener('pointerup', up, true);
       drag = { from, id: event.pointerId, handle, startY: event.clientY, startX: event.clientX,
         y: event.clientY, x: event.clientX, to: from, moved: false, scroll: body.scrollTop, maxScroll: Math.max(0, body.scrollHeight - body.clientHeight),
-        boxes, gap, placeholder: null };
+        boxes, gap, placeholder: null, view,
+        stopListening: () => { doc.removeEventListener('pointermove', moving, true); doc.removeEventListener('pointerup', up, true); } };
       handle.setPointerCapture(event.pointerId);
       frame = view.requestAnimationFrame(tick);
     };
@@ -119,16 +126,11 @@ export function installRowReorder(body: HTMLElement, rowSelector: string, move: 
       if (to >= 0 && to < rows.length && to !== from) move(from, to);
     };
     handle.addEventListener('pointerdown', down);
-    // Obsidian can intercept pointer moves before they reach a captured handle.
-    // Observe them in document capture, and claim only this grip's active drag.
-    body.ownerDocument.addEventListener('pointermove', moving, true);
-    body.ownerDocument.addEventListener('pointerup', up, true);
     handle.addEventListener('pointercancel', cancel);
     handle.addEventListener('lostpointercapture', cancel);
     handle.addEventListener('keydown', key);
     cleanups.push(() => {
-      handle.removeEventListener('pointerdown', down); body.ownerDocument.removeEventListener('pointermove', moving, true);
-      body.ownerDocument.removeEventListener('pointerup', up, true); handle.removeEventListener('pointercancel', cancel);
+      handle.removeEventListener('pointerdown', down); handle.removeEventListener('pointercancel', cancel);
       handle.removeEventListener('lostpointercapture', cancel); handle.removeEventListener('keydown', key);
     });
   });

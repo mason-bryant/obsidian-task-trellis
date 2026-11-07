@@ -2,6 +2,9 @@ import { BoardNameTaken, boardNameError } from '../core/boardName.ts';
 import { BOARD_TEMPLATES, type BoardTemplate, type BoardTemplateId } from '../core/boardTemplates.ts';
 import { isComposing, uiElement } from './dom.ts';
 import { renderEditorHeader } from './editorHeader.ts';
+import { renderBoard, type RenderHost } from './renderBoard.ts';
+import { templatePreview } from '../core/templatePreview.ts';
+import type { ISODate } from '../core/dates.ts';
 import type { RenamePreview } from '../obsidian/BoardTagRename.ts';
 
 export type TagMigration = { preview(name: string): Promise<RenamePreview>; apply(): Promise<void> };
@@ -142,8 +145,12 @@ export function renderDuplicateBoardEditor(body: HTMLElement, headerRoot: HTMLEl
   focusName(input);
 }
 
-/** Where the example board's sample tasks go: `name` is the board's name as typed. */
-export type NewBoardOptions = { examplesPath(name: string): string };
+/**
+ * Where the example board's sample tasks go (`name` is the board's name as typed), the template
+ * chosen when the dialog opens, as from a template in the boards sidebar (without one, Kanban), and
+ * today, for the preview's due dates.
+ */
+export type NewBoardOptions = { examplesPath(name: string): string; template?: BoardTemplateId; today: ISODate };
 
 /** Names a new board and chooses what it starts from. A failed create keeps the name and choice to try again. */
 export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement, options: NewBoardOptions,
@@ -159,14 +166,23 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
   const field = node('div', 'tt-board-name-field tt-board-template-field');
   const choices = node('div', 'tt-board-templates');
   choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'Start from');
-  field.append(node('span', '', 'Start from'), choices);
   const examples = node('p', 'tt-help tt-board-template-examples');
   const error = node('p', 'tt-note tt-note--error'); error.setAttribute('role', 'alert'); error.hidden = true;
-  body.replaceChildren(label, field, examples, error);
+  const preview = templatePreviewFrame(doc, icon);
+  // The choices and the preview of the chosen one side by side, where the dialog is wide enough.
+  const layout = node('div', 'tt-board-template-layout');
+  const list = node('div', 'tt-board-template-list');
+  list.append(choices, examples);
+  layout.append(list, preview.el);
+  field.append(node('span', '', 'Start from'), layout);
+  body.classList.add('tt-new-board');
+  body.closest('.tt-editor-modal')?.classList.add('tt-new-board-modal');
+  body.replaceChildren(label, error, field);
 
-  let chosen: BoardTemplate = BOARD_TEMPLATES[0]!;
+  let chosen: BoardTemplate = BOARD_TEMPLATES.find((t) => t.id === options.template) ?? BOARD_TEMPLATES[0]!;
   // The name follows the choice until it's typed in.
-  let suggested = '';
+  let suggested = chosen.suggestedName;
+  input.value = suggested;
   for (const template of BOARD_TEMPLATES) {
     const b = node('button', 'tt-board-template'); b.type = 'button'; b.dataset.template = template.id;
     b.append(node('span', 'tt-board-template-name', template.name), node('span', 'tt-board-template-description', template.description));
@@ -174,6 +190,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
       chosen = template;
       if (input.value.trim() === suggested) input.value = suggested = template.suggestedName;
       sync();
+      preview.draw(chosen.id, options.today);
     };
     choices.append(b);
   }
@@ -186,6 +203,7 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
   };
   input.addEventListener('input', sync);
   sync();
+  preview.draw(chosen.id, options.today);
 
   let busy = false;
   const submit = async () => {
@@ -213,6 +231,48 @@ export function renderNewBoardEditor(body: HTMLElement, headerRoot: HTMLElement,
     if (!isComposing(event) && event.key === 'Enter') { event.preventDefault(); void submit(); }
   });
   focusName(input);
+}
+
+/** The widest a preview board is drawn before it's scaled down to fit: room for its columns at their usual width. */
+const previewWidth = (columns: number) => Math.max(960, columns * 250 + 40);
+
+/**
+ * A picture of the board a template makes, drawn by the board's own renderer with sample tasks at a
+ * desktop width, then scaled to fit the dialog. It's only to look at: hidden from screen readers,
+ * whose users have the template's description, and out of reach of focus and the pointer.
+ */
+function templatePreviewFrame(doc: Document, icon: (el: HTMLElement, name: string) => void) {
+  const el = uiElement(doc, 'div'); el.className = 'tt-board-template-preview';
+  el.setAttribute('aria-hidden', 'true'); el.inert = true;
+  const caption = uiElement(doc, 'p'); caption.className = 'tt-help'; caption.textContent = 'Preview, with sample tasks';
+  const frame = uiElement(doc, 'div'); frame.className = 'tt-board-template-preview-frame';
+  const board = uiElement(doc, 'div');
+  frame.append(board); el.append(caption, frame);
+  let width = previewWidth(4);
+  const fit = () => { if (frame.clientWidth) board.style.setProperty('--tt-preview-scale', String(frame.clientWidth / width)); };
+  const view = doc.defaultView;
+  if (view && 'ResizeObserver' in view) new view.ResizeObserver(fit).observe(frame);
+  const host: RenderHost = {
+    renderText: (target, task) => { target.textContent = task.text; },
+    icon,
+    sourceLabel: (task) => task.path.replace(/^.*\//, '').replace(/\.md$/, ''),
+    isCollapsed: (rowId) => rowId === 'later' || rowId.startsWith('more:'),
+    // The toolbar's quick filters are part of what a template sets up, so the preview shows them.
+    onSetQuickFilters: () => undefined,
+    onToggleRow: () => undefined, onSetSubtasksCollapsed: () => undefined, onDrop: () => undefined,
+    onToggle: () => undefined, onEdit: () => undefined, onOpenSource: () => undefined, onDragEnd: () => undefined,
+    onAddTask: () => false, onAddSubtask: () => false,
+  };
+  return {
+    el,
+    draw(id: BoardTemplateId, today: ISODate) {
+      const model = templatePreview(id, today);
+      width = previewWidth(model.config.columns.length);
+      board.style.setProperty('--tt-preview-width', `${width}px`);
+      renderBoard(board, model, host, { warnings: [], info: [] });
+      fit();
+    },
+  };
 }
 
 /** Obsidian focuses a dialog's first button once it opens, so the name takes focus back after that too. */

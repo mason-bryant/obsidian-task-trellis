@@ -1,8 +1,8 @@
 import type { BoardConfig } from './boardConfig.ts';
 import type { ISODate } from './dates.ts';
 import { noFilter, taskMatchesBoard, type FilterSet, type Frontmatter } from './filters.ts';
-import { stringList } from './frontmatterValues.ts';
-import { FILTER_FM, readFilter } from './filterTree.ts';
+import { isStringList, stringList } from './frontmatterValues.ts';
+import { FILTER_FM, readFilter, unreadableFilter, unreadableWarning } from './filterTree.ts';
 import { labelDescription, taskLabels, type BoardLabel } from './labels.ts';
 import { dueNowEnd } from './rows.ts';
 import { slugify, type ParsedTask, type Priority } from './taskLine.ts';
@@ -107,6 +107,13 @@ export function parseQuickFilters(raw: unknown, labels: BoardLabel[], warnings: 
 
 /** The criteria in a quick filter's or color rule's properties; `where` names its rules in a warning. */
 export function parseCriteria(f: Record<string, unknown>, warnings: string[], where: string): TaskCriteria {
+  // A list left empty adds no restriction, so choices that can't be read mustn't look like one.
+  const unreadable = ([[QUICK_FM.priority, QUICK_PRIORITIES], [QUICK_FM.labels, null], [QUICK_FM.due, QUICK_DUES]] as [string, [string, string][] | null][])
+    .find(([key, choices]) => !isStringList(f[key]) || (choices && stringList(f[key]).length > 0 && known(stringList(f[key]), choices).length === 0))?.[0];
+  if (unreadable) {
+    warnings.push(unreadableWarning(where, `${unreadable} has nothing it can use`));
+    return { priorities: [], labels: [], noLabels: false, due: [], filter: unreadableFilter(f, [QUICK_FM.priority, QUICK_FM.labels, QUICK_FM.noLabels, QUICK_FM.due, ...Object.values(FILTER_FM)]) };
+  }
   return {
     priorities: known(stringList(f[QUICK_FM.priority]), QUICK_PRIORITIES),
     labels: stringList(f[QUICK_FM.labels]).map((v) => v.toLowerCase()),
@@ -143,7 +150,7 @@ export function criteriaFrontmatter(criteria: Omit<TaskCriteria, 'filter'>, rule
 }
 
 export function hasCriteria(filter: TaskCriteria): boolean {
-  return filter.noLabels || filter.filter.items.length > 0 || [filter.priorities, filter.labels, filter.due].some((list: unknown[]) => list.length > 0);
+  return filter.noLabels || !!filter.filter.unreadable || filter.filter.items.length > 0 || [filter.priorities, filter.labels, filter.due].some((list: unknown[]) => list.length > 0);
 }
 
 /** The board's quick filters that are shown and switched on. */

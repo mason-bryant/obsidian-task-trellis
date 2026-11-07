@@ -65,6 +65,8 @@ export default class TaskTrellisPlugin extends Plugin {
   private syncTimer: number | null = null;
   private configTimer: number | null = null;
   private stopped = false;
+  /** Turned on just now in a vault where it has never saved settings. */
+  private firstRun = false;
   private markIndexed = (): void => undefined;
   /** Settles once the first index rebuild has read the vault, or the plugin unloads. */
   readonly indexed = new Promise<void>((resolve) => { this.markIndexed = resolve; });
@@ -83,6 +85,8 @@ export default class TaskTrellisPlugin extends Plugin {
     this.settings = normalizeSettings(saved);
     // A new install has nothing to catch up on: What’s new starts from this version.
     if (saved === null || saved === undefined) this.settings.whatsNewSeen = this.manifest.version;
+    // Loading after the layout is ready means someone just turned it on, rather than Obsidian starting.
+    this.firstRun = (saved === null || saved === undefined) && this.app.workspace.layoutReady;
     if (this.stopped) return;
     this.index = new TaskIndex(this.app, (path) => this.isExcludedFromIndex(path));
     this.writer = new TaskWriter(this.app);
@@ -144,8 +148,11 @@ export default class TaskTrellisPlugin extends Plugin {
       if (!this.stopped) {
         this.boards.syncCommands();
         await this.ensureBoardList();
+        await this.welcomeFirstRun();
         try {
-          const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
+          const { entries, unreadable } = await this.boardRenames.recovery();
+          if (unreadable.length) notice(this.app, `Task Trellis: could not read ${unreadable.join(', ')}, so ${unreadable.length === 1 ? 'it' : 'they'} can’t be restored. Other recovery copies still can, with Task Trellis: Restore board rename. Nothing was changed.`, { alert: true });
+          const pending = entries.some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
           if (pending) notice(this.app, 'Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', { duration: 12000 });
         } catch { notice(this.app, 'Task Trellis: a board rename recovery record could not be read, so nothing was restored. Check the Task Trellis recovery folder.', { alert: true }); }
         // After an update, the first board shown says what the update added.
@@ -154,6 +161,22 @@ export default class TaskTrellisPlugin extends Plugin {
         if (active) this.showWhatsNew(active);
       }
     });
+  }
+
+  /**
+   * Turned on for the first time, in a vault with no boards: brings the boards sidebar, with its
+   * templates, to the front, and says so, since Obsidian’s settings are usually still open over it.
+   * A vault that already has boards, such as one synced from another device, is left as it is.
+   */
+  private async welcomeFirstRun(): Promise<void> {
+    if (!this.firstRun || this.stopped || this.boards.boards().length) return;
+    try {
+      await this.showBoardList();
+    } catch (error) {
+      console.error('[Task Trellis] showing the boards sidebar failed', error);
+      return;
+    }
+    notice(this.app, 'Task Trellis: pick a template in the boards sidebar to make your first board.', { duration: 10000 });
   }
 
   /** Once per update with new features, unless Don’t show this again was checked. */
@@ -277,9 +300,10 @@ export default class TaskTrellisPlugin extends Plugin {
     if (retagUndo === 'failed') return ['Some tasks could not be retagged. The board configuration was not changed. Check the affected notes and try again.'];
     try {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-        if (fm[FM.columnWidths] !== undefined) {
-          fm[FM.columnWidths] = remapColumnWidths(
-            parseColumnWidths(fm[FM.columnWidths], config.columns.map((c) => c.id)), renames, removed);
+        // Only this save's own columns: another window or Sync may have added one since the form opened.
+        const widths = fm[FM.columnWidths];
+        if (widths && typeof widths === 'object' && (renames.size || removed.length)) {
+          fm[FM.columnWidths] = remapColumnWidths(parseColumnWidths(widths, Object.keys(widths)), renames, removed);
         }
         // Undefined removes a property, such as `filter` once the rules fit the plain lists again.
         for (const [key, value] of Object.entries(frontmatter)) {
@@ -393,8 +417,8 @@ export default class TaskTrellisPlugin extends Plugin {
     new BoardPicker(this.app, boards.map((b) => b.file), (file) => this.openBoardOrSay(file)).open();
   }
 
-  promptNewBoard(): void {
-    new NewBoardModal(this.app, (name) => this.examplesPath(name), (name, template) => this.createBoard(name, template)).open();
+  promptNewBoard(template?: BoardTemplateId): void {
+    new NewBoardModal(this.app, { examplesPath: (name) => this.examplesPath(name), template, today: todayISO() }, (name, chosen) => this.createBoard(name, chosen)).open();
   }
 
   /** A free path for the example board's sample tasks, named after the board. */

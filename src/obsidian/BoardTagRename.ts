@@ -49,8 +49,11 @@ export class BoardTagRename {
     if (!safePath(originalPath) || !safePath(targetPath)) throw new Error('Board paths must be ordinary Markdown notes in the vault.');
     const occupied = this.app.vault.getAbstractFileByPath(targetPath);
     if (occupied && occupied !== file) throw new BoardNameTaken('A note or folder with that name already exists.');
-    const pending = (await this.history()).find(({ record }) => record.status === 'prepared' || record.status === 'needs-recovery');
+    const { entries, unreadable } = await this.recovery();
+    const pending = entries.find(({ record }) => record.status === 'prepared' || record.status === 'needs-recovery');
     if (pending) throw new Error(`Finish or restore the earlier rename first using Task Trellis: Restore board rename: ${pending.path}`);
+    // A file that can't be read might be a rename that never finished, so this can't start another.
+    if (unreadable.length) throw new Error(`Could not read ${unreadable.join(', ')}, so an earlier rename may not have finished. If you don’t need ${unreadable.length === 1 ? 'that file' : 'those files'}, move ${unreadable.length === 1 ? 'it' : 'them'} out of the ${RENAME_RECOVERY_FOLDER} folder, then try again.`);
     const original = await this.app.vault.read(file);
     const oldSlug = parseBoardConfig(file.basename, frontmatter(original).values).config.slug;
     const newSlug = migrationSlug(name);
@@ -248,22 +251,32 @@ export class BoardTagRename {
   }
 
   async history(): Promise<Array<{ path: string; record: RenameRecord }>> {
-    const results: Array<{ path: string; record: RenameRecord }> = [];
-    for (const file of this.app.vault.getFiles().filter((f) => f.path.startsWith(RENAME_RECOVERY_FOLDER + '/') && f.extension === 'json')) {
-      const raw: unknown = JSON.parse(await this.app.vault.read(file));
-      // Recovery files are vault data, not trusted instructions or unrestricted filesystem paths.
-      if (!raw || typeof raw !== 'object') continue;
-      const record = raw as RenameRecord;
-      if (record.version !== 1 || typeof record.originalPath !== 'string' || typeof record.targetPath !== 'string' ||
-        !safePath(record.originalPath) || !safePath(record.targetPath) || !Array.isArray(record.changes) ||
-        typeof record.oldSlug !== 'string' || typeof record.newSlug !== 'string' || !record.copiedState ||
-        typeof record.created !== 'string' || !['prepared', 'complete', 'needs-recovery', 'restored'].includes(record.status) ||
-        !/^[\p{L}\p{N}_-]+$/u.test(record.oldSlug) || !/^[\p{L}\p{N}_-]+$/u.test(record.newSlug) ||
-        !record.changes.every((c) => c && typeof c.path === 'string' && safePath(c.path) && typeof c.before === 'string' &&
-          typeof c.staged === 'string' && typeof c.after === 'string' && ['board', 'tasks'].includes(c.kind)) ||
-        !record.changes.some((c) => c.path === record.originalPath && c.kind === 'board')) continue;
-      results.push({ path: file.path, record });
-    }
-    return results.sort((a, b) => b.path.localeCompare(a.path));
+    return (await this.recovery()).entries;
   }
+
+  /** The recovery records it can use, and the paths of any it can't, which stay as they are. */
+  async recovery(): Promise<{ entries: Array<{ path: string; record: RenameRecord }>; unreadable: string[] }> {
+    const entries: Array<{ path: string; record: RenameRecord }> = [];
+    const unreadable: string[] = [];
+    for (const file of this.app.vault.getFiles().filter((f) => f.path.startsWith(RENAME_RECOVERY_FOLDER + '/') && f.extension === 'json')) {
+      let raw: unknown = null;
+      try { raw = JSON.parse(await this.app.vault.read(file)); } catch { /* Reported below, beside the others that can't be used. */ }
+      if (isRenameRecord(raw)) entries.push({ path: file.path, record: raw }); else unreadable.push(file.path);
+    }
+    return { entries: entries.sort((a, b) => b.path.localeCompare(a.path)), unreadable: unreadable.sort() };
+  }
+}
+
+/** Recovery files are vault data, not trusted instructions or unrestricted filesystem paths. */
+function isRenameRecord(raw: unknown): raw is RenameRecord {
+  if (!raw || typeof raw !== 'object') return false;
+  const record = raw as RenameRecord;
+  return !(record.version !== 1 || typeof record.originalPath !== 'string' || typeof record.targetPath !== 'string' ||
+    !safePath(record.originalPath) || !safePath(record.targetPath) || !Array.isArray(record.changes) ||
+    typeof record.oldSlug !== 'string' || typeof record.newSlug !== 'string' || !record.copiedState ||
+    typeof record.created !== 'string' || !['prepared', 'complete', 'needs-recovery', 'restored'].includes(record.status) ||
+    !/^[\p{L}\p{N}_-]+$/u.test(record.oldSlug) || !/^[\p{L}\p{N}_-]+$/u.test(record.newSlug) ||
+    !record.changes.every((c) => c && typeof c.path === 'string' && safePath(c.path) && typeof c.before === 'string' &&
+      typeof c.staged === 'string' && typeof c.after === 'string' && ['board', 'tasks'].includes(c.kind)) ||
+    !record.changes.some((c) => c.path === record.originalPath && c.kind === 'board'));
 }

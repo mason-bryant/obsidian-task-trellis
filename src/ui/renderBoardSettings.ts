@@ -8,7 +8,7 @@ import type { BoardConfig } from '../core/boardConfig.ts';
 import { NO_UNDATED_COLUMN } from '../core/whatsNew.ts';
 import { LABEL_COLORS, labelDescription, normalizeLabelColor } from '../core/labels.ts';
 import { newQuickFilterId, QUICK_DUES, QUICK_PRIORITIES } from '../core/quickFilters.ts';
-import { convertDueNow, filterError, filterItemName, filterWarnings, removedColumnNotes, WEEKDAY_NAMES, type BoardDraft, type DraftColorRule, type DraftCriteria, type DraftFilter, type DraftFilterSet, type DraftGroup, type DraftNode, type DraftRule } from '../core/boardDraft.ts';
+import { convertDueNow, filterError, filterItemName, filterWarnings, removedColumnNotes, UNREADABLE_RULES, WEEKDAY_NAMES, type BoardDraft, type DraftColorRule, type DraftCriteria, type DraftFilter, type DraftFilterSet, type DraftGroup, type DraftNode, type DraftRule } from '../core/boardDraft.ts';
 import type { FilterMatch } from '../core/filters.ts';
 import type { ParsedTask } from '../core/taskLine.ts';
 
@@ -182,7 +182,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
   type Scope = { key: string; label: string };
   const boardScope: Scope = { key: '', label: '' };
   const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-  const rulesChanged = (set: DraftFilterSet) => { if (set === draft) updateWarnings(); };
+  const rulesChanged = (set: DraftFilterSet) => { delete set.filter.unreadable; if (set === draft) updateWarnings(); };
   const blankRule = (kind: DraftRule['kind']): DraftRule => kind === 'property' ? { kind, key: '', condition: 'exists', values: [] } : { kind, values: [] };
 
   /**
@@ -276,7 +276,7 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
         : ruleEditor(set, item, [...path, i], scope, (next) => { group.items[i] = next; }, removeItem(i)));
       statements.append(row);
     });
-    if (!group.items.length) statements.append(el('p', 'tt-filter-empty', 'No filters, so every task can show.'));
+    if (!group.items.length && !group.unreadable) statements.append(el('p', 'tt-filter-empty', 'No filters, so every task can show.'));
     const added = (item: DraftNode, focus: string) => {
       group.items.push(item); rulesChanged(set);
       redraw(`${scope.label}${capitalized(filterItemName(item, [...path, group.items.length - 1]))}: ${focus}`);
@@ -320,11 +320,14 @@ export function renderBoardSettings(root: HTMLElement, draft: BoardDraft, origin
    * `matchesAll` says what it does with nothing chosen.
    */
   function criteriaEditor(parent: HTMLElement, criteria: DraftCriteria, key: string, scope: Scope, matchesAll: string, labelsChanged: () => void): void {
-    parent.append(choices('Priority', `${key}-priority`, QUICK_PRIORITIES, criteria.priorities));
-    const labels = choices('Labels', `${key}-label`, original.labels.map((l) => [l.id, labelDescription(l), l.color] as [string, string, string]), criteria.labels, labelsChanged);
-    labels.append(ruleCheck('No labels', `${key}-no-labels`, criteria.noLabels, (on) => { criteria.noLabels = on; }));
+    const unreadable = criteria.filter.unreadable ? el('p', 'tt-filter-warning', UNREADABLE_RULES) : null;
+    if (unreadable) parent.append(unreadable);
+    const replaced = () => { delete criteria.filter.unreadable; unreadable?.remove(); };
+    parent.append(choices('Priority', `${key}-priority`, QUICK_PRIORITIES, criteria.priorities, replaced));
+    const labels = choices('Labels', `${key}-label`, original.labels.map((l) => [l.id, labelDescription(l), l.color] as [string, string, string]), criteria.labels, () => { replaced(); labelsChanged(); });
+    labels.append(ruleCheck('No labels', `${key}-no-labels`, criteria.noLabels, (on) => { replaced(); criteria.noLabels = on; }));
     parent.append(labels, el('p', 'tt-help', 'No labels matches tasks with no labels assigned for this board.'));
-    parent.append(choices('Due', `${key}-due`, QUICK_DUES, criteria.due));
+    parent.append(choices('Due', `${key}-due`, QUICK_DUES, criteria.due, replaced));
     parent.append(groupEditor(criteria, criteria.filter, [], scope));
     parent.append(el('p', 'tt-help', `Within Priority, Labels or Due, any checked choice can match. Every part you fill in must match. ${matchesAll}`));
   }

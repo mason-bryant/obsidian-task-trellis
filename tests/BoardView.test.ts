@@ -5,7 +5,7 @@ vi.mock('../src/obsidian/LabelPickerModal.ts', () => ({ LabelPickerModal: class 
 const drag = vi.hoisted(() => ({ active: false }));
 vi.mock('../src/ui/renderBoard.ts', async (importOriginal) => ({ ...await importOriginal<typeof import('../src/ui/renderBoard.ts')>(), isDragging: () => drag.active }));
 import { BoardView } from '../src/obsidian/BoardView.ts';
-import { TaskWriter, type UndoAction } from '../src/obsidian/TaskWriter.ts';
+import { TaskWriter, UndoFailed, type UndoAction } from '../src/obsidian/TaskWriter.ts';
 import { TaskIndex } from '../src/obsidian/TaskIndex.ts';
 import { Events, notices, TFile, Workspace } from './mocks/obsidian.ts';
 import { buildBoard, type BoardModel, type DropTarget } from '../src/core/board.ts';
@@ -102,6 +102,39 @@ it('a failed Undo says changes may already be undone, and how many notes to chec
   vi.spyOn(console, 'error').mockImplementation(() => {});
   await f.view.undo();
   expect(notices.at(-1)).toBe('Task Trellis: could not finish undoing. Some changes may already be undone; check the affected 2 notes.');
+});
+it('a failed Undo names the note and stays, so choosing it again finishes', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  const task = f.index.all()[0]!;
+  const { action } = await f.writer.applyEdits([task], new Map([[task.id, { column: 'doing' }]]), 'house');
+  const moved = f.content;
+  const entry = { label: 'Task moved', action: action!, ids: [task.id] };
+  f.view.undoAction = entry;
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(f.vault, 'process').mockRejectedValueOnce(new Error('Disk full'));
+  await f.view.undo();
+  expect(f.content).toBe(moved);
+  expect(notices.at(-1)).toBe('Task Trellis: could not finish undoing. Tasks.md has not been undone. Choose Undo to try again.');
+  expect(f.view.undoAction).toBe(entry);
+  await f.view.undo();
+  expect(f.content).toBe('- [ ] original\n');
+  expect(f.view.undoAction).toBeNull();
+});
+it('a failed Undo says up to three notes, then how many more', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  const paths = ['a.md', 'b.md', 'c.md', 'd.md', 'e.md'];
+  f.view.undoAction = { label: 'Task moved', action: { paths, undo: async () => { throw new UndoFailed(paths, new Error('Disk full')); } } };
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await f.view.undo();
+  expect(notices.at(-1)).toBe('Task Trellis: could not finish undoing. a.md, b.md, c.md and 2 more have not been undone. Choose Undo to try again.');
+});
+it('a failed Undo doesn’t replace a newer action', async () => {
+  const f = fixture('- [ ] original\n'); await f.ready();
+  const newer = { label: 'Task completed', action: { paths: ['b.md'], undo: async () => true } };
+  f.view.undoAction = { label: 'Task moved', action: { paths: ['a.md'], undo: async () => { f.view.undoAction = newer; throw new UndoFailed(['a.md'], new Error('Disk full')); } } };
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  await f.view.undo();
+  expect(f.view.undoAction).toBe(newer);
 });
 it('a label change leaves subtask cards alone, keeps them selected and says why', async () => {
   const f = fixture('- [ ] original\n'); await f.ready();

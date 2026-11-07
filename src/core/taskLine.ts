@@ -115,7 +115,8 @@ export function parseTaskLine(line: string): ParsedTask | null {
   const status = m[2] ?? ' ';
   const body = m[4] ?? '';
 
-  const placements: Record<string, Placement> = {};
+  // Keyed by board slug, and `constructor` and `__proto__` are valid slugs, so nothing can be inherited.
+  const placements = Object.create(null) as Record<string, Placement>;
   for (const p of body.matchAll(placementRe())) {
     const slug = (p[2] ?? '').toLowerCase();
     // First tag wins if a board somehow has two.

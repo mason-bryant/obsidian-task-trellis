@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 vi.mock('../src/obsidian/BoardSettingsModal.ts', () => ({ BoardSettingsModal: class {} }));
 vi.mock('../src/obsidian/BoardView.ts', () => ({ BoardView: class {}, VIEW_TYPE_BOARD: 'board' }));
 vi.mock('../src/obsidian/BoardListView.ts', () => ({ BoardListView: class {}, VIEW_TYPE_BOARD_LIST: 'board-list' }));
@@ -8,7 +8,7 @@ import { parseTaskLine } from '../src/core/taskLine.ts';
 import { taskId } from '../src/core/board.ts';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
 import { draftFromConfig } from '../src/core/boardDraft.ts';
-import { TFile, Workspace } from './mocks/obsidian.ts';
+import { notices, TFile, Workspace } from './mocks/obsidian.ts';
 import type { App } from 'obsidian';
 
 it.each(['partial', 'board-write', 'success'])('column rename handles %s without silently leaving an inconsistent board', async (mode) => {
@@ -91,4 +91,77 @@ it('removes the filter group from the board note once its rules fit the plain li
   expect(await plugin.saveBoardSettings(new TFile('House.md') as never, config, draft)).toEqual([]);
   expect('filter' in note).toBe(false);
   expect(note).toMatchObject({ 'include-tags': ['work'], 'include-folders': ['Clients'] });
+});
+
+describe('column widths when settings save', () => {
+  /** Settings opened on Backlog and Doing; by the time they save, `note` is what the board note has. */
+  async function save(note: Record<string, unknown>, edit: (draft: ReturnType<typeof draftFromConfig>) => void) {
+    const config = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing'] }).config;
+    const draft = draftFromConfig(config); edit(draft);
+    const app = { workspace: new Workspace(), vault: {}, fileManager: { processFrontMatter: async (_file: unknown, fn: (fm: Record<string, unknown>) => void) => fn(note) } } as unknown as App;
+    const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
+    Object.assign(plugin, { app, index: { all: () => [] }, writer: new TaskWriter(app) });
+    expect(await plugin.saveBoardSettings(new TFile('House.md') as never, config, draft)).toEqual([]);
+    return note;
+  }
+
+  it('leaves them alone when no column changed, including one added since the form opened', async () => {
+    const widths = { backlog: 300, review: 500 };
+    const note = await save({ columns: ['Backlog', 'Doing', 'Review'], 'column-widths': widths }, (draft) => { draft.compact = !draft.compact; });
+    expect(note['column-widths']).toBe(widths);
+    expect(note.columns).toEqual(['Backlog', 'Doing', 'Review']);
+  });
+
+  it('moves a renamed column’s width and keeps the others, including one added since', async () => {
+    const note = await save({ 'column-widths': { backlog: 300, doing: 400, review: 500 } }, (draft) => { draft.columns[1]!.label = 'In progress'; });
+    expect(note['column-widths']).toEqual({ backlog: 300, 'in-progress': 400, review: 500 });
+  });
+
+  it('drops a removed column’s width and keeps the others, including one added since', async () => {
+    const note = await save({ 'column-widths': { backlog: 300, doing: 400, review: 500 } }, (draft) => { draft.columns.splice(0, 1); });
+    expect(note['column-widths']).toEqual({ doing: 400, review: 500 });
+  });
+
+  it('adds none to a board that has none', async () => {
+    const note = await save({ slug: 'house' }, (draft) => { draft.columns[1]!.label = 'In progress'; });
+    expect('column-widths' in note).toBe(false);
+  });
+});
+
+describe('first run', () => {
+  /** The welcome a plugin turned on just now gives, with how many boards the vault has. */
+  function welcome(firstRun: boolean, boards: number, reveal: () => Promise<void> = async () => undefined) {
+    const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
+    const showBoardList = vi.fn(reveal);
+    Object.assign(plugin, { firstRun, stopped: false, app: { workspace: new Workspace() },
+      boards: { boards: () => Array.from({ length: boards }, () => ({})) }, showBoardList });
+    notices.length = 0;
+    return { run: () => (plugin as unknown as { welcomeFirstRun(): Promise<void> }).welcomeFirstRun(), showBoardList };
+  }
+
+  it('brings the boards sidebar, with its templates, forward when turned on in a vault with no boards', async () => {
+    const first = welcome(true, 0);
+    await first.run();
+    expect(first.showBoardList).toHaveBeenCalledOnce();
+    expect(notices).toEqual(['Task Trellis: pick a template in the boards sidebar to make your first board.']);
+  });
+
+  it.each([
+    ['Obsidian starting, or settings already saved', false, 0],
+    ['a vault that already has boards, such as one synced from another device', true, 2],
+  ])('leaves the sidebar as it is for %s', async (_case, firstRun, boards) => {
+    const first = welcome(firstRun, boards);
+    await first.run();
+    expect(first.showBoardList).not.toHaveBeenCalled();
+    expect(notices).toEqual([]);
+  });
+
+  it('points to no sidebar it couldn’t show', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const first = welcome(true, 0, async () => { throw new Error('no leaf'); });
+    await first.run();
+    expect(notices).toEqual([]);
+    expect(error).toHaveBeenCalledOnce();
+    error.mockRestore();
+  });
 });

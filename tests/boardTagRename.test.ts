@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { App, TFile as ObsidianFile } from 'obsidian';
 import { TFile, TFolder } from './mocks/obsidian.ts';
 import { BoardTagRename } from '../src/obsidian/BoardTagRename.ts';
@@ -187,4 +187,63 @@ it('restores links shortened by Obsidian without accepting unrelated link or tex
   f.content.set('Tasks.md', f.content.get('Tasks.md')!.replace('|Changed', '|Alias'));
   await f.service.restore(backup);
   for (const [path, value] of before) expect(f.content.get(path)).toBe(value);
+});
+
+describe('a recovery folder with a file it can’t use', () => {
+  const FOLDER = 'Task Trellis recovery';
+  const truncated = '{"version":';
+  /** One finished rename to restore, beside whatever else `extra` adds. */
+  async function renamed(extra: (f: ReturnType<typeof fixture>) => void) {
+    const f = fixture();
+    await f.service.apply(await f.preview());
+    const good = (await f.service.history())[0]!;
+    extra(f);
+    return { f, good };
+  }
+  const brokenFiles = (f: ReturnType<typeof fixture>) => {
+    f.add(`${FOLDER}/truncated.json`, truncated);
+    f.add(`${FOLDER}/not-a-record.json`, JSON.stringify({ version: 1, originalPath: '../../outside.md' }));
+    f.add(`${FOLDER}/a-list.json`, '[]');
+    f.add(`${FOLDER}/unreadable.json`, 'x');
+    const read = f.vault.read;
+    f.vault.read = async (file: TFile) => { if (file.path.endsWith('unreadable.json')) throw new Error('No access'); return read(file); };
+  };
+
+  it('still lists and restores the good one, names the others, and leaves them as they were', async () => {
+    const { f, good } = await renamed(brokenFiles);
+    const recovery = await f.service.recovery();
+    expect(recovery.entries.map((entry) => entry.path)).toEqual([good.path]);
+    expect(recovery.unreadable).toEqual(['a-list', 'not-a-record', 'truncated', 'unreadable'].map((name) => `${FOLDER}/${name}.json`));
+    await f.service.restore(good.path);
+    expect(f.files.has('Boards/House.md')).toBe(true);
+    expect((await f.service.history())[0]!.record.status).toBe('restored');
+    expect(f.content.get(`${FOLDER}/truncated.json`)).toBe(truncated);
+  });
+
+  it('won’t start a new rename until it’s dealt with, and says which file and what to do', async () => {
+    const f = fixture();
+    f.add(`${FOLDER}/truncated.json`, truncated);
+    await expect(f.preview()).rejects.toThrow(`Could not read ${FOLDER}/truncated.json, so an earlier rename may not have finished. If you don’t need that file, move it out of the ${FOLDER} folder, then try again.`);
+    f.files.delete(`${FOLDER}/truncated.json`);
+    await expect(f.preview()).resolves.toBeTruthy();
+  });
+
+  it('treats a record missing a field as possibly unfinished, not as nothing', async () => {
+    const f = fixture();
+    const unfinished = { version: 1, originalPath: 'Boards/House.md', targetPath: 'Boards/Home.md', oldSlug: 'house', newSlug: 'home', copiedState: {}, status: 'needs-recovery',
+      changes: [{ path: 'Boards/House.md', before: 'x', staged: 'x', after: 'y', kind: 'board' }] };
+    f.add(`${FOLDER}/unfinished.json`, JSON.stringify(unfinished));
+    expect((await f.service.recovery()).unreadable).toEqual([`${FOLDER}/unfinished.json`]);
+    await expect(f.preview()).rejects.toThrow('an earlier rename may not have finished');
+  });
+
+  it('still rejects a record with an unsafe path', async () => {
+    const f = fixture();
+    const unsafe = { version: 1, originalPath: '../outside.md', targetPath: 'Boards/Home.md', oldSlug: 'house', newSlug: 'home', copiedState: {}, created: '2026-11-06', status: 'complete',
+      changes: [{ path: '../outside.md', before: 'x', staged: 'x', after: 'y', kind: 'board' }] };
+    f.add(`${FOLDER}/unsafe.json`, JSON.stringify(unsafe));
+    expect((await f.service.history())).toEqual([]);
+    await expect(f.service.restore(`${FOLDER}/unsafe.json`)).rejects.toThrow();
+    expect(f.writes).toEqual([]);
+  });
 });

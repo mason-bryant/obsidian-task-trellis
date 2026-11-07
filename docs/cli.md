@@ -96,7 +96,7 @@ JSON results start with `"ok": true`, or are `{"ok": false, "error": "…"}` wit
 
 A 1.x release may add fields to these results, but existing fields keep their names and meaning, so read the fields you need and ignore the rest. See [formats and compatibility](compatibility.md).
 
-`task-trellis:undo` undoes only the last change made through the commands, not changes made on a board. It leaves alone any note that changed again since, and says so. Undoing an add into a note it created leaves the note in place rather than deleting it: empty, or with what its template added.
+`task-trellis:undo` undoes only the last change made through the commands, not changes made on a board. It leaves alone any note that changed again since, and says so. If a note can't be written, the error names it and the others are still undone; run it again to try that note. Undoing an add into a note it created leaves the note in place rather than deleting it: empty, or with what its template added.
 
 ## Task ids and safe writes
 

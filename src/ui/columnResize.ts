@@ -18,14 +18,16 @@ export function installColumnResize(grid: HTMLElement, initial: ColumnWidths, ho
   let drag: { handle: HTMLElement; id: number; x: number; width: number; before: ColumnWidths } | null = null;
   const bounded = (width: number) => Math.round(Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, width)));
   const title = (header: HTMLElement) => header.querySelector('.tt-col-title')?.textContent ?? header.dataset.column!;
+  // A column can be called Constructor, so a width it doesn't have mustn't come from the prototype.
+  const widthOf = (id: string) => Object.prototype.hasOwnProperty.call(widths, id) ? widths[id] : undefined;
   const apply = () => {
     grid.style.setProperty('--tt-column-tracks', headers.map((header) => {
-      const width = widths[header.dataset.column!];
+      const width = widthOf(header.dataset.column!);
       return width ? `${width}px` : `minmax(${MIN_COLUMN_WIDTH}px, 1fr)`;
     }).join(' '));
     for (const header of headers) {
       const handle = header.querySelector('.tt-column-resize');
-      const width = widths[header.dataset.column!] ?? Math.round(header.getBoundingClientRect().width);
+      const width = widthOf(header.dataset.column!) ?? Math.round(header.getBoundingClientRect().width);
       handle?.setAttribute('aria-valuenow', String(width));
       // VoiceOver reads a separator's value but not its name, so the value says which column it sizes.
       handle?.setAttribute('aria-valuetext', `${title(header)} column, ${width} pixels`);

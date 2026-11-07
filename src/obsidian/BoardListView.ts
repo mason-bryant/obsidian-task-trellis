@@ -51,7 +51,7 @@ export class BoardListView extends ItemView {
 
   private readonly host: BoardListHost = {
     icon: (el, name) => setIcon(el, name),
-    onCreateBoard: () => this.plugin.promptNewBoard(),
+    onCreateBoard: (template) => this.plugin.promptNewBoard(template),
     onOpenBoard: (path) => {
       const board = this.board(path);
       const failed = () => notice(this.app, 'Task Trellis: could not open this board. Check that its note still exists, then try again.', { alert: true, region: this.contentEl });

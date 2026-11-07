@@ -12,7 +12,11 @@ export type FilterRule =
   | ({ kind: 'property' } & PropertyFilter);
 /** `all` needs every item to match, `any` at least one, and `none` none of them. */
 export type FilterMatch = 'all' | 'any' | 'none';
-export type FilterGroup = { kind: 'group'; match: FilterMatch; items: FilterNode[] };
+export type FilterGroup = {
+  kind: 'group'; match: FilterMatch; items: FilterNode[];
+  /** Rules in the note that couldn't be read, kept as they are until new ones are chosen. The group matches nothing. */
+  unreadable?: Record<string, unknown>;
+};
 export type FilterNode = FilterRule | FilterGroup;
 
 /** The rules a board and each of its quick filters have: one group, which can hold groups of its own. */
