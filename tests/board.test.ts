@@ -546,3 +546,27 @@ describe('a removed column', () => {
     expect(board(columns).cells.now!['this-week']!.map((t) => t.text)).toEqual(['dated']);
   });
 });
+
+describe('a board or column named after one of Object.prototype’s keys', () => {
+  it.each(['Constructor', '__proto__', 'Constructors'])('shows a card tagged Doing in Doing on a board called %s', (name) => {
+    const { config } = parseBoardConfig(name, { columns: ['Backlog', 'Doing', 'Done'] });
+    const raw = `- [ ] A #tt/${config.slug}/doing/100`;
+    const model = buildBoard([{ ...parseTaskLine(raw)!, raw, id: 't.md:0', path: 't.md', line: 0 }], config, '2026-11-06', () => undefined);
+    const shown = Object.values(model.cells).flatMap((cols) => Object.entries(cols).filter(([, cards]) => cards.length).map(([column]) => column));
+    expect(shown).toEqual(['doing']);
+  });
+
+  it.each([['Constructor', 'constructor'], ['__proto__', '__proto__']])('shows a card in a column called %s', (label, id) => {
+    const { config } = parseBoardConfig('Home', { slug: 'home', columns: ['Backlog', label, 'Done'] });
+    const raw = `- [ ] A #tt/home/${id}/100`;
+    const model = buildBoard([{ ...parseTaskLine(raw)!, raw, id: 't.md:0', path: 't.md', line: 0 }], config, '2026-11-06', () => undefined);
+    expect(Object.values(model.cells).flatMap((cols) => (cols[id] ?? []).map((card) => card.text))).toEqual(['A']);
+  });
+
+  it('puts a tag for a column the board doesn’t have in the first column, even one called constructor', () => {
+    const { config } = parseBoardConfig('Home', { slug: 'home', columns: ['Backlog', 'Doing', 'Done'] });
+    const raw = '- [ ] A #tt/home/constructor/100';
+    const model = buildBoard([{ ...parseTaskLine(raw)!, raw, id: 't.md:0', path: 't.md', line: 0 }], config, '2026-11-06', () => undefined);
+    expect(Object.values(model.cells).flatMap((cols) => cols.backlog ?? []).map((card) => card.text)).toEqual(['A']);
+  });
+});

@@ -194,6 +194,23 @@ describe('quick filter settings', () => {
     return { root, draft, original, form, control, expand, checkbox, tick, saved };
   }
 
+  it('says when a quick filter’s rules couldn’t be read, keeps them through another edit, and replaces them once it’s changed', () => {
+    const fm = { 'quick-filters': [{ id: 'a', name: 'A', priority: { high: true } }, { id: 'b', name: 'B', priority: ['high'] }] };
+    const ui = editor(fm);
+    ui.expand(0);
+    const editors = () => ui.root.querySelectorAll('.tt-quick-filter-editor');
+    expect(editors()[0]!.querySelector('.tt-filter-warning')!.textContent).toContain('These rules couldn’t be read');
+    expect(draftChanged(ui.draft, ui.original)).toBe(false);
+    // Renaming the other one rewrites the list, and must not turn this one into no rules.
+    ui.draft.quickFilters[1]!.name = 'Renamed';
+    expect(ui.saved().frontmatter['quick-filters']).toMatchObject([{ id: 'a', priority: { high: true } }, { id: 'b', name: 'Renamed' }]);
+    expect(taskMatchesCriteria(task('- [ ] Plain', 0), ui.saved().config.quickFilters[0]!, ui.saved().config, TODAY, undefined)).toBe(false);
+    ui.tick(0, 'High');
+    expect(editors()[0]!.querySelector('.tt-filter-warning')).toBeNull();
+    expect(ui.saved().config.quickFilters[0]!.priorities).toEqual(['high']);
+    expect(ui.saved().config.quickFilters[0]!.filter.unreadable).toBeUndefined();
+  });
+
   it('opens and closes without changing the board', () => {
     const ui = editor();
     expect([...ui.root.querySelectorAll('.tt-quick-filter-toggle')].map((b) => b.textContent)).toEqual(['High priority', 'Overdue', '🏷️ Green']);

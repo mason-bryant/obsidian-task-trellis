@@ -1,6 +1,6 @@
 import type { PropertyFilter } from './boardConfig.ts';
-import { flatFilter, flatRules, simplifyFilter, type FilterGroup, type FilterMatch, type FilterNode } from './filters.ts';
-import { normalizeFolder, normalizeTag, propertyFilters, stringList } from './frontmatterValues.ts';
+import { flatFilter, flatRules, noFilter, simplifyFilter, type FilterGroup, type FilterMatch, type FilterNode } from './filters.ts';
+import { arePropertyFilters, isStringList, normalizeFolder, normalizeTag, propertyFilters, stringList } from './frontmatterValues.ts';
 
 /** The keys a board and each quick filter keep their rules in. */
 export const FILTER_FM = {
@@ -19,12 +19,20 @@ export const FILTER_FM = {
  */
 export const NEEDS_GROUPS = 'Update Task Trellis to use this filter';
 
-const GROUP_KEYS: Record<string, FilterMatch> = { and: 'all', or: 'any', not: 'none' };
+const GROUP_KEYS = new Map<string, FilterMatch>([['and', 'all'], ['or', 'any'], ['not', 'none']]);
 const MATCH_KEYS: Record<FilterMatch, string> = { all: 'and', any: 'or', none: 'not' };
 
-/** A group that no task matches, for rules that can't be read. */
-function matchNothing(): FilterGroup {
-  return { kind: 'group', match: 'any', items: [] };
+/**
+ * A group that no task matches, for rules that can't be read. It keeps them as the note has them,
+ * so saving something else doesn't turn them into no rules at all, which would match every task.
+ */
+export function unreadableFilter(raw: Record<string, unknown>, keys: readonly string[] = Object.values(FILTER_FM)): FilterGroup {
+  return { kind: 'group', match: 'any', items: [], unreadable: Object.fromEntries(keys.filter((key) => raw[key] !== undefined).map((key) => [key, raw[key]])) };
+}
+
+/** What a board says about rules that can't be read; `where` names them. */
+export function unreadableWarning(where: string, why: string): string {
+  return `${where} couldn’t be read (${why}), so it matches no tasks. Choose its rules again in the board’s settings.`;
 }
 
 /**
@@ -37,8 +45,14 @@ export function readFilter(fm: Record<string, unknown>, warnings: string[], wher
     const problems: string[] = [];
     const group = parseFilterTree(tree, problems);
     if (group) return simplifyFilter(group);
-    warnings.push(`${where} couldn’t be read (${problems[0] ?? 'it isn’t a group'}), so it matches no tasks. Choose its rules again in the board’s settings.`);
-    return matchNothing();
+    warnings.push(unreadableWarning(where, problems[0] ?? 'it isn’t a group'));
+    return unreadableFilter(fm);
+  }
+  const unreadable = [FILTER_FM.includeTags, FILTER_FM.excludeTags, FILTER_FM.includeFolders, FILTER_FM.excludeFolders].find((key) => !isStringList(fm[key]))
+    ?? [FILTER_FM.filterProperties, FILTER_FM.excludeProperties].find((key) => !arePropertyFilters(fm[key]));
+  if (unreadable) {
+    warnings.push(unreadableWarning(where, `${unreadable} needs a value or a list of values`));
+    return unreadableFilter(fm);
   }
   return flatFilter({
     includeTags: stringList(fm[FILTER_FM.includeTags]).map(normalizeTag).filter(Boolean),
@@ -60,14 +74,19 @@ export function parseFilterTree(raw: unknown, problems: string[]): FilterGroup |
     if (entries.length !== 1) { problems.push('each rule or group needs exactly one key, such as tags or and'); return null; }
     const [key, inner] = entries[0]!;
     const name = key.trim().toLowerCase();
-    if (name in GROUP_KEYS) {
+    const match = GROUP_KEYS.get(name);
+    if (match) {
       if (!Array.isArray(inner)) { problems.push(`${key} needs a list`); return null; }
       const items = inner.map(node);
-      return items.every((item): item is FilterNode => item !== null) ? { kind: 'group', match: GROUP_KEYS[name]!, items } : null;
+      return items.every((item): item is FilterNode => item !== null) ? { kind: 'group', match, items } : null;
+    }
+    if (['tags', 'tag', 'folders', 'folder'].includes(name) && !isStringList(inner)) {
+      problems.push(`${key} needs a value or a list of values`); return null;
     }
     if (name === 'tags' || name === 'tag') return { kind: 'tags', values: stringList(inner).map(normalizeTag).filter(Boolean) };
     if (name === 'folders' || name === 'folder') return { kind: 'folders', values: stringList(inner).map(normalizeFolder).filter(Boolean) };
     if (name === 'property') {
+      if (!arePropertyFilters(inner)) { problems.push(`${key} needs a property name, with values if it matches some`); return null; }
       const rules = propertyFilters(inner);
       if (rules.length === 1) return { kind: 'property', ...rules[0]! };
       problems.push('each property rule names one property'); return null;
@@ -104,6 +123,8 @@ function nodeYaml(node: FilterNode): Record<string, unknown> {
  * matches nothing.
  */
 export function filterFrontmatter(group: FilterGroup): Record<string, unknown> {
+  // Over what no rules write, so that choosing new ones changes only the properties it has to.
+  if (group.unreadable) return { ...filterFrontmatter(noFilter()), ...group.unreadable };
   const flat = flatRules(group);
   if (flat) {
     return {

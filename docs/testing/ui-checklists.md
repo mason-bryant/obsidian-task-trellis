@@ -59,6 +59,7 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - The item follows the pointer, the insertion point holds still, the edges scroll, and reduced motion works.
 - Cancel, release outside any destination, and redraw or close mid-gesture: nothing is written and no drag is left stuck.
 - Mouse and touch, the keyboard alternatives, settings Save and Cancel, a failed card write, and Undo.
+- Settings lists in a pop-out window as well as the main one: columns, quick filters and color rules.
 - Desktop subtasks: drag an open row up and down, including one with descendants and in a nested list, with Note order, with Completed last and with completed subtasks hidden. During the drag the row dims and the card insertion marker shows where it will land. Completed subtasks can't be reordered. Check Undo, Alt+Up/Down and focus after saving, a drop outside the list (it becomes a card) and into another list (nothing), a narrow desktop pane and one selected column. No subtask reordering on mobile or coarse pointers.
 - Ordinary vertical scrolling, column paging, Obsidian's sidebar gestures and the toolbar layout still work.
 - A No due date column longer than the board, with several columns showing and Settings → Appearance → No due date column scrolls at With the board, the default: it scrolls with the rows and has no scrollbar of its own, its outline and drop highlight reach its last card, a drop in any gap between its cards lands there, its Add task stays pinned, and the rows beside it aren't stretched. At On its own: it stays below the headers while the rows scroll, scrolls on its own with a mouse wheel and a trackpad, doesn't scroll the board at either end, and keeps its place through a redraw. Its Add task box stays at its bottom edge. Drag a card into it, within it and out of it, with edge scrolling on both sides. Check it in the middle of the columns, with every row collapsed, and with a board wider than the window. With only that column chosen, it scrolls with the board. At 600px or narrower it scrolls with the rest, as before.
@@ -83,6 +84,8 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 
 - Filter groups: build a nested filter, such as ((A or B) and C) or D, save it, and check the board and the note's `filter` property, then reopen the settings. Turn the groups back into plain filters and check `filter` is gone. Compare the editor with a base's filter editor, and check three levels at phone width.
 - Compare what's shown, the selected count and what was actually written, including filtered subtasks and context-only parents.
+- A rule that can't be read, such as a mapping under `include-tags`, on the board, a quick filter and a color rule: no tasks and a warning. Save something else and it stays; choose new rules and it goes.
+- A board and a column called Constructor and `__proto__`: cards stay in their columns, moves stick, widths and collapsed rows are kept.
 - Tasks without labels, renamed labels, hidden filters, the overflow menu and one chosen column.
 - Completed cards stay struck through and overdue cards keep their red bar while selecting, and a click in the bulk bar that misses its buttons keeps the selection.
 - Modifier-click, ranges within a column, Select all with collapsed rows, clicking away to stop selecting, and selection kept while the bulk editor is open. Closing the bulk editor, saved or cancelled, returns focus to its button, and Undo while selecting keeps focus on the board, so Escape still ends selecting.
@@ -97,6 +100,8 @@ What to check for each kind of UI change. The rules being checked are in the [UX
 - Force a failed destination, a failed write, a stale snapshot and a partly successful bulk edit, with synthetic tasks or a disposable vault.
 - No lost input, false success, spinner left running, duplicate submission or card preview left in the wrong place.
 - Edit a note before using Undo, and check that the edit survives.
+- A write that fails during Undo, such as a read-only note: the others are restored, the note is named, Undo stays, and choosing it again finishes. The same with `task-trellis:undo`.
+- A damaged file beside a good one in Task Trellis recovery: the file is named at startup and in Restore board rename, the good one restores, and a new tag rename says which file to deal with.
 - A successful save followed by failed navigation, and a retry after a failure. Task not saved can't be dismissed during a retry, and a successful retry from a column's command or the boards sidebar says where the task went.
 - A card's source link when its note has gone, and a failed save of the plugin's own settings: each says so, and Don't show this again goes back.
 - Tests: [saveReliability](../../tests/saveReliability.test.ts), [TaskWriter](../../tests/TaskWriter.test.ts), [BoardView](../../tests/BoardView.test.ts), [boardTagRename](../../tests/boardTagRename.test.ts) (the rename service), [boardRename](../../tests/boardRename.test.ts) (the board name editor), [NotePopup](../../tests/NotePopup.test.ts) and [ShortcutActions](../../tests/ShortcutActions.test.ts) (saved, then the board fails to open).

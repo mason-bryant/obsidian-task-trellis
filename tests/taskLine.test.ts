@@ -176,3 +176,21 @@ it('moves legacy shortcut markers ahead of metadata when editing placements', ()
   expect(parseTaskLine(result)?.dueDate).toBe('2026-10-30');
   expect(parseTaskLine(result)?.text).toBe('Capture');
 });
+
+describe('board names that are also Object.prototype’s keys', () => {
+  it.each(['constructor', '__proto__'])('reads a placement on a board called %s', (slug) => {
+    const { placements } = parseTaskLine(`- [ ] A #tt/${slug}/doing/100 #tt/${slug}/done/200 #tt/other/backlog`)!;
+    expect(placements[slug]).toEqual({ column: 'doing', sort: 100 });
+    expect(placements.other).toEqual({ column: 'backlog' });
+    expect(Object.keys(placements).sort()).toEqual([slug, 'other'].sort());
+  });
+
+  it.each(['constructor', '__proto__', 'toString', 'hasOwnProperty'])('finds no placement for %s on a task without one', (slug) => {
+    expect(parseTaskLine('- [ ] A #tt/other/backlog')!.placements[slug]).toBeUndefined();
+  });
+
+  it('doesn’t touch Object.prototype', () => {
+    parseTaskLine('- [ ] A #tt/__proto__/doing/100');
+    expect(({} as Record<string, unknown>).column).toBeUndefined();
+  });
+});

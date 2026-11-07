@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseBoardConfig } from '../src/core/boardConfig.ts';
-import { draftChanged, draftFromConfig, draftToFrontmatter, filterWarnings, type DraftRule } from '../src/core/boardDraft.ts';
+import { changedFrontmatter, draftChanged, draftFromConfig, draftToFrontmatter, filterWarnings, UNREADABLE_RULES, type DraftRule } from '../src/core/boardDraft.ts';
 import { flatRules, matchesProperty, noteMatchesFilters, requiredPropertyKeys, simplifyFilter, taskMatchesBoard, missingRequiredPropertyKeys, type FilterGroup } from '../src/core/filters.ts';
 import { NEEDS_GROUPS } from '../src/core/filterTree.ts';
 import { renameFilterTags } from '../src/core/boardTagRename.ts';
@@ -195,5 +195,118 @@ describe('filter groups in the board note', () => {
     const fm = draftToFrontmatter(draft, c).frontmatter;
     expect(fm['quick-filters']).toEqual([{ id: 'mine', name: 'Mine', show: true, filter: { or: [{ tags: ['work'] }, { folders: ['Clients'] }] }, 'include-folders': [NEEDS_GROUPS] }]);
     expect(config(fm).quickFilters[0]!.filter).toEqual(c.quickFilters[0]!.filter);
+  });
+});
+
+describe('rules that can’t be read', () => {
+  const unrelated = { path: 'Personal/Private.md', tags: [] as string[] };
+  const work = { path: 'Work/a.md', tags: ['work'] };
+  const read = (fm: Record<string, unknown>) => parseBoardConfig('House', fm);
+  const saved = (note: Record<string, unknown>, changes: Record<string, unknown>) => {
+    const next = { ...note };
+    for (const [key, value] of Object.entries(changes)) { if (value === undefined) delete next[key]; else next[key] = value; }
+    return next;
+  };
+
+  it.each<[string, Record<string, unknown>]>([
+    ['a mapping of tags', { filter: { tags: { work: true } } }],
+    ['a list of mappings of tags', { filter: { tags: [{ work: true }] } }],
+    ['a mapping of folders', { filter: { folders: { Work: true } } }],
+    ['one bad rule beside good ones', { filter: { and: [{ tags: 'work' }, { folders: { Work: true } }] } }],
+    ['a None group of a mapping', { filter: { not: [{ tags: { work: true } }] } }],
+    ['a nested group of a mapping', { filter: { or: [{ and: [{ tags: { work: true } }] }] } }],
+    ['a property whose values are a mapping', { filter: { property: { status: { active: true } } } }],
+    ['a group key from Object.prototype', { filter: { constructor: [] } }],
+    ['a group key from Object.prototype, with a rule', { filter: { constructor: [{ tags: 'work' }] } }],
+    ['include-tags as a mapping', { 'include-tags': { work: true } }],
+    ['exclude-tags as a mapping', { 'exclude-tags': { work: true } }],
+    ['include-folders as a mapping', { 'include-folders': { Work: true } }],
+    ['exclude-folders as a list of mappings', { 'exclude-folders': [{ Work: true }] }],
+    ['filter-properties with a mapping of values', { 'filter-properties': { status: { active: true } } }],
+    ['filter-properties as a number', { 'filter-properties': 5 }],
+    ['exclude-properties with a mapping of values in a list', { 'exclude-properties': [{ status: { active: true } }] }],
+  ])('matches no tasks, and warns, for %s', (_name, fm) => {
+    const { config: c, warnings } = read(fm);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^The board’s filter couldn’t be read \(.+\), so it matches no tasks\./);
+    expect(taskMatchesBoard(unrelated, c, {})).toBe(false);
+    expect(taskMatchesBoard(work, c, {})).toBe(false);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['nothing', {}],
+    ['a blank property', { 'include-tags': null, 'exclude-folders': null, 'filter-properties': null }],
+    ['an empty list', { 'include-tags': [], 'filter-properties': [] }],
+    ['an empty string', { 'include-tags': '' }],
+    ['an empty group', { filter: { and: [] } }],
+    ['an empty list of rules', { filter: [] }],
+    ['a blank rule', { filter: { tags: null } }],
+    ['a blank entry in a list', { 'include-tags': [null] }],
+  ])('still treats %s as no rules', (_name, fm) => {
+    const { config: c, warnings } = read(fm);
+    expect(warnings).toEqual([]);
+    expect(taskMatchesBoard(unrelated, c, {})).toBe(true);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['one value', { 'include-tags': 'work' }],
+    ['comma-separated values', { 'include-tags': 'work, home' }],
+    ['a list', { 'include-tags': ['work'] }],
+    ['a tag written as a number', { 'include-tags': [2026, 'work'] }],
+    ['a group rule', { filter: { tags: 'work' } }],
+    ['a property mapping', { 'filter-properties': { status: ['active'] }, 'include-tags': 'work' }],
+    ['a property with no value', { 'filter-properties': { status: null }, 'include-tags': 'work' }],
+    ['a property in a list', { 'filter-properties': ['status: active', { kind: 'job' }], 'include-tags': 'work' }],
+    ['a group’s property', { filter: { and: [{ tags: 'work' }, { property: { status: ['active', 'done'] } }] } }],
+  ])('still reads %s', (_name, fm) => {
+    expect(read(fm).warnings).toEqual([]);
+    const { config: c } = read(fm);
+    expect(taskMatchesBoard(unrelated, c, { status: 'active', kind: 'job' })).toBe(false);
+    expect(taskMatchesBoard(work, c, { status: 'active', kind: 'job' })).toBe(true);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['a filter that’s just wrong', { filter: 'oops' }],
+    ['a mapping in a filter, beside the folder older releases can’t satisfy', { filter: { tags: { work: true } }, 'include-folders': [NEEDS_GROUPS] }],
+    ['a mapping in a plain list', { 'include-tags': { work: true }, 'exclude-folders': ['Archive'] }],
+  ])('keeps %s through a save of something else', (_name, note) => {
+    const { config: c } = read(note);
+    const draft = draftFromConfig(c);
+    expect(draftChanged(draft, c)).toBe(false);
+    expect(filterWarnings(draft)).toEqual([UNREADABLE_RULES]);
+    draft.compact = !draft.compact;
+    const changes = changedFrontmatter(draft, c);
+    expect(Object.keys(changes)).toEqual(['compact']);
+    expect(read(saved(note, changes)).warnings).toHaveLength(1);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['a filter that’s just wrong', { filter: 'oops' }],
+    ['a mapping in a filter, beside the folder older releases can’t satisfy', { filter: { tags: { work: true } }, 'include-folders': [NEEDS_GROUPS] }],
+    ['a mapping in a plain list', { 'include-tags': { work: true } }],
+    ['mappings in two plain lists', { 'include-tags': { work: true }, 'exclude-folders': { Archive: true } }],
+  ])('replaces %s once new rules are chosen, and the warning goes', (_name, note) => {
+    const { config: c } = read(note);
+    const draft = draftFromConfig(c);
+    delete draft.filter.unreadable; // As the editor does on any change to its rules.
+    expect(draft.filter.match).toBe('all');
+    draft.filter.items.push({ kind: 'tags', values: ['work'] });
+    const changes = changedFrontmatter(draft, c);
+    const after = read(saved(note, changes));
+    expect(after.warnings).toEqual([]);
+    expect(taskMatchesBoard(work, after.config, {})).toBe(true);
+    expect(taskMatchesBoard(unrelated, after.config, {})).toBe(false);
+    // Only what it had to change: it doesn't add empty properties the note never had.
+    expect(Object.keys(saved(note, changes)).sort()).toEqual([...new Set(['include-tags', ...Object.keys(note).filter((key) => key !== 'filter')])].sort());
+  });
+
+  it('can be cleared to no rules at all', () => {
+    const note = { 'include-tags': { work: true } };
+    const { config: c } = read(note);
+    const draft = draftFromConfig(c);
+    delete draft.filter.unreadable;
+    const after = read(saved(note, changedFrontmatter(draft, c)));
+    expect(after.warnings).toEqual([]);
+    expect(taskMatchesBoard(unrelated, after.config, {})).toBe(true);
   });
 });

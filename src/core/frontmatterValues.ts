@@ -11,6 +11,15 @@ export function stringList(raw: unknown): string[] {
     .filter((v) => v !== '');
 }
 
+/**
+ * Whether `stringList` can read this: nothing, one value or a list of them. A mapping, or one in a
+ * list, is a mistake rather than an empty list, so rules can tell it from a rule left blank.
+ */
+export function isStringList(raw: unknown): boolean {
+  if (raw === undefined || raw === null) return true;
+  return (Array.isArray(raw) ? raw : [raw]).every((item) => item === null || item === undefined || typeof item !== 'object');
+}
+
 /** YAML objects are not valid scalar settings; avoid interpreting them as "[object Object]". */
 export function scalarText(raw: unknown): string {
   return typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean' ? String(raw) : '<non-scalar value>';
@@ -40,6 +49,14 @@ export function propertyFilters(raw: unknown): PropertyFilter[] {
     if (key) filters.push({ key, values });
   }
   return filters;
+}
+
+/** Whether `propertyFilters` can read all of this, rather than skipping what it doesn't understand. */
+export function arePropertyFilters(raw: unknown): boolean {
+  if (raw === undefined || raw === null) return true;
+  if (typeof raw === 'object' && !Array.isArray(raw)) return Object.values(raw as Record<string, unknown>).every(isStringList);
+  return (Array.isArray(raw) ? raw : [raw]).every((item) => item === null || item === undefined || typeof item === 'string' ||
+    (typeof item === 'object' && !Array.isArray(item) && arePropertyFilters(item)));
 }
 
 /** The Properties editor stores typed quotes literally, so `"context: house"` keeps its quotes. */

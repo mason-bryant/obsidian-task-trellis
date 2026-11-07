@@ -202,3 +202,17 @@ it('keeps chip entry IME-safe, and keeps the filters across tab changes and whil
   ui.form.setSaving(false); expect(ui.control<HTMLButtonElement>('Filters: Add filter').disabled).toBe(false);
   ui.form.destroy();
 });
+
+it('says when the board’s rules couldn’t be read, keeps them until they’re changed, then replaces them', () => {
+  const ui = editor({ 'include-tags': { work: true } });
+  const warning = () => ui.root.querySelector('.tt-filter-warnings')!.textContent;
+  expect(warning()).toContain('These rules couldn’t be read, so they match no tasks.');
+  expect(ui.root.querySelector('.tt-filter-empty')).toBeNull();
+  expect(ui.control<HTMLSelectElement>('Filters: Match').value).toBe('all');
+  expect(draftChanged(ui.draft, ui.config)).toBe(false);
+  expect(draftToFrontmatter(ui.draft, ui.config).frontmatter['include-tags']).toEqual({ work: true });
+  ui.add('tags');
+  expect(ui.root.querySelector('.tt-filter-warnings')!.textContent).not.toContain('couldn’t be read');
+  expect(draftChanged(ui.draft, ui.config)).toBe(true);
+  expect(draftToFrontmatter(ui.draft, ui.config).frontmatter['include-tags']).toEqual([]);
+});

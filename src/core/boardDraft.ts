@@ -12,8 +12,11 @@ export type DraftColumn = { label: string; originalId?: string };
 export type DraftFilter = { key: string; condition: 'exists' | 'matches'; values: string[] };
 /** A rule as typed: tag or folder values, or a property's key, condition and values. */
 export type DraftRule = { kind: 'tags' | 'folders'; values: string[] } | ({ kind: 'property' } & DraftFilter);
-export type DraftGroup = { kind: 'group'; match: FilterMatch; items: DraftNode[] };
+export type DraftGroup = { kind: 'group'; match: FilterMatch; items: DraftNode[]; unreadable?: Record<string, unknown> };
 export type DraftNode = DraftRule | DraftGroup;
+
+/** Beside rules the note has that couldn't be read. */
+export const UNREADABLE_RULES = 'These rules couldn’t be read, so they match no tasks. Changing them here replaces what the note has.';
 
 /** The rules as edited, for the board, a quick filter or a color rule. */
 export type DraftFilterSet = { filter: DraftGroup };
@@ -240,7 +243,8 @@ function cleanFolder(folder: string): string {
 }
 
 function filterDraft(group: FilterGroup): DraftGroup {
-  return { kind: 'group', match: group.match, items: group.items.map((item): DraftNode => {
+  // Rules that can't be read match nothing, but choosing new ones starts as a blank filter does.
+  return { kind: 'group', match: group.unreadable ? 'all' : group.match, ...(group.unreadable ? { unreadable: group.unreadable } : {}), items: group.items.map((item): DraftNode => {
     if (item.kind === 'group') return filterDraft(item);
     if (item.kind === 'property') return { kind: 'property', key: item.key, condition: item.values.length ? 'matches' : 'exists', values: [...item.values] };
     return { kind: item.kind, values: [...item.values] };
@@ -257,7 +261,7 @@ export function filterItemName(item: DraftNode, path: number[]): string {
  * “Filter 2.1: Add at least one value to match.”, after `label` for a quick filter's.
  */
 export function filterFromDraft(group: DraftGroup, label: string, errors: string[], path: number[] = []): FilterGroup {
-  return { kind: 'group', match: group.match, items: group.items.map((item, i): FilterNode => {
+  return { kind: 'group', match: group.match, ...(group.unreadable ? { unreadable: group.unreadable } : {}), items: group.items.map((item, i): FilterNode => {
     const at = [...path, i];
     if (item.kind === 'group') return filterFromDraft(item, label, errors, at);
     if (item.kind === 'property') {
@@ -282,6 +286,7 @@ export function filterError(rule: DraftFilter): string | null {
  */
 export function filterWarnings(draft: DraftFilterSet): string[] {
   const root = draft.filter;
+  if (root.unreadable) return [UNREADABLE_RULES];
   if (root.match !== 'all') return [];
   const keys = (items: DraftNode[], exists: boolean) => items.flatMap((item) =>
     item.kind === 'property' && (!exists || item.condition === 'exists') ? [item.key.trim()] : []).filter(Boolean);

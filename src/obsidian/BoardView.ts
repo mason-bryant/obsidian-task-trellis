@@ -21,7 +21,7 @@ import { RenameBoardModal } from './RenameBoardModal.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import { notice } from './notice.ts';
 import { noteTags } from './noteTags.ts';
-import type { UndoAction } from './TaskWriter.ts';
+import { UndoFailed, type UndoAction } from './TaskWriter.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 
 export const VIEW_TYPE_BOARD = 'task-trellis-board';
@@ -480,17 +480,30 @@ export class BoardView extends FileView {
     if (!entry) return;
     this.undoAction = null;
     clearBulkSelection(this.contentEl);
+    let unfinished: string[] = [];
     try {
-      await entry.action.undo();
-      // Focus follows the restored cards when Undo was pressed from the keyboard.
-      this.highlightIds = new Set(entry.ids); this.highlightUntil = Date.now() + 1000;
-      const paths = new Set(entry.action.paths);
-      for (const task of this.plugin.index.all()) if (paths.has(task.path)) this.pending.delete(task.id);
-      await this.plugin.index.refresh(entry.action.paths);
+      try {
+        await entry.action.undo();
+        // Focus follows the restored cards when Undo was pressed from the keyboard.
+        this.highlightIds = new Set(entry.ids); this.highlightUntil = Date.now() + 1000;
+      } catch (error) {
+        if (!(error instanceof UndoFailed)) throw error;
+        console.error('[Task Trellis] undo failed', error);
+        unfinished = error.paths;
+      }
+      const paths = entry.action.paths.filter((path) => !unfinished.includes(path));
+      for (const task of this.plugin.index.all()) if (paths.includes(task.path)) this.pending.delete(task.id);
+      await this.plugin.index.refresh(paths);
     } catch (error) {
       console.error('[Task Trellis] undo failed', error);
       const notes = entry.action.paths.length === 1 ? 'note' : `${entry.action.paths.length} notes`;
       this.alert(`Task Trellis: could not finish undoing. Some changes may already be undone; check the affected ${notes}.`);
+    }
+    if (unfinished.length) {
+      // Unless something newer has taken its place, Undo stays to try those notes again.
+      this.undoAction ??= entry;
+      const named = unfinished.length > 3 ? `${unfinished.slice(0, 3).join(', ')} and ${unfinished.length - 3} more` : unfinished.join(', ');
+      this.alert(`Task Trellis: could not finish undoing. ${named} ${unfinished.length === 1 ? 'has' : 'have'} not been undone. Choose Undo to try again.`);
     }
     this.render();
   }

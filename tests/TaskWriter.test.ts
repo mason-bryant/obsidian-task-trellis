@@ -5,7 +5,7 @@ import type { App } from 'obsidian';
 import { notices, TFile, Workspace } from './mocks/obsidian.ts';
 import { taskId, type BoardTask, type TaskEdit } from '../src/core/board.ts';
 import { parseTaskLine } from '../src/core/taskLine.ts';
-import { TaskWriter } from '../src/obsidian/TaskWriter.ts';
+import { TaskWriter, UndoFailed } from '../src/obsidian/TaskWriter.ts';
 
 type TasksApi = {
   editTaskLineModal(line: string): Promise<string>;
@@ -390,4 +390,87 @@ it('successive bulk edits keep duplicate task identities and Undo preserves late
   files['a.md']+='Later edit from another device\n';const external=files['a.md'];
   expect(await dated.action!.undo()).toBe(false);
   expect(files['a.md']).toBe(external);expect(files['b.md']).toContain('#tt/house/label/red');expect(files['b.md']).not.toContain('📅');
+});
+
+describe('Undo when a note can’t be written', () => {
+  /** Three notes moved to Doing, and an Undo whose writes to `broken` fail. */
+  async function moved() {
+    const files: Record<string, string> = { 'a.md': '- [ ] A\n', 'b.md': '- [ ] B\n', 'c.md': '- [ ] C\n' };
+    const original = { ...files };
+    const app = fakeApp(files);
+    const tasks = Object.keys(files).map((path) => task(path, 0, files[path]!.trimEnd()));
+    const { action } = await new TaskWriter(app).applyEdits(tasks, new Map(tasks.map((t) => [t.id, { column: 'doing' }])), 'home');
+    const broken = new Set<string>();
+    const writes: string[] = [];
+    const write = app.vault.process.bind(app.vault);
+    app.vault.process = (async (file: TFile, fn: (content: string) => string) => {
+      if (broken.has(file.path)) throw new Error('Disk full');
+      writes.push(file.path);
+      return write(file as never, fn);
+    }) as typeof app.vault.process;
+    return { files, original, action: action!, broken, writes };
+  }
+
+  it.each(['c.md', 'b.md', 'a.md'])('restores the other notes when %s fails, then tries only that one again', async (path) => {
+    const f = await moved();
+    f.broken.add(path);
+    const failure = await f.action.undo().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(UndoFailed);
+    expect((failure as UndoFailed).paths).toEqual([path]);
+    expect((failure as UndoFailed).message).toContain('Disk full');
+    for (const other of ['a.md', 'b.md', 'c.md'].filter((p) => p !== path)) expect(f.files[other]).toBe(f.original[other]);
+    expect(f.files[path]).toContain('#tt/home/doing');
+    f.broken.clear(); f.writes.length = 0;
+    expect(await f.action.undo()).toBe(true);
+    expect(f.writes).toEqual([path]);
+    expect(f.files).toEqual(f.original);
+    expect(notices).toEqual([]);
+    expect(await f.action.undo()).toBe(false);
+  });
+
+  it('leaves a note edited between tries, and says so', async () => {
+    const f = await moved();
+    f.broken.add('b.md');
+    await expect(f.action.undo()).rejects.toBeInstanceOf(UndoFailed);
+    f.broken.clear();
+    f.files['b.md'] = '- [ ] B edited since\n';
+    expect(await f.action.undo()).toBe(false);
+    expect(f.files['b.md']).toBe('- [ ] B edited since\n');
+    expect(notices).toEqual(['Task Trellis: 1 note changed after this action and was not undone.']);
+  });
+
+  it('keeps failing while the note can’t be written, without repeating what it restored', async () => {
+    const f = await moved();
+    f.broken.add('c.md');
+    await expect(f.action.undo()).rejects.toBeInstanceOf(UndoFailed);
+    f.writes.length = 0;
+    await expect(f.action.undo()).rejects.toBeInstanceOf(UndoFailed);
+    expect(f.writes).toEqual([]);
+    expect(notices).toEqual([]);
+  });
+
+  it('runs one attempt at a time', async () => {
+    const f = await moved();
+    const [first, second] = [f.action.undo(), f.action.undo()];
+    expect(await first).toBe(true);
+    expect(await second).toBe(true);
+    expect(f.writes).toEqual(['c.md', 'b.md', 'a.md']);
+  });
+});
+
+describe.each(['constructor', '__proto__'])('a board called %s', (slug) => {
+  it('moves a task, keeps one tag for the board, and undoes', async () => {
+    const line = `- [ ] Pour footings #tt/${slug}/backlog/100 #tt/other/doing`;
+    const files = { 'a.md': `${line}\n` };
+    const before = task('a.md', 0, line);
+    expect(before.placements[slug]).toEqual({ column: 'backlog', sort: 100 });
+    const { action } = await new TaskWriter(fakeApp(files)).applyEdits([before], new Map([[before.id, { column: 'doing', sort: 200 }]]), slug);
+    const after = parseTaskLine(files['a.md'].trimEnd())!;
+    expect(after.placements[slug]).toEqual({ column: 'doing', sort: 200 });
+    expect(after.placements.other).toEqual({ column: 'doing' });
+    expect(files['a.md'].match(new RegExp(`#tt/${slug}/`, 'g'))).toHaveLength(1);
+    expect(await action!.undo()).toBe(true);
+    expect(files['a.md']).toBe(`${line}\n`);
+    expect(({} as Record<string, unknown>).column).toBeUndefined();
+  });
 });

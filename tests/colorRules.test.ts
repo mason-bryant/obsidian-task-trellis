@@ -309,3 +309,26 @@ describe('color rule settings', () => {
     expect(changedFrontmatter(ui.draft, ui.original)).toEqual({ 'color-rules': undefined });
   });
 });
+
+describe('a color rule whose rules can’t be read', () => {
+  it.each<[string, Record<string, unknown>]>([
+    ['a mapping of tags in a group', { filter: { tags: { work: true } } }],
+    ['a mapping in a plain list', { 'include-tags': { work: true } }],
+    ['a mapping of priorities', { priority: { high: true } }],
+    ['a mapping of labels', { labels: { red: true } }],
+    ['a mapping of due choices', { due: { today: true } }],
+    ['a priority that isn’t one', { priority: 'urgent' }],
+    ['a due choice that isn’t one', { due: ['someday'] }],
+  ])('tints no cards, and warns, for %s', (_name, criteria) => {
+    const rule = { name: 'R', color: '#ae2e24', ...criteria };
+    const { warnings } = parseBoardConfig('House', { slug: 'house', 'color-rules': [rule] });
+    expect(warnings).toEqual([expect.stringMatching(/^The R color rule’s filters couldn’t be read \(.+\), so it matches no tasks\./)]);
+    expect(colors([rule])).toEqual({});
+  });
+
+  it('still tints every card with no rules at all, and keeps what can be used', () => {
+    // Every card: the one subtask shows inside its parent's.
+    expect(Object.keys(colors([{ name: 'All', color: '#ae2e24' }]))).toHaveLength(tasks.length - 1);
+    expect(parseBoardConfig('House', { slug: 'house', 'color-rules': [{ name: 'R', color: '#ae2e24', priority: ['HIGH', 'urgent'], due: ['today', 'someday'] }] }).warnings).toEqual([]);
+  });
+});

@@ -50,7 +50,8 @@ export function normalizeSettings(raw: unknown): TaskTrellisSettings {
       ? s.excludedFolders.filter((f): f is string => typeof f === 'string' && f.trim() !== '')
       : [],
     showLabelSearch: s.showLabelSearch === true,
-    collapsed: s.collapsed && typeof s.collapsed === 'object' ? s.collapsed : {},
+    // Keyed by board slug, and a slug can be `__proto__`, so nothing can be inherited.
+    collapsed: Object.assign(Object.create(null) as TaskTrellisSettings['collapsed'], s.collapsed && typeof s.collapsed === 'object' ? s.collapsed : {}),
     newTaskKind: s.newTaskKind === 'note' ? 'note' : 'daily',
     newTaskNote: typeof s.newTaskNote === 'string' ? s.newTaskNote : DEFAULT_SETTINGS.newTaskNote,
     newTaskHeading: typeof s.newTaskHeading === 'string' ? s.newTaskHeading : DEFAULT_SETTINGS.newTaskHeading,

@@ -145,7 +145,9 @@ export default class TaskTrellisPlugin extends Plugin {
         this.boards.syncCommands();
         await this.ensureBoardList();
         try {
-          const pending = (await this.boardRenames.history()).some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
+          const { entries, unreadable } = await this.boardRenames.recovery();
+          if (unreadable.length) notice(this.app, `Task Trellis: could not read ${unreadable.join(', ')}, so ${unreadable.length === 1 ? 'it' : 'they'} can’t be restored. Other recovery copies still can, with Task Trellis: Restore board rename. Nothing was changed.`, { alert: true });
+          const pending = entries.some(({record}) => record.status === 'prepared' || record.status === 'needs-recovery');
           if (pending) notice(this.app, 'Task Trellis: an interrupted board rename has a recovery copy. Run Task Trellis: Restore board rename from the command palette to review it.', { duration: 12000 });
         } catch { notice(this.app, 'Task Trellis: a board rename recovery record could not be read, so nothing was restored. Check the Task Trellis recovery folder.', { alert: true }); }
         // After an update, the first board shown says what the update added.
@@ -277,9 +279,10 @@ export default class TaskTrellisPlugin extends Plugin {
     if (retagUndo === 'failed') return ['Some tasks could not be retagged. The board configuration was not changed. Check the affected notes and try again.'];
     try {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-        if (fm[FM.columnWidths] !== undefined) {
-          fm[FM.columnWidths] = remapColumnWidths(
-            parseColumnWidths(fm[FM.columnWidths], config.columns.map((c) => c.id)), renames, removed);
+        // Only this save's own columns: another window or Sync may have added one since the form opened.
+        const widths = fm[FM.columnWidths];
+        if (widths && typeof widths === 'object' && (renames.size || removed.length)) {
+          fm[FM.columnWidths] = remapColumnWidths(parseColumnWidths(widths, Object.keys(widths)), renames, removed);
         }
         // Undefined removes a property, such as `filter` once the rules fit the plain lists again.
         for (const [key, value] of Object.entries(frontmatter)) {

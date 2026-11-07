@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 vi.mock('../src/obsidian/BoardSettingsModal.ts', () => ({ BoardSettingsModal: class {} }));
 vi.mock('../src/obsidian/BoardView.ts', () => ({ BoardView: class {}, VIEW_TYPE_BOARD: 'board' }));
 vi.mock('../src/obsidian/BoardListView.ts', () => ({ BoardListView: class {}, VIEW_TYPE_BOARD_LIST: 'board-list' }));
@@ -91,4 +91,39 @@ it('removes the filter group from the board note once its rules fit the plain li
   expect(await plugin.saveBoardSettings(new TFile('House.md') as never, config, draft)).toEqual([]);
   expect('filter' in note).toBe(false);
   expect(note).toMatchObject({ 'include-tags': ['work'], 'include-folders': ['Clients'] });
+});
+
+describe('column widths when settings save', () => {
+  /** Settings opened on Backlog and Doing; by the time they save, `note` is what the board note has. */
+  async function save(note: Record<string, unknown>, edit: (draft: ReturnType<typeof draftFromConfig>) => void) {
+    const config = parseBoardConfig('House', { slug: 'house', columns: ['Backlog', 'Doing'] }).config;
+    const draft = draftFromConfig(config); edit(draft);
+    const app = { workspace: new Workspace(), vault: {}, fileManager: { processFrontMatter: async (_file: unknown, fn: (fm: Record<string, unknown>) => void) => fn(note) } } as unknown as App;
+    const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
+    Object.assign(plugin, { app, index: { all: () => [] }, writer: new TaskWriter(app) });
+    expect(await plugin.saveBoardSettings(new TFile('House.md') as never, config, draft)).toEqual([]);
+    return note;
+  }
+
+  it('leaves them alone when no column changed, including one added since the form opened', async () => {
+    const widths = { backlog: 300, review: 500 };
+    const note = await save({ columns: ['Backlog', 'Doing', 'Review'], 'column-widths': widths }, (draft) => { draft.compact = !draft.compact; });
+    expect(note['column-widths']).toBe(widths);
+    expect(note.columns).toEqual(['Backlog', 'Doing', 'Review']);
+  });
+
+  it('moves a renamed column’s width and keeps the others, including one added since', async () => {
+    const note = await save({ 'column-widths': { backlog: 300, doing: 400, review: 500 } }, (draft) => { draft.columns[1]!.label = 'In progress'; });
+    expect(note['column-widths']).toEqual({ backlog: 300, 'in-progress': 400, review: 500 });
+  });
+
+  it('drops a removed column’s width and keeps the others, including one added since', async () => {
+    const note = await save({ 'column-widths': { backlog: 300, doing: 400, review: 500 } }, (draft) => { draft.columns.splice(0, 1); });
+    expect(note['column-widths']).toEqual({ doing: 400, review: 500 });
+  });
+
+  it('adds none to a board that has none', async () => {
+    const note = await save({ slug: 'house' }, (draft) => { draft.columns[1]!.label = 'In progress'; });
+    expect('column-widths' in note).toBe(false);
+  });
 });

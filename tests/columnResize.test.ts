@@ -116,3 +116,23 @@ describe('persisted column widths', () => {
     expect(remapColumnWidths(config.columnWidths, new Map([['doing', 'in-progress']]), ['backlog'])).toEqual({ 'in-progress': 520 });
   });
 });
+
+describe('a column named after one of Object.prototype’s keys', () => {
+  it.each(['constructor', '__proto__', 'toString'])('has the usual flexible width when %s has none saved', (id) => {
+    const grid = document.createElement('div'); document.body.replaceChildren(grid);
+    const header = document.createElement('div'); header.className = 'tt-col-header'; header.dataset.column = id;
+    header.getBoundingClientRect = () => ({ width: 320 } as DOMRect);
+    grid.append(header);
+    installColumnResize(grid, {}, { enabled: () => true, save: vi.fn(), end: vi.fn() });
+    expect(grid.style.getPropertyValue('--tt-column-tracks')).toBe('minmax(240px, 1fr)');
+    expect(grid.querySelector('.tt-column-resize')!.getAttribute('aria-valuenow')).toBe('320');
+  });
+
+  it('uses a width saved for that column', () => {
+    const grid = document.createElement('div'); document.body.replaceChildren(grid);
+    const header = document.createElement('div'); header.className = 'tt-col-header'; header.dataset.column = 'constructor';
+    grid.append(header);
+    installColumnResize(grid, { constructor: 400 } as Record<string, number>, { enabled: () => true, save: vi.fn(), end: vi.fn() });
+    expect(grid.style.getPropertyValue('--tt-column-tracks')).toBe('400px');
+  });
+});

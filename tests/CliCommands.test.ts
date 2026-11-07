@@ -323,6 +323,22 @@ describe('task-trellis:bulk and undo', () => {
     expect((await run('undo')).error).toContain('Nothing to undo');
   });
 
+  it('says which note it couldn’t undo, and running it again finishes', async () => {
+    const { run, notes, plugin } = fixture();
+    const before = notes['Inbox.md'];
+    await run('bulk', { board: 'home', column: 'backlog', 'labels-add': '2' });
+    const changed = notes['Inbox.md'];
+    const write = plugin.app.vault.process;
+    plugin.app.vault.process = vi.fn(async () => { throw new Error('Disk full'); }) as typeof write;
+    const failed = await run('undo');
+    expect(failed.error).toBe('Could not undo Inbox.md: Disk full. Run task-trellis:undo to try again.');
+    expect(notes['Inbox.md']).toBe(changed);
+    plugin.app.vault.process = write;
+    expect(await run('undo')).toEqual({ ok: true, undone: true, paths: ['Inbox.md'] });
+    expect(notes['Inbox.md']).toBe(before);
+    expect((await run('undo')).error).toContain('Nothing to undo');
+  });
+
   it('selects by id and needs exactly one change', async () => {
     const { run, notes } = fixture();
     await run('bulk', { board: 'home', ids: 'Inbox.md:6', due: '2026-11-02' });

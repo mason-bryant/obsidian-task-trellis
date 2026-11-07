@@ -30,6 +30,12 @@ What has changed since the last release (1.3.0), so the maintainer knows what to
 - **Touch:** 44px tap areas around a card's checkbox and source link and around settings checkboxes, with the same look.
 - **Failures:** Sort by due date says when it couldn't move things. A source link to a missing note and a failed save of plugin settings say so. Task not saved can't be dismissed during a retry, and it confirms where the task went.
 - **Screen readers and keyboard:** repeated icon buttons name their task, general settings errors are said and take focus, and focus survives a redraw.
+- **Undo after a failed write:** it restores every note it can, names the ones it couldn't, and stays, so choosing it again tries just those. `task-trellis:undo` does the same.
+- **Filters that can't be read:** a mistake such as a mapping under `include-tags` used to show every task. Now the board, quick filter or color rule matches no tasks and warns. Saving something else keeps those rules, where it used to erase a quick filter's, and choosing new rules really replaces them, which it didn't before.
+- **Pop-out windows:** dragging a column, quick filter or color rule in settings works there too.
+- **Damaged rename recovery file:** the others can still be restored, and Task Trellis names the bad file. A new tag rename waits, and says which file to deal with, including one that used to be skipped silently.
+- **Boards and columns called Constructor or `__proto__`:** cards stay in their tagged column, and moves stick. A column called that keeps its normal width, and a board called that remembers its collapsed rows.
+- **Column widths:** saving an unrelated setting no longer erases the width of a column added in another window or by Sync.
 - **Small look fixes:** the accent focus ring in dialogs, errors in the error color, and reduced motion in the sidebar and the touch drag copy.
 
 ## Still needs checking

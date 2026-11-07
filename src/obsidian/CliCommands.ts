@@ -15,7 +15,7 @@ import { shortcutColumn } from '../core/shortcut.ts';
 import { parseTaskLine, replaceTaskText, setDueDate, setPriority } from '../core/taskLine.ts';
 import type { BoardEntry } from './BoardRegistry.ts';
 import { noteTags } from './noteTags.ts';
-import type { UndoAction } from './TaskWriter.ts';
+import { UndoFailed, type UndoAction } from './TaskWriter.ts';
 
 type Result = Record<string, unknown>;
 type Command = { id: string; description: string; flags: CliFlags; run(params: CliParams): Promise<Result> | Result };
@@ -383,7 +383,16 @@ export class CliCommands {
     const action = this.lastUndo;
     if (!action) throw new Error('Nothing to undo: no CLI change since Task Trellis started, or it was already undone.');
     this.lastUndo = null;
-    const complete = await action.undo();
+    let complete: boolean;
+    try {
+      complete = await action.undo();
+    } catch (error) {
+      if (!(error instanceof UndoFailed)) throw error;
+      // Unless something newer has taken its place, running this again tries those notes.
+      this.lastUndo ??= action;
+      await this.settle(action.paths);
+      throw new Error(`${error.message}. Run task-trellis:undo to try again.`);
+    }
     await this.settle(action.paths);
     return { undone: complete, paths: action.paths, ...(complete ? {} : { warning: 'Some notes changed after that change and were not undone.' }) };
   }

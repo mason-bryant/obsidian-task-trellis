@@ -28,7 +28,20 @@ type PluginHost = {
 export type Promoting = { subtask: BoardTask; card: BoardTask };
 
 type FileChange = { file: TFile; before: string; after: string };
+/**
+ * `undo` says whether everything was restored. A note that changed since is left alone and stays
+ * that way. When a note can't be written it throws `UndoFailed`, and calling it again tries just those.
+ */
 export type UndoAction = { paths: string[]; undo(): Promise<boolean> };
+
+/** Undo couldn't write `paths`; they still have the change, and the same action can try them again. */
+export class UndoFailed extends Error {
+  constructor(readonly paths: string[], cause: unknown) {
+    super(`Could not undo ${paths.join(', ')}: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = 'UndoFailed';
+  }
+}
+
 export type EditResult = { action: UndoAction | null; appliedIds: string[]; skippedIds: string[]; failedPaths: string[]; writtenTasks?: BoardTask[] };
 
 /** Writes task lines back to their notes, through the Tasks plugin when it is available. */
@@ -250,21 +263,39 @@ export class TaskWriter {
   /** Restores only unchanged written files, so Undo never overwrites subsequent editor or sync changes. */
   private undoFor(changes: FileChange[]): UndoAction | null {
     if (!changes.length) return null;
-    let used = false;
-    return { paths: changes.map((change) => change.file.path), undo: async () => {
-      if (used) return false;
-      used = true;
+    // Latest first. A note leaves this list once it's restored or found changed, so trying again
+    // repeats neither, and doesn't mistake a note it restored for one edited since.
+    let pending = [...changes].reverse();
+    let anySkipped = false;
+    const run = async (): Promise<boolean> => {
+      if (!pending.length) return false;
+      const failed: TFile[] = [];
+      const remaining: FileChange[] = [];
       let skipped = 0;
-      for (const change of [...changes].reverse()) {
+      let cause: unknown;
+      for (const change of pending) {
+        // Earlier changes to a note wait for its later ones: they only apply to what those restore.
+        if (failed.includes(change.file)) { remaining.push(change); continue; }
         if (this.app.vault.getAbstractFileByPath(change.file.path) !== change.file) { skipped++; continue; }
-        await this.app.vault.process(change.file, (current) => {
-          if (current !== change.after) { skipped++; return current; }
-          return change.before;
-        });
+        try {
+          let changedSince = false;
+          await this.app.vault.process(change.file, (current) => {
+            changedSince = current !== change.after;
+            return changedSince ? current : change.before;
+          });
+          if (changedSince) skipped++;
+        } catch (error) {
+          cause = error; failed.push(change.file); remaining.push(change);
+        }
       }
+      pending = remaining;
+      anySkipped ||= skipped > 0;
       if (skipped) notice(this.app, `Task Trellis: ${skipped === 1 ? '1 note' : `${skipped} notes`} changed after this action and ${skipped === 1 ? 'was' : 'were'} not undone.`, { alert: true });
-      return skipped === 0;
-    } };
+      if (failed.length) throw new UndoFailed(failed.map((file) => file.path), cause);
+      return !anySkipped;
+    };
+    let running: Promise<boolean> | null = null;
+    return { paths: changes.map((change) => change.file.path), undo: () => running ??= run().finally(() => { running = null; }) };
   }
 
   /**

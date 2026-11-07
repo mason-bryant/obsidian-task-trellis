@@ -71,7 +71,7 @@ filter:
 include-folders: [Update Task Trellis to use this filter]
 ```
 
-A property filter names one property, written as in `filter-properties`. A list on its own is read as an `and` group. With `filter` present, the plain lists are ignored. If `filter` can't be read, the board says why and shows no tasks until it's fixed.
+A property filter names one property, written as in `filter-properties`. A list on its own is read as an `and` group. With `filter` present, the plain lists are ignored. If `filter` can't be read, the board says why and shows no tasks until it's fixed. So does a plain list, or a quick filter's or color rule's rules, with something in it that can't be used, such as a mapping (`work: true` indented under `include-tags`). Choosing new rules in the settings replaces what couldn't be read; saving anything else leaves it as it is. A property left blank is fine, and means no rule.
 
 The extra `include-folders` value is for older versions of Task Trellis, which don't know `filter`: on a device that hasn't updated yet, the board shows no tasks, instead of tasks its filter should hide. Update Task Trellis on every device that opens the board. Saving settings simplifies what says nothing extra, such as a group of one filter, and goes back to the plain lists, without `filter`, once the filters fit them again.
 
