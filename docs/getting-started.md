@@ -12,7 +12,7 @@ To install a release by hand instead, for example to try a build before it reach
 
 1. Download **main.js**, **manifest.json** and **styles.css** from the [latest release](https://github.com/mason-bryant/obsidian-task-trellis/releases/latest).
 2. In your vault’s configuration folder (normally `.obsidian`), create `plugins/task-trellis/` if needed.
-3. Copy those three files into it. When updating, replace the three files and keep `data.json`, which contains your existing settings.
+3. Copy those three files into it. When updating, replace the three files and keep `data.json`, which contains your existing settings. Don't uninstall to update: uninstalling deletes the settings, on every device that syncs the vault. See [My boards disappeared after reinstalling](troubleshooting.md#my-boards-disappeared-after-reinstalling).
 4. In Obsidian, open **Settings → Community plugins** and enable **Task Trellis**. If it was already enabled, turn it off and on to load the new build.
 
 The plugin also runs on mobile. Install it in the vault you use on your phone before using the iOS shortcut. Installing a desktop copy does not by itself confirm that the plugin is installed and enabled on your phone.

@@ -130,11 +130,11 @@ describe('column widths when settings save', () => {
 
 describe('first run', () => {
   /** The welcome a plugin turned on just now gives, with how many boards the vault has. */
-  function welcome(firstRun: boolean, boards: number, reveal: () => Promise<void> = async () => undefined) {
+  function welcome(firstRun: boolean, boards: number, reveal: () => Promise<void> = async () => undefined, elsewhere: Array<{ folder: string; count: number }> = []) {
     const plugin = Object.create(TaskTrellisPlugin.prototype) as TaskTrellisPlugin;
     const showBoardList = vi.fn(reveal);
     Object.assign(plugin, { firstRun, stopped: false, app: { workspace: new Workspace() },
-      boards: { boards: () => Array.from({ length: boards }, () => ({})) }, showBoardList });
+      boards: { boards: () => Array.from({ length: boards }, () => ({})) }, showBoardList, boardsElsewhere: () => elsewhere });
     notices.length = 0;
     return { run: () => (plugin as unknown as { welcomeFirstRun(): Promise<void> }).welcomeFirstRun(), showBoardList };
   }
@@ -154,6 +154,13 @@ describe('first run', () => {
     await first.run();
     expect(first.showBoardList).not.toHaveBeenCalled();
     expect(notices).toEqual([]);
+  });
+
+  it('points to the folders with boards, not the templates, when the boards folder setting was lost', async () => {
+    const first = welcome(true, 0, undefined, [{ folder: 'Work/Boards', count: 3 }]);
+    await first.run();
+    expect(first.showBoardList).toHaveBeenCalledOnce();
+    expect(notices).toEqual(['Task Trellis: the boards folder has no boards, but other folders do. Choose one in the boards sidebar.']);
   });
 
   it('points to no sidebar it couldn’t show', async () => {

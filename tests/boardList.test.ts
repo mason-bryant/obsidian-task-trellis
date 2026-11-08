@@ -158,6 +158,26 @@ it('offers the templates when there are no boards, each opening New board with i
   expect(root.querySelector('.tt-board-list-empty')).toBeNull();
 });
 
+it('offers the folders that hold boards, not the templates, when the boards folder has none', () => {
+  const root = document.createElement('div');
+  document.body.replaceChildren(root);
+  const host: BoardListHost = { icon: () => {}, onCreateBoard: vi.fn(), onUseFolder: vi.fn(), onOpenBoard: vi.fn(), onAddTask: vi.fn(async () => true) };
+  const found = { boardsFolder: 'Task Trellis', elsewhere: [{ folder: 'Work/Boards', count: 3 }, { folder: 'Home', count: 1 }] };
+  renderBoardList(root, [], null, host, found);
+  expect(root.querySelector('.tt-board-list-empty')!.textContent).toBe('The boards folder, Task Trellis, has no boards, but these folders do.');
+  expect(root.querySelector('ul')!.getAttribute('aria-label')).toBe('Folders with boards');
+  const choices = [...root.querySelectorAll<HTMLButtonElement>('.tt-board-list-folder-choice')];
+  expect(choices.map((b) => b.textContent)).toEqual(['Use Work/Boards3 boards', 'Use Home1 board']);
+  expect(root.querySelector('[aria-label="Templates"]')).toBeNull();
+  choices[0]!.click();
+  expect(host.onUseFolder).toHaveBeenCalledWith('Work/Boards');
+  // Create new board still starts a board in the boards folder.
+  expect(root.querySelector('.tt-board-list-create')).not.toBeNull();
+  // With nothing found, it's a new vault after all.
+  renderBoardList(root, [], null, host, { boardsFolder: 'Task Trellis', elsewhere: [] });
+  expect(root.querySelector('[aria-label="Templates"]')).not.toBeNull();
+});
+
 it('puts focus back on the board row or button that had it after a redraw', () => {
   const ui = setup();
   ui.q<HTMLButtonElement>('[data-board-focus="board:Boards/Garden.md"]')!.focus();

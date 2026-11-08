@@ -10,6 +10,14 @@ If a board shows no tasks on one device only, and its filter uses groups, update
 
 If the destination advice says a plain task would be hidden, change the destination or filters, or include the required tags in the task text. Saving a task and displaying it on a board are separate operations.
 
+## My boards disappeared after reinstalling
+
+Your boards are still in their notes. Uninstalling a plugin deletes its settings, and Obsidian Sync deletes them on your other devices too, so a reinstalled Task Trellis looks for boards in the default folder, **Task Trellis**, and finds none there if yours were somewhere else.
+
+Since 1.4.1, Task Trellis keeps a copy of its settings in **Task Trellis recovery/plugin-settings.json**, outside its own folder, and a reinstall restores it and says so. Without a copy, it finds folders that hold boards: when there's only one, it becomes the boards folder, and otherwise the boards sidebar lists them, each with a button to use it. You can also type the folder in **Settings → Task Trellis → Boards folder**.
+
+You never need to uninstall Task Trellis to update it. To start over with default settings, delete the copy before reinstalling.
+
 ## Adding a task does nothing
 
 Choose **A specific note** in New tasks, or enable the **Daily notes** core plugin. Keep the destination outside the boards folder. Read any notice Obsidian displays. If using a template, check the destination after template processing finishes. Avoid immediately closing the app during a write.

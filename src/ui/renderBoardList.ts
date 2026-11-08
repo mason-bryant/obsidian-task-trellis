@@ -1,3 +1,4 @@
+import type { FoundBoards } from '../core/boardFolders.ts';
 import { BOARD_TEMPLATES, type BoardTemplateId } from '../core/boardTemplates.ts';
 import { announce, clearForRedraw } from './announce.ts';
 import { uiElement } from './dom.ts';
@@ -16,12 +17,17 @@ export type BoardListTarget = { path: string; place: string; labels: Omit<Compos
 export type BoardListHost = Pick<RenderHost, 'icon' | 'onUnsavedText'> & {
   /** Opens the New board dialog, with `template` chosen when the sidebar's empty state offered it. */
   onCreateBoard(template?: BoardTemplateId): void;
+  /** Makes `folder`, which holds boards, the boards folder. */
+  onUseFolder?(folder: string): void;
   onOpenBoard(path: string): void;
   /** Adds a task to the top of the board's backlog; `detailed` opens the full editor first. */
   onAddTask(path: string, text: string, detailed: boolean, labels: string[]): Promise<boolean> | boolean;
   /** Without it the composer has no Labels button. */
   onComposerLabels?(path: string, ...pick: Parameters<ComposerLabels['pick']>): void;
 };
+
+/** With no boards in the boards folder, the folders that do hold some, as after the setting was lost. */
+export type BoardListFound = { boardsFolder: string; elsewhere: FoundBoards[] };
 
 /** The sidebar's open box, apart from the board's. Its key names the board, so a draft stays with its board. */
 const sidebarComposer: ComposerSlot = { draft: null, setAside: new Map() };
@@ -32,7 +38,7 @@ const sidebarComposer: ComposerSlot = { draft: null, setAside: new Map() };
  * Add task opens the same composer as a board cell's, adding to the top of that board's backlog.
  * A redraw puts focus back on the control that had it, found by its `data-board-focus` key.
  */
-export function renderBoardList(root: HTMLElement, boards: BoardListItem[], open: BoardListTarget | null, host: BoardListHost): void {
+export function renderBoardList(root: HTMLElement, boards: BoardListItem[], open: BoardListTarget | null, host: BoardListHost, found?: BoardListFound): void {
   const doc = root.ownerDocument;
   const focused = root.contains(doc.activeElement) ? doc.activeElement as HTMLElement : null;
   const focusKey = focused?.dataset.boardFocus;
@@ -50,7 +56,23 @@ export function renderBoardList(root: HTMLElement, boards: BoardListItem[], open
   create.dataset.boardFocus = 'create';
   create.addEventListener('click', () => host.onCreateBoard());
   root.append(create);
-  if (boards.length === 0) {
+  if (boards.length === 0 && found?.elsewhere.length && host.onUseFolder) {
+    // Boards elsewhere means the folder setting was lost, not that there are none: offer those folders, not a fresh start.
+    root.append(node('p', 'tt-board-list-empty', `The boards folder, ${found.boardsFolder}, has no boards, but these folders do.`));
+    const folders = node('ul', 'tt-board-list-templates');
+    folders.setAttribute('aria-label', 'Folders with boards');
+    for (const { folder, count } of found.elsewhere) {
+      const button = node('button', 'tt-board-list-template tt-board-list-folder-choice');
+      button.type = 'button';
+      button.dataset.boardFocus = `folder:${folder}`;
+      button.append(node('span', 'tt-board-list-template-name', `Use ${folder}`), node('span', 'tt-board-list-template-description', count === 1 ? '1 board' : `${count} boards`));
+      button.addEventListener('click', () => host.onUseFolder?.(folder));
+      const row = node('li', '');
+      row.append(button);
+      folders.append(row);
+    }
+    root.append(folders);
+  } else if (boards.length === 0) {
     // A new vault's first look: what each template sets up, one choice away from the New board dialog.
     root.append(node('p', 'tt-board-list-empty', 'No boards yet. Pick a template to start your first one.'));
     const templates = node('ul', 'tt-board-list-templates');
