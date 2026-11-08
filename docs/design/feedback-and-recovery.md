@@ -22,6 +22,9 @@
 - Closing board settings with unsaved changes asks before discarding them, with keeping them as the default.
 - Deleting a board moves only its note to the trash, and its warning says that no tasks are deleted. The trash is how it's undone: restoring the note restores the board. A failure keeps the warning open and says nothing was changed.
 - Applying a color scheme keeps one Previous scheme: the outgoing colors, by label id. Names and assignments don't change. Editing a single label's name or color updates the palette without keeping a copy. Neither is task Undo.
+- Plugin settings survive a reinstall. Every save also writes a copy outside the plugin's folder, to `Task Trellis recovery/plugin-settings.json`, which rename recovery leaves out. A failed copy is logged and doesn't fail the save. Loading with no settings restores the copy and says so in a notice, without saving yet, so newer settings arriving by Sync win; a new install, with no copy, starts from the defaults.
+- With no settings and no copy, a boards folder that holds no boards isn't taken as an empty vault. When the board notes are all in one other folder, that becomes the boards folder, saved, with a notice saying so; with several, the boards sidebar offers each, and the first-run notice points there instead of to the templates.
+- Settings that Sync replaces are taken up in place, redrawing the boards and the sidebar, so a later save on this device doesn't put the old ones back. A deleted settings file, as uninstalling on another device leaves, doesn't reset the settings in use; the next save writes them again.
 
 ## Exceptions
 
@@ -36,3 +39,4 @@
 - Drafts: the inline composer keeps its draft in [renderBoard.ts](../../src/ui/renderBoard.ts). When saving text from the Tasks editor, the New task prompt or Details… fails, or a composer closes while its save is failing, [recoverDraft.ts](../../src/obsidian/recoverDraft.ts) reopens it. The source-note popup keeps its own ([NotePopup.ts](../../src/obsidian/NotePopup.ts)).
 - Previous scheme: [labelSchemes.ts](../../src/core/labelSchemes.ts).
 - Notes on removed columns: `removedColumnNotes` in [boardDraft.ts](../../src/core/boardDraft.ts), which places cards with `columnOf` from [board.ts](../../src/core/board.ts), shown in Columns in the Setup tab of [renderBoardSettings.ts](../../src/ui/renderBoardSettings.ts).
+- The settings copy: [settingsBackup.ts](../../src/obsidian/settingsBackup.ts), written from `saveData` and restored by `loadSettings` in [main.ts](../../main.ts), which also has `onExternalSettingsChange` and `adoptBoardsFolder`. Finding boards outside the boards folder: [boardFolders.ts](../../src/core/boardFolders.ts).

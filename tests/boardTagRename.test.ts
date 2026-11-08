@@ -228,6 +228,13 @@ describe('a recovery folder with a file it can’t use', () => {
     await expect(f.preview()).resolves.toBeTruthy();
   });
 
+  it('leaves the copy of the plugin settings out, since it isn’t a rename record', async () => {
+    const f = fixture();
+    f.add(`${FOLDER}/plugin-settings.json`, JSON.stringify({ version: 1, savedAt: '2026-11-07T20:00:00.000Z', settings: { boardsFolder: 'Boards' } }));
+    expect(await f.service.recovery()).toEqual({ entries: [], unreadable: [] });
+    await expect(f.preview()).resolves.toBeTruthy();
+  });
+
   it('treats a record missing a field as possibly unfinished, not as nothing', async () => {
     const f = fixture();
     const unfinished = { version: 1, originalPath: 'Boards/House.md', targetPath: 'Boards/Home.md', oldSlug: 'house', newSlug: 'home', copiedState: {}, status: 'needs-recovery',

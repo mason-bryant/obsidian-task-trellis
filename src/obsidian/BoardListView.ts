@@ -3,6 +3,7 @@ import { backlogCell } from '../core/newTask.ts';
 import { renderBoardList, type BoardListHost } from '../ui/renderBoardList.ts';
 import { pickComposerLabels } from './LabelPickerModal.ts';
 import { notice } from './notice.ts';
+import { announce } from '../ui/announce.ts';
 import { recoverDraft } from './recoverDraft.ts';
 import type TaskTrellisPlugin from '../../main.ts';
 
@@ -37,7 +38,8 @@ export class BoardListView extends ItemView {
     renderBoardList(this.contentEl,
       boards.map(({ file }) => ({ path: file.path, name: file.basename, folder: file.parent?.path ?? '' })),
       open && cell ? { path: open.file.path, place: cell.place, labels: { palette: open.config.labels, shape: open.config.labelShape } } : null,
-      this.host);
+      this.host,
+      boards.length ? undefined : { boardsFolder: this.plugin.settings.boardsFolder, elsewhere: this.plugin.boardsElsewhere() });
   }
 
   private activePath(): string | null {
@@ -52,6 +54,11 @@ export class BoardListView extends ItemView {
   private readonly host: BoardListHost = {
     icon: (el, name) => setIcon(el, name),
     onCreateBoard: (template) => this.plugin.promptNewBoard(template),
+    onUseFolder: (folder) => {
+      void this.plugin.useBoardsFolder(folder).then((saved) => {
+        if (saved) announce(this.contentEl, `Boards folder set to ${folder}.`);
+      });
+    },
     onOpenBoard: (path) => {
       const board = this.board(path);
       const failed = () => notice(this.app, 'Task Trellis: could not open this board. Check that its note still exists, then try again.', { alert: true, region: this.contentEl });

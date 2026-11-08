@@ -398,8 +398,10 @@ if (new URLSearchParams(location.search).has('whats-new')) {
 
 // ?sidebar shows the boards sidebar beside the board. Only House has tasks here; the other board is for switching.
 // ?sidebar=empty shows it as a new vault does, with no boards and the templates, until a board is created.
+// ?sidebar=elsewhere shows it after the boards folder setting was lost, offering the folders that hold boards.
 const sidebar = new URLSearchParams(location.search).has('sidebar');
-let noBoards = new URLSearchParams(location.search).get('sidebar') === 'empty';
+const lostFolder = new URLSearchParams(location.search).get('sidebar') === 'elsewhere';
+let noBoards = lostFolder || new URLSearchParams(location.search).get('sidebar') === 'empty';
 let openBoardPath = 'Task Trellis/House.md';
 const sidebarHost: BoardListHost = {
   icon: previewIcon,
@@ -418,6 +420,7 @@ const sidebarHost: BoardListHost = {
       render();
     }, close)),
   onOpenBoard: (path) => { openBoardPath = path; render(); },
+  onUseFolder: () => { noBoards = false; render(); },
   // Whole cells, as QuickAdd.addToBacklog builds them, including cards a quick filter hides.
   onAddTask: (_path, text, detailed, labels) =>
     addTask(buildBoard(tasks(), config, today, (path) => frontmatter[path], noteTags), backlogCell(config)!, text, detailed, labels),
@@ -432,7 +435,8 @@ function renderSidebar(): void {
   renderBoardList(root, noBoards ? [] : [
     { path: 'Task Trellis/Garden.md', name: 'Garden', folder: 'Task Trellis' },
     { path: 'Task Trellis/House.md', name: 'House', folder: 'Task Trellis' },
-  ], noBoards ? null : openBoardPath === 'Task Trellis/House.md' ? { path: openBoardPath, place: cell.place, labels: { palette: config.labels, shape: config.labelShape } } : null, sidebarHost);
+  ], noBoards ? null : openBoardPath === 'Task Trellis/House.md' ? { path: openBoardPath, place: cell.place, labels: { palette: config.labels, shape: config.labelShape } } : null, sidebarHost,
+    noBoards && lostFolder ? { boardsFolder: 'Task Trellis', elsewhere: [{ folder: 'Work/Boards', count: 2 }, { folder: 'Home', count: 1 }] } : undefined);
 }
 
 function offerUndo(before: string, label: string): void {

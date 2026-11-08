@@ -5,6 +5,8 @@ import { inFolder } from '../core/filters.ts';
 import { mentionsNamespace, migrationSlug, renameFilterTags, renameTagFilter, rewriteBoardTaskTags } from '../core/boardTagRename.ts';
 
 export const RENAME_RECOVERY_FOLDER = 'Task Trellis recovery';
+/** The copy of the plugin settings kept beside the rename records; see settingsBackup.ts. It isn't one of them. */
+export const SETTINGS_BACKUP_PATH = `${RENAME_RECOVERY_FOLDER}/plugin-settings.json`;
 type Change = { path: string; before: string; staged: string; after: string; kind: 'tasks' | 'board' };
 export type RenamePreview = { oldSlug: string; newSlug: string; tagCount: number; paths: string[]; referencePaths: string[] };
 export type RenamePlan = RenamePreview & { originalPath: string; targetPath: string; changes: Change[]; boardNames: string[] };
@@ -258,7 +260,7 @@ export class BoardTagRename {
   async recovery(): Promise<{ entries: Array<{ path: string; record: RenameRecord }>; unreadable: string[] }> {
     const entries: Array<{ path: string; record: RenameRecord }> = [];
     const unreadable: string[] = [];
-    for (const file of this.app.vault.getFiles().filter((f) => f.path.startsWith(RENAME_RECOVERY_FOLDER + '/') && f.extension === 'json')) {
+    for (const file of this.app.vault.getFiles().filter((f) => f.path.startsWith(RENAME_RECOVERY_FOLDER + '/') && f.extension === 'json' && f.path !== SETTINGS_BACKUP_PATH)) {
       let raw: unknown = null;
       try { raw = JSON.parse(await this.app.vault.read(file)); } catch { /* Reported below, beside the others that can't be used. */ }
       if (isRenameRecord(raw)) entries.push({ path: file.path, record: raw }); else unreadable.push(file.path);

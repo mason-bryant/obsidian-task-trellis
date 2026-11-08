@@ -66,7 +66,11 @@ export class Scope {
 export const MarkdownRenderer = { render: async () => {} };
 export class Menu {}
 export const setIcon = () => {};
-export class Plugin {}
+/** Plugin data is kept in memory; tests replace these to see what's saved. */
+export class Plugin {
+  async loadData(): Promise<unknown> { return null; }
+  async saveData(_data: unknown): Promise<void> { /* nothing to write */ }
+}
 export class FuzzySuggestModal {}
 export class WorkspaceLeaf {}
 export class PluginSettingTab {}

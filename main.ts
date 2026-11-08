@@ -1,5 +1,7 @@
 import { NotePopups } from './src/obsidian/NotePopup.ts';
-import { BoardTagRename } from './src/obsidian/BoardTagRename.ts';
+import { BoardTagRename, RENAME_RECOVERY_FOLDER } from './src/obsidian/BoardTagRename.ts';
+import { markSettingsBackupRestored, readSettingsBackup, writeSettingsBackup, type SettingsBackup } from './src/obsidian/settingsBackup.ts';
+import { boardFoldersElsewhere, type FoundBoards } from './src/core/boardFolders.ts';
 import { RestoreBoardRenameModal } from './src/obsidian/RestoreBoardRenameModal.ts';
 import { BoardNameTaken, boardNameError, siblingPath } from './src/core/boardName.ts';
 import { parseColumnWidths, remapColumnWidths } from './src/core/columnWidths.ts';
@@ -67,6 +69,10 @@ export default class TaskTrellisPlugin extends Plugin {
   private stopped = false;
   /** Turned on just now in a vault where it has never saved settings. */
   private firstRun = false;
+  /** Loaded with no settings and no saved copy of them: a new install, or a reinstall from before the copy was kept. */
+  private settingsMissing = false;
+  /** The copy the settings were just restored from, if they were and that hasn't been said yet. */
+  private restoredFrom: SettingsBackup | null = null;
   private markIndexed = (): void => undefined;
   /** Settles once the first index rebuild has read the vault, or the plugin unloads. */
   readonly indexed = new Promise<void>((resolve) => { this.markIndexed = resolve; });
@@ -81,12 +87,7 @@ export default class TaskTrellisPlugin extends Plugin {
       if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
       this.markIndexed();
     });
-    const saved: unknown = await this.loadData();
-    this.settings = normalizeSettings(saved);
-    // A new install has nothing to catch up on: What’s new starts from this version.
-    if (saved === null || saved === undefined) this.settings.whatsNewSeen = this.manifest.version;
-    // Loading after the layout is ready means someone just turned it on, rather than Obsidian starting.
-    this.firstRun = (saved === null || saved === undefined) && this.app.workspace.layoutReady;
+    await this.loadSettings();
     if (this.stopped) return;
     this.index = new TaskIndex(this.app, (path) => this.isExcludedFromIndex(path));
     this.writer = new TaskWriter(this.app);
@@ -146,9 +147,22 @@ export default class TaskTrellisPlugin extends Plugin {
       await this.index.rebuild();
       this.markIndexed();
       if (!this.stopped) {
+        await this.adoptBoardsFolder();
         this.boards.syncCommands();
         await this.ensureBoardList();
+        if (this.restoredFrom) {
+          const { savedAt } = this.restoredFrom;
+          const when = savedAt ? ` saved ${new Date(savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` : '';
+          notice(this.app, `Task Trellis: its settings were missing, as they are after reinstalling, so it restored the copy${when} in ${RENAME_RECOVERY_FOLDER}.`, { duration: 10000 });
+          void markSettingsBackupRestored(this.app, this.restoredFrom).catch((error: unknown) => console.error('[Task Trellis] noting the restored settings copy failed', error));
+        }
         await this.welcomeFirstRun();
+        // The metadata cache may still be filling at layout-ready: look for the boards again once it settles.
+        const resolved = this.app.metadataCache.on('resolved', () => {
+          this.app.metadataCache.offref(resolved);
+          void this.adoptBoardsFolder().then(() => this.renderBoardLists());
+        });
+        this.registerEvent(resolved);
         try {
           const { entries, unreadable } = await this.boardRenames.recovery();
           if (unreadable.length) notice(this.app, `Task Trellis: could not read ${unreadable.join(', ')}, so ${unreadable.length === 1 ? 'it' : 'they'} can’t be restored. Other recovery copies still can, with Task Trellis: Restore board rename. Nothing was changed.`, { alert: true });
@@ -170,13 +184,95 @@ export default class TaskTrellisPlugin extends Plugin {
    */
   private async welcomeFirstRun(): Promise<void> {
     if (!this.firstRun || this.stopped || this.boards.boards().length) return;
+    const elsewhere = this.boardsElsewhere().length > 0;
     try {
       await this.showBoardList();
     } catch (error) {
       console.error('[Task Trellis] showing the boards sidebar failed', error);
       return;
     }
-    notice(this.app, 'Task Trellis: pick a template in the boards sidebar to make your first board.', { duration: 10000 });
+    notice(this.app, elsewhere
+      ? 'Task Trellis: the boards folder has no boards, but other folders do. Choose one in the boards sidebar.'
+      : 'Task Trellis: pick a template in the boards sidebar to make your first board.', { duration: 10000 });
+  }
+
+  /**
+   * Reads the settings. Uninstalling deletes them, on every synced device, so with none saved it
+   * uses the copy kept outside the plugin's folder. It doesn't write them back yet: Sync may still
+   * be bringing newer ones, which onExternalSettingsChange then takes up.
+   */
+  private async loadSettings(): Promise<void> {
+    const saved: unknown = await this.loadData();
+    const missing = saved === null || saved === undefined;
+    const backup = missing ? await readSettingsBackup(this.app) : null;
+    this.settings = normalizeSettings(missing ? backup?.settings : saved);
+    // Said once: until something is saved, later starts restore the same copy quietly.
+    this.restoredFrom = backup && !backup.restoredAt ? backup : null;
+    this.settingsMissing = missing && !backup;
+    // A new install has nothing to catch up on: What’s new starts from this version.
+    if (this.settingsMissing) this.settings.whatsNewSeen = this.manifest.version;
+    // Loading after the layout is ready means someone just turned it on, rather than Obsidian starting.
+    this.firstRun = this.settingsMissing && this.app.workspace.layoutReady;
+  }
+
+  /** Every save also keeps a copy outside the plugin's folder; see settingsBackup.ts. A failed copy doesn't fail the save. */
+  async saveData(data: unknown): Promise<void> {
+    await super.saveData(data);
+    try {
+      await writeSettingsBackup(this.app, data);
+    } catch (error) {
+      console.error('[Task Trellis] saving the copy of the plugin settings failed', error);
+    }
+  }
+
+  /**
+   * Sync replaced the settings file: use what it brought, so the next save here doesn't put the old
+   * settings back. A deleted file, as uninstalling on another device leaves, keeps the settings in
+   * use, and the next save writes them again.
+   */
+  async onExternalSettingsChange(): Promise<void> {
+    if (this.stopped) return;
+    const data: unknown = await this.loadData();
+    if (data === null || data === undefined || this.stopped) return;
+    const before = { folder: this.settings.boardsFolder, excluded: this.settings.excludedFolders.join('\n') };
+    // In place, since the settings tab and other parts hold on to this object.
+    Object.assign(this.settings, normalizeSettings(data));
+    if (before.folder !== this.settings.boardsFolder || before.excluded !== this.settings.excludedFolders.join('\n')) this.onConfigChanged();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_BOARD)) if (leaf.view instanceof BoardView) leaf.view.queueRender();
+    this.renderBoardLists();
+  }
+
+  /** Folders outside the boards folder that hold board notes, the most boards first. */
+  boardsElsewhere(): FoundBoards[] {
+    const { vault, metadataCache } = this.app;
+    return boardFoldersElsewhere(vault.getMarkdownFiles().map((f) => ({ path: f.path, frontmatter: metadataCache.getFileCache(f)?.frontmatter })), this.settings.boardsFolder);
+  }
+
+  /**
+   * With no settings and no copy of them, as after reinstalling, the boards folder is the default.
+   * When that has no boards and they're all in one other folder, that folder is the boards folder.
+   */
+  private async adoptBoardsFolder(): Promise<void> {
+    if (!this.settingsMissing || this.stopped || this.boards.boards().length) return;
+    const elsewhere = this.boardsElsewhere();
+    if (elsewhere.length !== 1) return;
+    const { folder, count } = elsewhere[0]!;
+    this.settingsMissing = false;
+    if (!await this.useBoardsFolder(folder)) return;
+    notice(this.app, `Task Trellis: found ${count === 1 ? 'a board' : `${count} boards`} in ${folder}, so that’s the boards folder now. Change it in Settings → Task Trellis.`, { duration: 10000 });
+  }
+
+  /** Makes `folder` the boards folder, as typing it in the plugin settings does. Says whether that was saved. */
+  async useBoardsFolder(folder: string): Promise<boolean> {
+    const was = this.settings.boardsFolder;
+    this.settings.boardsFolder = folder;
+    if (!await this.saveSettings()) {
+      this.settings.boardsFolder = was;
+      return false;
+    }
+    this.onConfigChanged();
+    this.renderBoardLists();
+    return true;
   }
 
   /** Once per update with new features, unless Don’t show this again was checked. */
@@ -402,10 +498,14 @@ export default class TaskTrellisPlugin extends Plugin {
     this.syncTimer = window.setTimeout(() => {
       this.syncTimer = null;
       this.boards.syncCommands();
-      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_BOARD_LIST)) {
-        if (leaf.view instanceof BoardListView) leaf.view.render();
-      }
+      this.renderBoardLists();
     }, 300);
+  }
+
+  private renderBoardLists(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_BOARD_LIST)) {
+      if (leaf.view instanceof BoardListView) leaf.view.render();
+    }
   }
 
   private pickBoard(): void {
