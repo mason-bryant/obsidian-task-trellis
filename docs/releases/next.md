@@ -8,6 +8,7 @@ What has changed since the last release (1.4.0), so the maintainer knows what to
 
 - **Reinstalling no longer loses your boards.** Uninstalling deletes a plugin's settings on every synced device, so a reinstall looked for boards in the default folder and said there were none. Now every settings save keeps a copy in `Task Trellis recovery/plugin-settings.json`, which a reinstall restores. Without one, Task Trellis uses the only folder holding boards, or the boards sidebar offers the folders that do, instead of the templates.
 - **Settings changed by Sync** are taken up at once, so a device with old settings in memory no longer saves them back over newer ones.
+- **Notes opened in a board's tab:** opening another note in a tab showing a board, from the file explorer or a link, showed that note as a board and added a `slug` property to it. Now it opens in the editor, untouched, while another board still opens as a board. A `slug:` line added that way can be deleted. Reported in [issue 60](https://github.com/mason-bryant/obsidian-task-trellis/issues/60).
 
 ## Still needs checking
 

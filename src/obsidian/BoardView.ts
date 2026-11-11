@@ -1,4 +1,5 @@
 import { BulkEditModal } from './BulkEditModal.ts';
+import { looksLikeBoard } from '../core/boardFolders.ts';
 import { planBulk, type BulkAction, type BulkResult } from '../core/bulkTriage.ts';
 import { isColumnResizing } from '../ui/columnResize.ts';
 import { parseColumnWidths } from '../core/columnWidths.ts';
@@ -76,8 +77,13 @@ export class BoardView extends FileView {
     return this.file?.basename ?? 'Task Trellis';
   }
 
-  canAcceptExtension(extension: string): boolean {
-    return extension === 'md';
+  /**
+   * No: a note opened in this tab, as from the file explorer or a link, goes back to Obsidian, which
+   * opens it in the editor, or as a board when it's a board note. Accepting Markdown here showed
+   * every note as a board.
+   */
+  canAcceptExtension(_extension: string): boolean {
+    return false;
   }
 
   onload(): void {
@@ -124,9 +130,18 @@ export class BoardView extends FileView {
   }
 
   async onLoadFile(file: TFile): Promise<void> {
+    const inBoardsFolder = this.plugin.boards.isBoardPath(file.path);
+    // Only boards belong here. Anything else opens in the editor, untouched. A board note outside the
+    // boards folder, as when its setting was lost, still shows, so a restored tab keeps its board.
+    if (!inBoardsFolder && !looksLikeBoard(this.app.metadataCache.getFileCache(file)?.frontmatter)) {
+      void this.leaf.setViewState({ type: 'markdown', state: { file: file.path } }).catch((error: unknown) => {
+        console.error('[Task Trellis] opening the note in the editor failed', error);
+      });
+      return;
+    }
     const entry = this.plugin.boards.entry(file);
-    // The slug is fixed once so placement tags and hotkeys keep working after a rename.
-    if (entry.slugMissing) {
+    // The slug is fixed once, and only in the boards folder, so placement tags and hotkeys keep working after a rename.
+    if (inBoardsFolder && entry.slugMissing) {
       await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
         fm.slug = entry.config.slug;
       });
