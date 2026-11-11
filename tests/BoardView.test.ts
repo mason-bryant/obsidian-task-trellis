@@ -272,3 +272,53 @@ it('sorting by due date rewrites only the card out of place, and one Undo restor
   expect(f.view.undoAction).toBeNull();
   expect(notices.at(-1)).toBe('Task Trellis: this board is already in due-date order, so nothing moved.');
 });
+
+describe('notes opened in a board’s tab', () => {
+  /** A board tab given `path`, whose note has `frontmatter`; `boardsFolder` is where boards live. */
+  function tab(path: string, frontmatter: Record<string, unknown> | undefined, boardsFolder = 'Kanban') {
+    const file = new TFile(path);
+    const processFrontMatter = vi.fn(async (_file: unknown, fn: (fm: Record<string, unknown>) => void) => fn({}));
+    const app = { metadataCache: { getFileCache: () => (frontmatter ? { frontmatter } : {}) }, fileManager: { processFrontMatter }, workspace: new Workspace() } as unknown as App;
+    const plugin = {
+      app,
+      boards: {
+        isBoardPath: (p: string) => p.startsWith(`${boardsFolder}/`),
+        entry: () => ({ ...parseBoardConfig(file.basename, frontmatter), file }),
+      },
+    } as unknown as TaskTrellisPlugin;
+    const view = new BoardView({ app } as unknown as WorkspaceLeaf, plugin) as unknown as ViewUnderTest & {
+      leaf: { setViewState: ReturnType<typeof vi.fn> }; canAcceptExtension(ext: string): boolean; onLoadFile(f: TFile): Promise<void>;
+    };
+    view.leaf = { setViewState: vi.fn(async () => undefined) };
+    view.render = vi.fn();
+    return { view, file, processFrontMatter };
+  }
+
+  it('aren’t taken by the board view, so Obsidian opens them as it would anywhere', () => {
+    expect(tab('Kanban/Home.md', { slug: 'home', columns: ['Backlog'] }).view.canAcceptExtension('md')).toBe(false);
+  });
+
+  it('go to the editor untouched when they aren’t boards, as in issue 60', async () => {
+    const t = tab('Kanban Tasks/Personal.md', undefined);
+    await t.view.onLoadFile(t.file);
+    expect(t.view.leaf.setViewState).toHaveBeenCalledWith({ type: 'markdown', state: { file: 'Kanban Tasks/Personal.md' } });
+    expect(t.processFrontMatter).not.toHaveBeenCalled();
+    expect(t.view.render).not.toHaveBeenCalled();
+  });
+
+  it('give a board in the boards folder its slug, as before', async () => {
+    const t = tab('Kanban/Home.md', { columns: ['Backlog', 'Done'] });
+    await t.view.onLoadFile(t.file);
+    expect(t.processFrontMatter).toHaveBeenCalledOnce();
+    expect(t.view.render).toHaveBeenCalledOnce();
+    expect(t.view.leaf.setViewState).not.toHaveBeenCalled();
+  });
+
+  it('show a board note outside the boards folder without changing it', async () => {
+    const t = tab('Old boards/Home.md', { slug: 'home', columns: ['Backlog', 'Done'] });
+    await t.view.onLoadFile(t.file);
+    expect(t.view.render).toHaveBeenCalledOnce();
+    expect(t.processFrontMatter).not.toHaveBeenCalled();
+    expect(t.view.leaf.setViewState).not.toHaveBeenCalled();
+  });
+});
